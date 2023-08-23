@@ -1,7 +1,7 @@
 # nart
 Not Another Ray Tracer is yet another one of my ray tracing projects.
 
-Everything is written without referring to existing code or ray tracing resources, just what I can remember from what I've learned and have been able to derive for myself. Therefore, expect some pretty dodgy code!
+Everything is written without referring to existing code or ray tracing resources, just what I can remember from what I've learned and have been able to derive by myself. Therefore, expect some pretty dodgy code!
 
 ![progres 11](https://github.com/shanesimmsart/nart/assets/9335280/43f44dfa-ad56-411e-afa7-6f684896e955)
 
