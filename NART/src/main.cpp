@@ -15,6 +15,7 @@
 #include <nlohmann/json.hpp>
 
 static const float Pi = 3.14159265358979323846;
+static const float OneOverPi = 0.31830988618379067154;
 static const float OneMinusEpsilon = 0x1.fffffep-1;
 
 #define Infinity std::numeric_limits<float>::infinity()
@@ -56,8 +57,150 @@ public:
     glm::vec3 d = glm::vec3(0.f, 1.f, 0.f);
 };
 
+class Light
+{
+public:
+    Light(glm::vec3 Le, glm::mat4 LightToWorld) : Le(Le), LightToWorld(LightToWorld) {}
+
+    // Return incident radiance from light, set wi
+    virtual glm::vec3 Li(glm::vec3 p, glm::vec3* wi) = 0;
+
+    // Does light have a delta distribution?
+    bool isDelta = false;
+
+protected:
+    // Radiance emitted
+    glm::vec3 Le;
+    glm::mat4 LightToWorld;
+};
+
+class DistantLight : public Light
+{
+public:
+    DistantLight(glm::vec3 Le, glm::mat4 LightToWorld) : Light(Le, LightToWorld)
+    {
+        isDelta = true;
+        // Pointing down by default
+        direction = glm::vec4(0.f, 0.f, -1.f, 0.f) * LightToWorld;
+    }
+
+    glm::vec3 Li(glm::vec3 p, glm::vec3* wi)
+    {
+        *wi = -direction;
+        return Le;
+    }
+    
+    glm::vec3 direction;
+};
+
+class BxDF
+{
+public:
+    // BxDF - wo and wi must always be in local coord sys
+    virtual glm::vec3 f(const glm::vec3& wo, const glm::vec3& wi) = 0;
+
+    // Sample BRDF, setting wi and pdf
+    // virtual glm::vec3 sample_f(glm::vec3 wo, glm::vec3* wi, float *pdf) = 0;
+
+protected:
+    BxDF() {}
+};
+
+class BSDF
+{
+public:
+    BSDF(glm::vec3 n, uint8_t numBxDFs) : n(n), numBxDFs(numBxDFs)
+    {
+        // Build local coord sys from normal
+        if (n.x > n.y)
+        {
+            nt = glm::normalize(glm::normalize(glm::vec3(n.z, 0.f, -n.x)));
+        }
+
+        else
+        {
+            nt = glm::normalize(glm::normalize(glm::vec3(0.f, n.z, -n.y)));
+        }
+        nb = glm::cross(nt, n);
+
+        bxdfs.reserve(numBxDFs);
+    }
+
+    glm::vec3 ToLocal(glm::vec3 v)
+    {
+        return glm::vec3(glm::dot(v, nt), glm::dot(v, nb), glm::dot(v, n));
+    }
+
+    void AddBxDF(std::shared_ptr<BxDF> bxdf)
+    {
+        bxdfs.emplace_back(bxdf);
+    }
+
+    // Sum BxDFs
+    glm::vec3 f(const glm::vec3& wo, const glm::vec3& wi)
+    {
+        glm::vec3 f = glm::vec3(0.f);
+        for (uint8_t i = 0; i < numBxDFs; ++i)
+        {
+            f += bxdfs[i]->f(wo, wi);
+        }
+        return f;
+    }
+
+    // Sample BSDF, setting wi and pdf
+    // virtual glm::vec3 sample_f(glm::vec3 wo, glm::vec3* wi, float *pdf) = 0;
+
+protected:
+    // Coord sys in worldspace
+    glm::vec3 nt, nb, n;
+    uint8_t numBxDFs = 0;
+    std::vector<std::shared_ptr<BxDF>> bxdfs;
+};
+
+class LambertBRDF : public BxDF
+{
+public:
+    LambertBRDF(glm::vec3 rho) : rho(rho) {}
+
+    glm::vec3 f(const glm::vec3& wo, const glm::vec3& wi)
+    {
+        return rho * OneOverPi;
+    }
+
+private:
+    // Albedo
+    glm::vec3 rho;
+};
+
+class Material
+{
+public:
+    virtual BSDF CreateBSDF(glm::vec3 n) = 0;
+
+protected:
+    Material() {};
+};
+
+class DiffuseMaterial : public Material
+{
+public:
+    DiffuseMaterial(glm::vec3 rho) : rho(rho) // your boat...
+    {}
+
+    BSDF CreateBSDF(glm::vec3 n)
+    {
+        BSDF bsdf(n, 1);
+        bsdf.AddBxDF(std::make_shared<LambertBRDF>(rho));
+        return bsdf;
+    }
+
+private:
+    glm::vec3 rho;
+};
+
 struct Intersection
 {
+    std::shared_ptr<Material> material;
     // Barycentric coords
     float u, v;
     // Point, geometric normal, shading normal
@@ -117,10 +260,14 @@ public:
     const glm::vec3 n0, n1, n2;
 };
 
-struct TriMesh
+class TriMesh
 {
 public:
+    TriMesh(std::shared_ptr<Material> material) : material(material) {}
+
+    // Triangles are passed directly, outside of the ctor, to reduce memory allocations
     std::vector<Triangle> triangles;
+    std::shared_ptr<Material> material;
 };
 
 struct BoundingVolume
@@ -224,7 +371,11 @@ public:
         bool hit = false;
         for (uint32_t i = 0; i < triangleIndices.size(); ++i)
         {
-            if (triangleIndices[i].mesh->triangles[triangleIndices[i].index].Intersect(ray, isect)) hit = true;
+            if (triangleIndices[i].mesh->triangles[triangleIndices[i].index].Intersect(ray, isect))
+            {
+                hit = true;
+                isect->material = triangleIndices[i].mesh->material;
+            }
         }
         return hit;
     }
@@ -528,7 +679,8 @@ public:
     std::shared_ptr<Octree> octree;
 };
 
-std::shared_ptr<TriMesh> LoadMeshFromFile(std::string filePath, glm::mat4& objectToWorld)
+// TODO: Add material to mesh
+std::shared_ptr<TriMesh> LoadMeshFromFile(std::string filePath, glm::mat4& objectToWorld, std::shared_ptr<Material> material)
 {
     std::ifstream file;
     uint32_t numFaces;
@@ -694,7 +846,7 @@ std::shared_ptr<TriMesh> LoadMeshFromFile(std::string filePath, glm::mat4& objec
         l += faces[i];
     }
 
-    std::shared_ptr<TriMesh> mesh = std::make_unique<TriMesh>();
+    std::shared_ptr<TriMesh> mesh = std::make_unique<TriMesh>(material);
     mesh->triangles.reserve(numTris);
 
     // Now we can finally build our triangles
@@ -798,13 +950,16 @@ struct Camera
 
 struct Scene
 {
-    Scene(RenderInfo info, Camera camera, std::shared_ptr<BVH> bvh) : info(info), camera(camera), bvh(bvh) {}
+    Scene(RenderInfo info, Camera camera, std::vector<std::shared_ptr<Light>> lights, std::shared_ptr<BVH> bvh) : info(info), camera(camera), lights(lights), bvh(bvh) {}
 
     RenderInfo info;
     Camera camera;
+    std::vector<std::shared_ptr<Light>> lights;
     std::shared_ptr<BVH> bvh;
 };
 
+
+// TODO: Add materials to meshes from JSON
 Scene LoadScene(std::string scenePath)
 {
     nlohmann::json json;
@@ -885,6 +1040,7 @@ Scene LoadScene(std::string scenePath)
     Camera camera(fov, cameraToWorld);
 
     std::vector<std::string> mesh_filePaths;
+    std::vector<std::shared_ptr<Material>> mesh_materials;
     if (!json["meshes"].is_null()) {
         for (auto& elem : json["meshes"])
         {
@@ -898,6 +1054,27 @@ Scene LoadScene(std::string scenePath)
                 std::cerr << "Error in mesh file path: " << e.what() << "\n";
             }
             mesh_filePaths.push_back(filePath);
+
+            for (auto& mat : elem["material"])
+            {
+                std::shared_ptr<Material> material;
+                try
+                {
+                    std::string type = mat["type"].get<std::string>();
+
+                    if (type == "lambert")
+                    {
+                        std::vector<float> rhoGet = mat["rho"].get<std::vector<float>>();
+                        glm::vec3 rho = glm::vec3(rhoGet[0], rhoGet[1], rhoGet[2]);
+                        material = std::make_shared<DiffuseMaterial>(rho);
+                    }
+                }
+                catch (nlohmann::json::exception& e)
+                {
+                    std::cerr << "Error in mesh material type: " << e.what() << "\n";
+                }
+                mesh_materials.push_back(material);
+            }
         }
     }
 
@@ -934,13 +1111,56 @@ Scene LoadScene(std::string scenePath)
     std::vector<std::shared_ptr<TriMesh>> meshes;
 
     for (uint32_t i = 0; i < mesh_filePaths.size(); ++i) {
-        meshes.push_back(LoadMeshFromFile(mesh_filePaths[i], meshTransforms[i]));
+        meshes.push_back(LoadMeshFromFile(mesh_filePaths[i], meshTransforms[i], mesh_materials[i]));
     }
 
     std::cout << "Building BVH...\n";
     std::shared_ptr<BVH> bvh = std::make_shared<BVH>(BVH(meshes));
 
-    return Scene(info, camera, bvh);
+    std::vector<std::shared_ptr<Light>> lights;
+
+    if (!json["lights"].is_null()) {
+        for (auto& elem : json["lights"])
+        {
+            std::vector<float> lightTransform = { 1.f, 0.f, 0.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f };
+            try
+            {
+                lightTransform = elem["transform"].get<std::vector<float>>();
+            }
+            catch (nlohmann::json::exception& e)
+            {
+                std::cerr << "Error in light transform: " << e.what() << "\n";
+            }
+
+            glm::mat4 lightToWorld(1.f);
+            uint8_t j = 0;
+            for (uint8_t i = 0; i < 4; ++i)
+            {
+                lightToWorld[i] = glm::vec4(lightTransform[j], lightTransform[j + 1], lightTransform[j + 2], lightTransform[j + 3]);
+                j += 4;
+            }
+
+            try
+            {
+                std::string type = elem["type"].get<std::string>();
+
+                if (type == "distant")
+                {
+                    std::vector<float> LeGet = elem["Le"].get<std::vector<float>>();
+                    glm::vec3 Le = glm::vec3(LeGet[0], LeGet[1], LeGet[2]);
+                    std::shared_ptr<Light> light = std::make_shared<DistantLight>(Le, lightToWorld);
+                    lights.push_back(light);
+                }
+            }
+
+            catch (nlohmann::json::exception& e)
+            {
+                std::cerr << "Error in mesh material type: " << e.what() << "\n";
+            }
+        }
+    }
+
+    return Scene(info, camera, lights, bvh);
 }
 
 std::vector<Pixel> RenderTile(const Scene& scene, const float* filterTable, uint32_t x0, uint32_t x1, uint32_t y0, uint32_t y1)
@@ -982,12 +1202,24 @@ std::vector<Pixel> RenderTile(const Scene& scene, const float* filterTable, uint
                     Ray ray(o, d);
 
                     // Get sample for L
-                    glm::vec4 L(0.03f, 0.03f, 0.03f, 0.f);
+                    glm::vec4 L(0.f, 0.f, 0.f, 0.f);
                     Intersection isect;
                     if (scene.bvh->Intersect(ray, &isect))
                     {
-                        float Lf = glm::max(glm::dot(glm::normalize(glm::vec3(1, 0.5, 1)), isect.sn), 0.f);
-                        L = glm::vec4(Lf, Lf, Lf, 1.f);
+                        // std::unique_ptr<BxDF> brdf = std::make_unique<LambertBRDF>(isect.sn, glm::vec3(0.8f));
+                        BSDF bsdf = isect.material->CreateBSDF(isect.sn);
+                        glm::vec3 wo = bsdf.ToLocal(-ray.o);
+
+                        for (const auto& light : scene.lights)
+                        {
+                            glm::vec3 wi;
+                            glm::vec3 Li = light->Li(isect.p, &wi);
+                            wi = bsdf.ToLocal(wi);
+                            glm::vec3 f = bsdf.f(wo, wi);
+                            L += glm::vec4(f * Li * glm::max(wi.z, 0.f), 1.f);
+                        }
+                        // float Lf = glm::max(glm::dot(glm::normalize(glm::vec3(1, 0.5, 1)), isect.sn), 0.f);
+                        // L = glm::vec4(Lf, Lf, Lf, 1.f);
                     }
 
                     // Transform image sample to "total" image coords (image including filter bounds)
