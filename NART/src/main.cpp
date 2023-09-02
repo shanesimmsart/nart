@@ -12,14 +12,21 @@
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/trigonometric.hpp>
 #include <glm/geometric.hpp>
+#include <glm/gtc/constants.hpp>
 #include <nlohmann/json.hpp>
 
-static const float Pi = 3.14159265358979323846;
-static const float OneOverPi = 0.31830988618379067154;
-static const float OneMinusEpsilon = 0x1.fffffep-1;
+// static const float Pi = 3.14159265358979323846;
+// static const float OneOverPi = 0.31830988618379067154;
+// static const float OneMinusEpsilon = 0x1.fffffep-1;
 
 #define Infinity std::numeric_limits<float>::infinity()
 #define FilterTableResolution 64
+
+float sRGB(float x)
+{
+    if (x > 0.0031308f) return glm::pow(x, 1.f / 2.4f) * 1.055f - 0.055f;
+    return x * 12.92f;
+}
 
 // Information about the render settings to be used
 struct RenderInfo
@@ -164,7 +171,7 @@ public:
 
     glm::vec3 f(const glm::vec3& wo, const glm::vec3& wi)
     {
-        return rho * OneOverPi;
+        return rho * glm::one_over_pi<float>();
     }
 
 private:
@@ -871,7 +878,7 @@ struct Pixel
 float StratifiedSample1D(std::default_random_engine& rng, uint32_t n, uint32_t nSamples)
 {
     float invNSamples = 1.f / static_cast<float>(nSamples);
-    std::uniform_real_distribution<float> distribution(0.f, OneMinusEpsilon);
+    std::uniform_real_distribution<float> distribution(0.f, 1.f - glm::epsilon<float>());
     return (static_cast<float>(n) + distribution(rng)) * invNSamples;
 }
 
@@ -903,7 +910,7 @@ float Gaussian(float width, float x)
     // In a Gaussian distribution, any value beyond 3 standard deviations is negligible (<0.3%)
     float sigma = width / 3.f;
 
-    return (1.f / glm::sqrt(2.f * Pi * sigma * sigma)) * glm::exp(-(x * x) / (2.f * sigma * sigma));
+    return (1.f / glm::sqrt(2.f * glm::pi<float>() * sigma * sigma)) * glm::exp(-(x * x) / (2.f * sigma * sigma));
 }
 
 void AddSample(const RenderInfo& info, const float* filterTable, glm::vec2 sampleCoords, glm::vec4 L, std::vector<Pixel>& pixels)
@@ -1206,17 +1213,25 @@ std::vector<Pixel> RenderTile(const Scene& scene, const float* filterTable, uint
                     Intersection isect;
                     if (scene.bvh->Intersect(ray, &isect))
                     {
-                        // std::unique_ptr<BxDF> brdf = std::make_unique<LambertBRDF>(isect.sn, glm::vec3(0.8f));
+                        L += glm::vec4(0.f, 0.f, 0.f, 1.f);
                         BSDF bsdf = isect.material->CreateBSDF(isect.sn);
                         glm::vec3 wo = bsdf.ToLocal(-ray.o);
 
                         for (const auto& light : scene.lights)
                         {
-                            glm::vec3 wi;
-                            glm::vec3 Li = light->Li(isect.p, &wi);
-                            wi = bsdf.ToLocal(wi);
-                            glm::vec3 f = bsdf.f(wo, wi);
-                            L += glm::vec4(f * Li * glm::max(wi.z, 0.f), 1.f);
+                            glm::vec3 wiWorld;
+                            glm::vec3 Li = light->Li(isect.p, &wiWorld);
+
+                            // Check if light is visible to p
+                            float shadowBias = glm::epsilon<float>() * 16.f;
+                            Ray shadowRay(isect.p + (isect.gn * shadowBias), wiWorld);
+                            Intersection shadowIsect;
+                            if (!scene.bvh->Intersect(shadowRay, &shadowIsect))
+                            {
+                                glm::vec3 wi = bsdf.ToLocal(wiWorld);
+                                glm::vec3 f = bsdf.f(wo, wi);
+                                L += glm::vec4(f * Li * glm::max(wi.z, 0.f), 0.f);
+                            }
                         }
                         // float Lf = glm::max(glm::dot(glm::normalize(glm::vec3(1, 0.5, 1)), isect.sn), 0.f);
                         // L = glm::vec4(Lf, Lf, Lf, 1.f);
@@ -1313,6 +1328,8 @@ void WriteImageToEXR(const RenderInfo& info, const std::vector<Pixel>& pixels, c
             glm::vec4 result(0.f);
 
             result = pixels[y * info.totalWidth + x].contribution / pixels[y * info.totalWidth + x].filterWeightSum;
+
+            // result = glm::vec4(sRGB(result[0]), sRGB(result[1]), sRGB(result[2]), result[3]);
 
             imagePixels[y - info.filterBounds][x - info.filterBounds].r = result.r;
             imagePixels[y - info.filterBounds][x - info.filterBounds].g = result.g;
