@@ -15,18 +15,8 @@
 #include <glm/gtc/constants.hpp>
 #include <nlohmann/json.hpp>
 
-// static const float Pi = 3.14159265358979323846;
-// static const float OneOverPi = 0.31830988618379067154;
-// static const float OneMinusEpsilon = 0x1.fffffep-1;
-
 #define Infinity std::numeric_limits<float>::infinity()
 #define FilterTableResolution 64
-
-float sRGB(float x)
-{
-    if (x > 0.0031308f) return glm::pow(x, 1.f / 2.4f) * 1.055f - 0.055f;
-    return x * 12.92f;
-}
 
 // Information about the render settings to be used
 struct RenderInfo
@@ -107,7 +97,7 @@ public:
     virtual glm::vec3 f(const glm::vec3& wo, const glm::vec3& wi) = 0;
 
     // Sample BRDF, setting wi and pdf
-    // virtual glm::vec3 sample_f(glm::vec3 wo, glm::vec3* wi, float *pdf) = 0;
+    virtual glm::vec3 Sample_f(glm::vec3 wo, glm::vec3* wi, glm::vec2 sample, float* pdf) = 0;
 
 protected:
     BxDF() {}
@@ -121,14 +111,14 @@ public:
         // Build local coord sys from normal
         if (n.x > n.y)
         {
-            nt = glm::normalize(glm::normalize(glm::vec3(n.z, 0.f, -n.x)));
+            nt = glm::normalize(glm::vec3(n.z, 0.f, -n.x));
         }
 
         else
         {
-            nt = glm::normalize(glm::normalize(glm::vec3(0.f, n.z, -n.y)));
+            nt = glm::normalize(glm::vec3(0.f, n.z, -n.y));
         }
-        nb = glm::cross(nt, n);
+        nb = glm::cross(n, nt);
 
         bxdfs.reserve(numBxDFs);
     }
@@ -136,6 +126,11 @@ public:
     glm::vec3 ToLocal(glm::vec3 v)
     {
         return glm::vec3(glm::dot(v, nt), glm::dot(v, nb), glm::dot(v, n));
+    }
+
+    glm::vec3 ToWorld(glm::vec3 v)
+    {
+        return v.x * nt + v.y * nb + v.z * n;
     }
 
     void AddBxDF(std::shared_ptr<BxDF> bxdf)
@@ -154,8 +149,11 @@ public:
         return f;
     }
 
-    // Sample BSDF, setting wi and pdf
-    // virtual glm::vec3 sample_f(glm::vec3 wo, glm::vec3* wi, float *pdf) = 0;
+    // Sample and sum BRDFs, setting wi and averaging pdf
+    glm::vec3 Sample_f(glm::vec3 wo, glm::vec3* wi, glm::vec2 sample, float* pdf)
+    {
+        return bxdfs[0]->Sample_f(wo, wi, sample, pdf);
+    }
 
 protected:
     // Coord sys in worldspace
@@ -163,6 +161,26 @@ protected:
     uint8_t numBxDFs = 0;
     std::vector<std::shared_ptr<BxDF>> bxdfs;
 };
+
+glm::vec3 CosineSampleHemisphere(glm::vec2 sample, float* pdf)
+{
+    // Using Malley's method, we can uniformly sample a disk, then project
+    // the sample points upwards onto the hemisphere to achieve a
+    // cosine-weighted distribution
+    float r = glm::sqrt(sample.x);
+    float phi = sample.y * glm::two_pi<float>();
+
+    float cosPhi = glm::cos(phi);
+    float sinPhi = glm::sin(phi);
+
+    float x = r * cosPhi;
+    float y = r * sinPhi;
+    float z = glm::sqrt(1.f - (x * x + y * y));
+
+    *pdf = z * glm::one_over_pi<float>();
+
+    return glm::vec3(x, y, z);
+}
 
 class LambertBRDF : public BxDF
 {
@@ -174,9 +192,39 @@ public:
         return rho * glm::one_over_pi<float>();
     }
 
+    glm::vec3 Sample_f(glm::vec3 wo, glm::vec3* wi, glm::vec2 sample, float* pdf)
+    {
+        *wi = CosineSampleHemisphere(sample, pdf);
+        return f(wo, *wi);
+    }
+
 private:
     // Albedo
     glm::vec3 rho;
+};
+
+class SpecularBRDF : public BxDF
+{
+public:
+    SpecularBRDF(glm::vec3 R) : R(R) {}
+
+    glm::vec3 f(const glm::vec3& wo, const glm::vec3& wi)
+    {
+        // Probability of randomly sampling a delta function == 0
+        return glm::vec3(0.f);
+    }
+
+    glm::vec3 Sample_f(glm::vec3 wo, glm::vec3* wi, glm::vec2 sample, float* pdf)
+    {
+        *wi = glm::vec3(-wo.x, -wo.y, wo.z);
+        // Delta distribution, so PDF == 1 at this one sample point
+        *pdf = 1.f;
+        return R / wi->z;
+    }
+
+private:
+    // Reflectance
+    glm::vec3 R;
 };
 
 class Material
@@ -203,6 +251,23 @@ public:
 
 private:
     glm::vec3 rho;
+};
+
+class SpecularMaterial : public Material
+{
+public:
+    SpecularMaterial(glm::vec3 R) : R(R)
+    {}
+
+    BSDF CreateBSDF(glm::vec3 n)
+    {
+        BSDF bsdf(n, 1);
+        bsdf.AddBxDF(std::make_shared<SpecularBRDF>(R));
+        return bsdf;
+    }
+
+private:
+    glm::vec3 R;
 };
 
 struct Intersection
@@ -1075,6 +1140,13 @@ Scene LoadScene(std::string scenePath)
                         glm::vec3 rho = glm::vec3(rhoGet[0], rhoGet[1], rhoGet[2]);
                         material = std::make_shared<DiffuseMaterial>(rho);
                     }
+
+                    // if (type == "specular")
+                    // {
+                    //     std::vector<float> RGet = mat["R"].get<std::vector<float>>();
+                    //     glm::vec3 R = glm::vec3(RGet[0], RGet[1], RGet[2]);
+                    //     material = std::make_shared<SpecularMaterial>(R);
+                    // }
                 }
                 catch (nlohmann::json::exception& e)
                 {
@@ -1208,40 +1280,65 @@ std::vector<Pixel> RenderTile(const Scene& scene, const float* filterTable, uint
 
                     Ray ray(o, d);
 
-                    // Get sample for L
-                    glm::vec4 L(0.f, 0.f, 0.f, 0.f);
+                    // Radiance
+                    glm::vec3 L(0.f, 0.f, 0.f);
+                    float alpha = 0.f;
                     Intersection isect;
-                    if (scene.bvh->Intersect(ray, &isect))
+                    // Throughput
+                    glm::vec3 beta(1.f);
+
+                    for (uint32_t bounce = 0; bounce < 8; ++bounce)
                     {
-                        L += glm::vec4(0.f, 0.f, 0.f, 1.f);
-                        BSDF bsdf = isect.material->CreateBSDF(isect.sn);
-                        glm::vec3 wo = bsdf.ToLocal(-ray.o);
-
-                        for (const auto& light : scene.lights)
+                        if (scene.bvh->Intersect(ray, &isect))
                         {
-                            glm::vec3 wiWorld;
-                            glm::vec3 Li = light->Li(isect.p, &wiWorld);
+                            if (bounce == 0) alpha = 1.f;
 
-                            // Check if light is visible to p
+                            BSDF bsdf = isect.material->CreateBSDF(isect.sn);
+                            glm::vec3 wo = bsdf.ToLocal(-ray.o);
+
                             float shadowBias = glm::epsilon<float>() * 16.f;
-                            Ray shadowRay(isect.p + (isect.gn * shadowBias), wiWorld);
-                            Intersection shadowIsect;
-                            if (!scene.bvh->Intersect(shadowRay, &shadowIsect))
+
+                            // Compute direct light
+                            for (const auto& light : scene.lights)
                             {
-                                glm::vec3 wi = bsdf.ToLocal(wiWorld);
-                                glm::vec3 f = bsdf.f(wo, wi);
-                                L += glm::vec4(f * Li * glm::max(wi.z, 0.f), 0.f);
+                                glm::vec3 wiWorld;
+                                glm::vec3 Li = light->Li(isect.p, &wiWorld);
+
+                                // Check if light is visible to p
+                                Ray shadowRay(isect.p + (isect.gn * shadowBias), wiWorld);
+                                Intersection shadowIsect;
+                                if (!scene.bvh->Intersect(shadowRay, &shadowIsect))
+                                {
+                                    glm::vec3 wi = bsdf.ToLocal(wiWorld);
+                                    glm::vec3 f = bsdf.f(wo, wi);
+                                    L += f * Li * glm::max(wi.z, 0.f) * beta;
+                                }
                             }
+
+                            // Spawn new ray
+                            glm::vec3 wi;
+                            std::uniform_real_distribution<float> distribution(0.f, 1.f - glm::epsilon<float>());
+                            glm::vec2 scatteringSample(distribution(rng), distribution(rng));
+                            float scatteringPdf = 0.f;
+                            glm::vec3 f = bsdf.Sample_f(wo, &wi, scatteringSample, &scatteringPdf);
+                            beta *= f * wi.z;
+                            // Transform to world
+                            ray = Ray(isect.p + (isect.gn * shadowBias), bsdf.ToWorld(wi));
                         }
-                        // float Lf = glm::max(glm::dot(glm::normalize(glm::vec3(1, 0.5, 1)), isect.sn), 0.f);
-                        // L = glm::vec4(Lf, Lf, Lf, 1.f);
+
+                        else
+                        {
+                            L += glm::vec3(0.1f) * beta;
+                            break;
+                        }
                     }
 
                     // Transform image sample to "total" image coords (image including filter bounds)
                     glm::vec2 sampleCoords = glm::vec2(static_cast<float>(x + scene.info.filterBounds) + imageSample.x, static_cast<float>(y + scene.info.filterBounds) + imageSample.y);
                     // Add sample to pixels within filter width
                     // Sample coords are respective to total image size
-                    AddSample(scene.info, filterTable, sampleCoords, L, pixels);
+                    glm::vec4 Lalpha(L, alpha);
+                    AddSample(scene.info, filterTable, sampleCoords, Lalpha, pixels);
                 }
             }
         }
@@ -1329,8 +1426,6 @@ void WriteImageToEXR(const RenderInfo& info, const std::vector<Pixel>& pixels, c
 
             result = pixels[y * info.totalWidth + x].contribution / pixels[y * info.totalWidth + x].filterWeightSum;
 
-            // result = glm::vec4(sRGB(result[0]), sRGB(result[1]), sRGB(result[2]), result[3]);
-
             imagePixels[y - info.filterBounds][x - info.filterBounds].r = result.r;
             imagePixels[y - info.filterBounds][x - info.filterBounds].g = result.g;
             imagePixels[y - info.filterBounds][x - info.filterBounds].b = result.b;
@@ -1346,19 +1441,48 @@ void WriteImageToEXR(const RenderInfo& info, const std::vector<Pixel>& pixels, c
 int main(int argc, char* argv[])
 {
     auto start = std::chrono::high_resolution_clock::now();
-
+    
     std::cout << "Loading " << argv[1] << "...\n";
     Scene scene = LoadScene(argv[1]);
-
+    
     std::cout << "Rendering...\n";
     std::vector<Pixel> image = Render(scene);
-
+    
     std::cout << "Writing to " << argv[2] << "...\n";
     WriteImageToEXR(scene.info, image, argv[2]);
         
     auto end = std::chrono::high_resolution_clock::now();
     std::chrono::duration<float> duration = end - start;
     std::cout << "Completed in " << duration.count() << "s\n";
+
+    // std::default_random_engine rng;
+    // rng.seed(1);
+    // std::uniform_real_distribution<float> distribution(0.f, 1.f - glm::epsilon<float>());
+    // for (int i = 0; i < 1024; ++i)
+    // {
+    //     glm::vec2 sample(distribution(rng), distribution(rng));
+    //     float pdf = 0.f;
+    //     glm::vec3 res = CosineSampleHemisphere(sample, &pdf);
+    //     std::cout << res.x << " " << res.y << " " << res.z << "\n";
+    // }
+
+    // std::default_random_engine rng;
+    // rng.seed(0);
+    // std::uniform_real_distribution<float> distribution(0.f, 1.f - glm::epsilon<float>());
+    // for (int i = 0; i < 8; ++i)
+    // {
+    //     glm::vec3 sampleA = glm::normalize(glm::vec3(distribution(rng), distribution(rng), distribution(rng)));
+    //     glm::vec3 sampleB = glm::normalize(glm::vec3(distribution(rng), distribution(rng), distribution(rng)));
+    // 
+    //     BSDF bsdf(sampleA, 1);
+    //     glm::vec3 v = sampleB;
+    //     glm::vec3 vWorld = bsdf.ToWorld(v);
+    //     glm::vec3 vLocal = bsdf.ToLocal(vWorld);
+    //     std::cout << sampleA.x << " " << sampleA.y << " " << sampleA.z << "\n\n";
+    //     std::cout << v.x << " " << v.y << " " << v.z << "\n";
+    //     // std::cout << vWorld.x << " " << vWorld.y << " " << vWorld.z << "\n";
+    //     std::cout << vLocal.x << " " << vLocal.y << " " << vLocal.z << "\n\n";
+    // }
 
     return 0;
 }
