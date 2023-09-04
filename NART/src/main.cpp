@@ -118,7 +118,7 @@ public:
         {
             nt = glm::normalize(glm::vec3(0.f, n.z, -n.y));
         }
-        nb = glm::cross(n, nt);
+        nb = glm::normalize(glm::cross(n, nt));
 
         bxdfs.reserve(numBxDFs);
     }
@@ -1287,14 +1287,14 @@ std::vector<Pixel> RenderTile(const Scene& scene, const float* filterTable, uint
                     // Throughput
                     glm::vec3 beta(1.f);
 
-                    for (uint32_t bounce = 0; bounce < 8; ++bounce)
+                    for (uint32_t bounce = 0; bounce < 3; ++bounce)
                     {
                         if (scene.bvh->Intersect(ray, &isect))
                         {
                             if (bounce == 0) alpha = 1.f;
 
                             BSDF bsdf = isect.material->CreateBSDF(isect.sn);
-                            glm::vec3 wo = bsdf.ToLocal(-ray.o);
+                            glm::vec3 wo = bsdf.ToLocal(-ray.d);
 
                             float shadowBias = glm::epsilon<float>() * 16.f;
 
@@ -1321,16 +1321,12 @@ std::vector<Pixel> RenderTile(const Scene& scene, const float* filterTable, uint
                             glm::vec2 scatteringSample(distribution(rng), distribution(rng));
                             float scatteringPdf = 0.f;
                             glm::vec3 f = bsdf.Sample_f(wo, &wi, scatteringSample, &scatteringPdf);
-                            beta *= f * wi.z;
+                            beta *= (f / scatteringPdf) * wi.z;
                             // Transform to world
                             ray = Ray(isect.p + (isect.gn * shadowBias), bsdf.ToWorld(wi));
                         }
 
-                        else
-                        {
-                            L += glm::vec3(0.1f) * beta;
-                            break;
-                        }
+                        else break;
                     }
 
                     // Transform image sample to "total" image coords (image including filter bounds)
