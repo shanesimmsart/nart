@@ -109,7 +109,7 @@ public:
     BSDF(glm::vec3 n, uint8_t numBxDFs) : n(n), numBxDFs(numBxDFs)
     {
         // Build local coord sys from normal
-        if (n.x > n.y)
+        if (glm::abs(n.x) > glm::abs(n.y))
         {
             nt = glm::normalize(glm::vec3(n.z, 0.f, -n.x));
         }
@@ -294,6 +294,9 @@ public:
         glm::vec3 n = glm::cross((v2 - v1), (v0 - v1));
         // Length of cross product == area of triangle bounded by vectors * 2
         float area = glm::length(n) / 2.f;
+
+        // Back-face culling
+        if (glm::dot(n, ray.d) >= 0.f) return false;
 
         // Find t of intersection with plane
         float t = (glm::dot(v0, n) - glm::dot(ray.o, n)) / glm::dot(ray.d, n);
@@ -1141,12 +1144,12 @@ Scene LoadScene(std::string scenePath)
                         material = std::make_shared<DiffuseMaterial>(rho);
                     }
 
-                    // if (type == "specular")
-                    // {
-                    //     std::vector<float> RGet = mat["R"].get<std::vector<float>>();
-                    //     glm::vec3 R = glm::vec3(RGet[0], RGet[1], RGet[2]);
-                    //     material = std::make_shared<SpecularMaterial>(R);
-                    // }
+                    if (type == "specular")
+                    {
+                        std::vector<float> RGet = mat["R"].get<std::vector<float>>();
+                        glm::vec3 R = glm::vec3(RGet[0], RGet[1], RGet[2]);
+                        material = std::make_shared<SpecularMaterial>(R);
+                    }
                 }
                 catch (nlohmann::json::exception& e)
                 {
@@ -1287,7 +1290,7 @@ std::vector<Pixel> RenderTile(const Scene& scene, const float* filterTable, uint
                     // Throughput
                     glm::vec3 beta(1.f);
 
-                    for (uint32_t bounce = 0; bounce < 3; ++bounce)
+                    for (uint32_t bounce = 0; bounce < 5; ++bounce)
                     {
                         if (scene.bvh->Intersect(ray, &isect))
                         {
@@ -1324,6 +1327,14 @@ std::vector<Pixel> RenderTile(const Scene& scene, const float* filterTable, uint
                             beta *= (f / scatteringPdf) * wi.z;
                             // Transform to world
                             ray = Ray(isect.p + (isect.gn * shadowBias), bsdf.ToWorld(wi));
+                            // if (x == 420 && y == scene.info.imageHeight - 33)
+                            // {
+                            //     std::cout << isect.p.x << " " << isect.p.y << " " << isect.p.z << "\n";
+                            //     // glm::vec3 temp = ray.o + ray.d;
+                            //     // std::cout << temp.x << " " << temp.y << " " << temp.z << "\n";
+                            //     // std::cout << wi.x << " " << wi.y << " " << wi.z << "\n";
+                            //     // L = glm::vec3(1024.f, 0.f, 0.f);
+                            // }
                         }
 
                         else break;
