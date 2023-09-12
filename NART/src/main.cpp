@@ -1290,7 +1290,7 @@ std::vector<Pixel> RenderTile(const Scene& scene, const float* filterTable, uint
                     // Throughput
                     glm::vec3 beta(1.f);
 
-                    for (uint32_t bounce = 0; bounce < 5; ++bounce)
+                    for (uint32_t bounce = 0; ; ++bounce)
                     {
                         if (scene.bvh->Intersect(ray, &isect))
                         {
@@ -1327,6 +1327,19 @@ std::vector<Pixel> RenderTile(const Scene& scene, const float* filterTable, uint
                             beta *= (f / scatteringPdf) * wi.z;
                             // Transform to world
                             ray = Ray(isect.p + (isect.gn * shadowBias), bsdf.ToWorld(wi));
+
+                            // Russian roulette
+                            float q = glm::max(glm::max(beta.x, beta.y), beta.z);
+
+                            if (q < 0.3f)
+                            {
+                                if (q > distribution(rng))
+                                {
+                                    beta /= q;
+                                }
+
+                                else break;
+                            }
                             // if (x == 420 && y == scene.info.imageHeight - 33)
                             // {
                             //     std::cout << isect.p.x << " " << isect.p.y << " " << isect.p.z << "\n";
