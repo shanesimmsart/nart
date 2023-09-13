@@ -219,7 +219,11 @@ public:
         *wi = glm::vec3(-wo.x, -wo.y, wo.z);
         // Delta distribution, so PDF == 1 at this one sample point
         *pdf = 1.f;
-        return R / wi->z;
+
+        // Mirror-reflection at grazing angles
+        if (wi->z == 0.f) return glm::vec3(1.f);
+
+        return R / glm::abs(wi->z);
     }
 
 private:
@@ -1144,11 +1148,17 @@ Scene LoadScene(std::string scenePath)
                         material = std::make_shared<DiffuseMaterial>(rho);
                     }
 
-                    if (type == "specular")
+                    else if (type == "specular")
                     {
                         std::vector<float> RGet = mat["R"].get<std::vector<float>>();
-                        glm::vec3 R = glm::vec3(RGet[0], RGet[1], RGet[2]);
+                        glm::vec3 R = glm::vec3(glm::min(RGet[0], 1.f - glm::epsilon<float>()), glm::min(RGet[1], 1.f - glm::epsilon<float>()), glm::min(RGet[2], 1.f - glm::epsilon<float>()));
                         material = std::make_shared<SpecularMaterial>(R);
+                    }
+
+                    else
+                    {
+                        std::cerr << "Error: '" << type << "' is not a material type.\nAborting.\n";
+                        std::abort();
                     }
                 }
                 catch (nlohmann::json::exception& e)
@@ -1324,16 +1334,18 @@ std::vector<Pixel> RenderTile(const Scene& scene, const float* filterTable, uint
                             glm::vec2 scatteringSample(distribution(rng), distribution(rng));
                             float scatteringPdf = 0.f;
                             glm::vec3 f = bsdf.Sample_f(wo, &wi, scatteringSample, &scatteringPdf);
-                            beta *= (f / scatteringPdf) * wi.z;
+                            beta *= (f / scatteringPdf) * glm::abs(wi.z);
                             // Transform to world
                             ray = Ray(isect.p + (isect.gn * shadowBias), bsdf.ToWorld(wi));
 
                             // Russian roulette
-                            float q = glm::max(glm::max(beta.x, beta.y), beta.z);
+                            float q = glm::max((beta.x + beta.y + beta.z) * 0.33333f, 0.f);
+                            
+                            // std::cout << q << "\n";
 
-                            if (q < 0.3f)
+                            if (bounce > 3)
                             {
-                                if (q > distribution(rng))
+                                if (q >= distribution(rng))
                                 {
                                     beta /= q;
                                 }

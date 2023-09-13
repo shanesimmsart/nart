@@ -2,8 +2,8 @@
     "renderInfo": {
         "imageWidth": 640,
         "imageHeight": 360,
-        "bucketSize": 32,
-        "spp": 64,
+        "bucketSize": 64,
+        "spp": 32,
         "filterWidth": 1.5
     },
 
@@ -21,17 +21,14 @@
             "rho": [0.1, 0.9, 0.1]
             }
         ],
-        "transform": [ 1.0, 0.0, 0.0, 1.8,
-            0.0,  1.0,  0.0, 0.0000,
-            0.0000, 0.0,  1.0, 0.0000,
-            0.0000,  0.0000,  0.0000, 1.000]
+        "transform": [-0.7292,  0.6843, 0.0000,  3.0130, -0.6843, -0.7292, 0.0000, -3.2377,  0.0000,  0.0000, 1.0000,  0.0000,  0.0000,  0.0000, 0.0000,  1.0000]
         },
         {
-        "filePath": "input\\meshes\\monkeyFlat.geo",
+        "filePath": "input\\meshes\\sphere.geo",
         "material": [
             {
-            "type": "lambert",
-            "rho": [0.3, 0.3, 0.9]
+            "type": "specular",
+            "R": [0.9, 0.9, 0.9]
             }
         ],
         "transform": [ 1.0, 0.0, 0.0, 0.0000,
