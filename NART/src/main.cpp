@@ -1352,13 +1352,19 @@ std::vector<Pixel> RenderTile(const Scene& scene, const float* filterTable, uint
 
                                 else break;
                             }
-                            // if (x == 420 && y == scene.info.imageHeight - 33)
+
+                            isect = Intersection();
+                            // if (x == 264 && y == scene.info.imageHeight - 287)
                             // {
                             //     std::cout << isect.p.x << " " << isect.p.y << " " << isect.p.z << "\n";
-                            //     // glm::vec3 temp = ray.o + ray.d;
-                            //     // std::cout << temp.x << " " << temp.y << " " << temp.z << "\n";
+                            //     for (uint8_t i = 0; i < 16; ++i)
+                            //     {
+                            //         glm::vec3 temp = ray.o + (float)i * ray.d;
+                            //         std::cout << temp.x << " " << temp.y << " " << temp.z << "\n";
+                            //     }
+                            //     
                             //     // std::cout << wi.x << " " << wi.y << " " << wi.z << "\n";
-                            //     // L = glm::vec3(1024.f, 0.f, 0.f);
+                            //     L = glm::vec3(1024.f, 0.f, 0.f);
                             // }
                         }
 
