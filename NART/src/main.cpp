@@ -18,6 +18,33 @@
 #define Infinity std::numeric_limits<float>::infinity()
 #define FilterTableResolution 64
 
+glm::vec2 UniformSampleDisk(glm::vec2 sample)
+{
+    float r = glm::sqrt(sample.x);
+    float theta = sample.y * glm::two_pi<float>();
+
+    float cosTheta = glm::cos(theta);
+    float sinTheta = glm::sin(theta);
+
+    float x = r * cosTheta;
+    float y = r * sinTheta;
+
+    return glm::vec2(x, y);
+}
+
+glm::vec3 CosineSampleHemisphere(glm::vec2 sample, float* pdf)
+{
+    // Using Malley's method, we can uniformly sample a disk, then project
+    // the sample points upwards onto the hemisphere to achieve a
+    // cosine-weighted distribution
+    glm::vec2 diskSample = UniformSampleDisk(sample);
+    float z = glm::sqrt(1.f - (diskSample.x * diskSample.x + diskSample.y * diskSample.y));
+
+    *pdf = z * glm::one_over_pi<float>();
+
+    return glm::vec3(diskSample, z);
+}
+
 // Information about the render settings to be used
 struct RenderInfo
 {
@@ -62,6 +89,11 @@ public:
     // Return incident radiance from light, set wi
     virtual glm::vec3 Li(glm::vec3 p, glm::vec3* wi) = 0;
 
+    // Sample light, return incident radiance, set wi, return pdf
+    virtual glm::vec3 Sample_Li(const glm::vec3& p, glm::vec3* wi, glm::vec2 sample, float *pdf) = 0;
+
+    virtual float Pdf(const glm::vec3& p, const glm::vec3& wi) = 0;
+
     // Does light have a delta distribution?
     bool isDelta = false;
 
@@ -86,8 +118,81 @@ public:
         *wi = -direction;
         return Le;
     }
+
+    glm::vec3 Sample_Li(const glm::vec3& p, glm::vec3* wi, glm::vec2 sample, float* pdf)
+    {
+        *wi = -direction;
+        *pdf = 1.f;
+        return Le;
+    }
+
+    float Pdf(const glm::vec3& p, const glm::vec3& wi)
+    {
+        return 0.f;
+    }
     
     glm::vec3 direction;
+};
+
+class DiskLight : public Light
+{
+public:
+    DiskLight(glm::vec3 Le, glm::mat4 LightToWorld) : Light(Le, LightToWorld)
+    {
+        isDelta = false;
+    }
+
+    glm::vec3 Li(glm::vec3 p, glm::vec3* wi)
+    {
+        return glm::vec3(0.f);
+    }
+
+    glm::vec3 Sample_Li(const glm::vec3& p, glm::vec3* wi, glm::vec2 sample, float* pdf)
+    {
+        // Sample disk
+        glm::vec4 diskSample = glm::vec4(UniformSampleDisk(sample), 0.f, 1.f);
+
+        // Transform disk sample to world space
+        diskSample = diskSample * LightToWorld;
+        glm::vec3 n = glm::vec3(glm::vec4(0.f, 0.f, -1.f, 0.f) * LightToWorld);
+
+        // Set wi
+        *wi = glm::vec3(diskSample) - p;
+        float distPToSample = glm::sqrt(wi->x * wi->x + wi->y * wi->y + wi->z * wi->z);
+        *wi = glm::normalize(*wi);
+
+        // Calculate pdf with respect to disk area 
+        *pdf = 1.f / (glm::pi<float>() * radius * radius);
+
+        // Calculate pdf projected onto hemisphere around p
+        *pdf = *pdf * ((distPToSample * distPToSample) / glm::dot(-*wi, n));
+    }
+
+    float Pdf(const glm::vec3& p, const glm::vec3& wi)
+    {
+        glm::vec3 diskCenter = glm::vec3(glm::vec4(0.f, 0.f, 0.f, 1.f) * LightToWorld);
+        glm::vec3 n = glm::vec3(glm::vec4(0.f, 0.f, 1.f, 0.f) * LightToWorld);
+
+        // Distance of plane from origin
+        float D = glm::dot(diskCenter, n);
+
+        // Intersect plane
+        float t = (D - glm::dot(p, n)) / glm::dot(wi, n);
+        glm::vec3 pHit = p + t * wi;
+
+        glm::vec3 diskCenterToPHit = pHit - diskCenter;
+
+        // If not hit, pdf == 0
+        if (diskCenterToPHit.x * diskCenterToPHit.x + diskCenterToPHit.y * diskCenterToPHit.y + diskCenterToPHit.z * diskCenterToPHit.z > radius * radius) return 0.f;
+
+        // If hit, calculate pdf projected onto hemisphere around p
+        float pdf = 1.f / (glm::pi<float>() * radius * radius);
+        pdf = pdf * ((t * t) / glm::dot(-wi, n));
+
+        return pdf;
+    }
+
+    float radius = 1.f;
 };
 
 class BxDF
@@ -161,26 +266,6 @@ protected:
     uint8_t numBxDFs = 0;
     std::vector<std::shared_ptr<BxDF>> bxdfs;
 };
-
-glm::vec3 CosineSampleHemisphere(glm::vec2 sample, float* pdf)
-{
-    // Using Malley's method, we can uniformly sample a disk, then project
-    // the sample points upwards onto the hemisphere to achieve a
-    // cosine-weighted distribution
-    float r = glm::sqrt(sample.x);
-    float phi = sample.y * glm::two_pi<float>();
-
-    float cosPhi = glm::cos(phi);
-    float sinPhi = glm::sin(phi);
-
-    float x = r * cosPhi;
-    float y = r * sinPhi;
-    float z = glm::sqrt(1.f - (x * x + y * y));
-
-    *pdf = z * glm::one_over_pi<float>();
-
-    return glm::vec3(x, y, z);
-}
 
 class LambertBRDF : public BxDF
 {
@@ -303,6 +388,7 @@ public:
         if (glm::dot(n, ray.d) >= 0.f) return false;
 
         // Find t of intersection with plane
+        // Note: n doesn't need to be normalised yet as denominator divides by n's length
         float t = (glm::dot(v0, n) - glm::dot(ray.o, n)) / glm::dot(ray.d, n);
 
         if (t <= isect->tMin || t >= isect->tMax) return false;
