@@ -87,7 +87,7 @@ public:
     Light(glm::vec3 Le, glm::mat4 LightToWorld) : Le(Le), LightToWorld(LightToWorld) {}
 
     // Return incident radiance from light, set wi
-    virtual glm::vec3 Li(glm::vec3 p, glm::vec3* wi) = 0;
+    virtual glm::vec3 Li(const glm::vec3& p, const glm::vec3& wi) = 0;
 
     // Sample light, return incident radiance, set wi, return pdf
     virtual glm::vec3 Sample_Li(const glm::vec3& p, glm::vec3* wi, glm::vec2 sample, float *pdf) = 0;
@@ -113,10 +113,9 @@ public:
         direction = glm::vec4(0.f, 0.f, -1.f, 0.f) * LightToWorld;
     }
 
-    glm::vec3 Li(glm::vec3 p, glm::vec3* wi)
+    glm::vec3 Li(const glm::vec3& p, const glm::vec3& wi)
     {
-        *wi = -direction;
-        return Le;
+        return glm::vec3(0.f);
     }
 
     glm::vec3 Sample_Li(const glm::vec3& p, glm::vec3* wi, glm::vec2 sample, float* pdf)
@@ -142,9 +141,11 @@ public:
         isDelta = false;
     }
 
-    glm::vec3 Li(glm::vec3 p, glm::vec3* wi)
+    glm::vec3 Li(const glm::vec3& p, const glm::vec3& wi)
     {
-        return glm::vec3(0.f);
+        if (Pdf(p, wi) > 0.f) return Le;
+
+        else return glm::vec3(0.f);
     }
 
     glm::vec3 Sample_Li(const glm::vec3& p, glm::vec3* wi, glm::vec2 sample, float* pdf)
@@ -166,6 +167,8 @@ public:
 
         // Calculate pdf projected onto hemisphere around p
         *pdf = *pdf * ((distPToSample * distPToSample) / glm::dot(-*wi, n));
+
+        return Le;
     }
 
     float Pdf(const glm::vec3& p, const glm::vec3& wi)
@@ -370,6 +373,9 @@ struct Intersection
     // Upper and lower bounds of ray to be considered
     float tMin = 0.f;
     float tMax = Infinity;
+
+    // Flag for area light intersection
+    bool isLight = false;
 };
 
 class Triangle
@@ -1113,9 +1119,20 @@ struct Camera
     const glm::mat4 cameraToWorld = glm::mat4(1.f);
 };
 
-struct Scene
+class Scene
 {
+public:
     Scene(RenderInfo info, Camera camera, std::vector<std::shared_ptr<Light>> lights, std::shared_ptr<BVH> bvh) : info(info), camera(camera), lights(lights), bvh(bvh) {}
+
+    bool Intersect(const Ray& ray, Intersection* isect) const
+    {
+        bvh->Intersect(ray, isect);
+
+        for (std::shared_ptr<Light> light : lights)
+        {
+            // Intersect each light
+        }
+    }
 
     RenderInfo info;
     Camera camera;
@@ -1388,9 +1405,14 @@ std::vector<Pixel> RenderTile(const Scene& scene, const float* filterTable, uint
 
                     for (uint32_t bounce = 0; ; ++bounce)
                     {
-                        if (scene.bvh->Intersect(ray, &isect))
+                        if (scene.Intersect(ray, &isect))
                         {
+                            std::uniform_real_distribution<float> distribution(0.f, 1.f - glm::epsilon<float>());
+
                             if (bounce == 0) alpha = 1.f;
+
+                            // If we hit an area light, return area light emission?
+                            // But then are we doubling up on area light contribution?
 
                             BSDF bsdf = isect.material->CreateBSDF(isect.sn);
                             glm::vec3 wo = bsdf.ToLocal(-ray.d);
@@ -1401,22 +1423,23 @@ std::vector<Pixel> RenderTile(const Scene& scene, const float* filterTable, uint
                             for (const auto& light : scene.lights)
                             {
                                 glm::vec3 wiWorld;
-                                glm::vec3 Li = light->Li(isect.p, &wiWorld);
+                                float lightingPdf = 0.f;
+                                glm::vec2 lightSample(distribution(rng), distribution(rng));
+                                glm::vec3 Li = light->Sample_Li(isect.p, &wiWorld, lightSample, &lightingPdf);
 
                                 // Check if light is visible to p
                                 Ray shadowRay(isect.p + (isect.gn * shadowBias), wiWorld);
                                 Intersection shadowIsect;
-                                if (!scene.bvh->Intersect(shadowRay, &shadowIsect))
+                                if (!scene.bvh->Intersect(shadowRay, &shadowIsect) && lightingPdf > 0.f)
                                 {
                                     glm::vec3 wi = bsdf.ToLocal(wiWorld);
                                     glm::vec3 f = bsdf.f(wo, wi);
-                                    L += f * Li * glm::max(wi.z, 0.f) * beta;
+                                    L += (f * Li * glm::max(wi.z, 0.f) * beta) / lightingPdf;
                                 }
                             }
 
                             // Spawn new ray
                             glm::vec3 wi;
-                            std::uniform_real_distribution<float> distribution(0.f, 1.f - glm::epsilon<float>());
                             glm::vec2 scatteringSample(distribution(rng), distribution(rng));
                             float scatteringPdf = 0.f;
                             glm::vec3 f = bsdf.Sample_f(wo, &wi, scatteringSample, &scatteringPdf);

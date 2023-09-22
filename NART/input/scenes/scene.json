@@ -3,7 +3,7 @@
         "imageWidth": 640,
         "imageHeight": 360,
         "bucketSize": 16,
-        "spp": 64,
+        "spp": 1,
         "filterWidth": 1.5
     },
 
