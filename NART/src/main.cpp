@@ -81,123 +81,6 @@ public:
     glm::vec3 d = glm::vec3(0.f, 1.f, 0.f);
 };
 
-class Light
-{
-public:
-    Light(glm::vec3 Le, glm::mat4 LightToWorld) : Le(Le), LightToWorld(LightToWorld) {}
-
-    // Return incident radiance from light, set wi
-    virtual glm::vec3 Li(const glm::vec3& p, const glm::vec3& wi) = 0;
-
-    // Sample light, return incident radiance, set wi, return pdf
-    virtual glm::vec3 Sample_Li(const glm::vec3& p, glm::vec3* wi, glm::vec2 sample, float *pdf) = 0;
-
-    virtual float Pdf(const glm::vec3& p, const glm::vec3& wi) = 0;
-
-    // Does light have a delta distribution?
-    bool isDelta = false;
-
-protected:
-    // Radiance emitted
-    glm::vec3 Le;
-    glm::mat4 LightToWorld;
-};
-
-class DistantLight : public Light
-{
-public:
-    DistantLight(glm::vec3 Le, glm::mat4 LightToWorld) : Light(Le, LightToWorld)
-    {
-        isDelta = true;
-        // Pointing down by default
-        direction = glm::vec4(0.f, 0.f, -1.f, 0.f) * LightToWorld;
-    }
-
-    glm::vec3 Li(const glm::vec3& p, const glm::vec3& wi)
-    {
-        return glm::vec3(0.f);
-    }
-
-    glm::vec3 Sample_Li(const glm::vec3& p, glm::vec3* wi, glm::vec2 sample, float* pdf)
-    {
-        *wi = -direction;
-        *pdf = 1.f;
-        return Le;
-    }
-
-    float Pdf(const glm::vec3& p, const glm::vec3& wi)
-    {
-        return 0.f;
-    }
-    
-    glm::vec3 direction;
-};
-
-class DiskLight : public Light
-{
-public:
-    DiskLight(glm::vec3 Le, glm::mat4 LightToWorld) : Light(Le, LightToWorld)
-    {
-        isDelta = false;
-    }
-
-    glm::vec3 Li(const glm::vec3& p, const glm::vec3& wi)
-    {
-        if (Pdf(p, wi) > 0.f) return Le;
-
-        else return glm::vec3(0.f);
-    }
-
-    glm::vec3 Sample_Li(const glm::vec3& p, glm::vec3* wi, glm::vec2 sample, float* pdf)
-    {
-        // Sample disk
-        glm::vec4 diskSample = glm::vec4(UniformSampleDisk(sample), 0.f, 1.f);
-
-        // Transform disk sample to world space
-        diskSample = diskSample * LightToWorld;
-        glm::vec3 n = glm::vec3(glm::vec4(0.f, 0.f, -1.f, 0.f) * LightToWorld);
-
-        // Set wi
-        *wi = glm::vec3(diskSample) - p;
-        float distPToSample = glm::sqrt(wi->x * wi->x + wi->y * wi->y + wi->z * wi->z);
-        *wi = glm::normalize(*wi);
-
-        // Calculate pdf with respect to disk area 
-        *pdf = 1.f / (glm::pi<float>() * radius * radius);
-
-        // Calculate pdf projected onto hemisphere around p
-        *pdf = *pdf * ((distPToSample * distPToSample) / glm::dot(-*wi, n));
-
-        return Le;
-    }
-
-    float Pdf(const glm::vec3& p, const glm::vec3& wi)
-    {
-        glm::vec3 diskCenter = glm::vec3(glm::vec4(0.f, 0.f, 0.f, 1.f) * LightToWorld);
-        glm::vec3 n = glm::vec3(glm::vec4(0.f, 0.f, 1.f, 0.f) * LightToWorld);
-
-        // Distance of plane from origin
-        float D = glm::dot(diskCenter, n);
-
-        // Intersect plane
-        float t = (D - glm::dot(p, n)) / glm::dot(wi, n);
-        glm::vec3 pHit = p + t * wi;
-
-        glm::vec3 diskCenterToPHit = pHit - diskCenter;
-
-        // If not hit, pdf == 0
-        if (diskCenterToPHit.x * diskCenterToPHit.x + diskCenterToPHit.y * diskCenterToPHit.y + diskCenterToPHit.z * diskCenterToPHit.z > radius * radius) return 0.f;
-
-        // If hit, calculate pdf projected onto hemisphere around p
-        float pdf = 1.f / (glm::pi<float>() * radius * radius);
-        pdf = pdf * ((t * t) / glm::dot(-wi, n));
-
-        return pdf;
-    }
-
-    float radius = 1.f;
-};
-
 class BxDF
 {
 public:
@@ -376,6 +259,131 @@ struct Intersection
 
     // Flag for area light intersection
     bool isLight = false;
+};
+
+class Light
+{
+public:
+    Light(glm::vec3 Le, glm::mat4 LightToWorld) : Le(Le), LightToWorld(LightToWorld) {}
+
+    // Return incident radiance from light, set wi
+    virtual glm::vec3 Li(Intersection* lightIsect, const glm::vec3& p, const glm::vec3& wi) = 0;
+
+    // Sample light, return incident radiance, set wi, return pdf
+    virtual glm::vec3 Sample_Li(Intersection* lightIsect, const glm::vec3& p, glm::vec3* wi, glm::vec2 sample, float* pdf) = 0;
+
+    virtual float Pdf(Intersection* lightIsect, const glm::vec3& p, const glm::vec3& wi) = 0;
+
+    // Does light have a delta distribution?
+    bool isDelta = false;
+
+protected:
+    // Radiance emitted
+    glm::vec3 Le;
+    glm::mat4 LightToWorld;
+};
+
+class DistantLight : public Light
+{
+public:
+    DistantLight(glm::vec3 Le, glm::mat4 LightToWorld) : Light(Le, LightToWorld)
+    {
+        isDelta = true;
+        // Pointing down by default
+        direction = glm::vec4(0.f, 0.f, -1.f, 0.f) * LightToWorld;
+    }
+
+    glm::vec3 Li(Intersection* lightIsect, const glm::vec3& p, const glm::vec3& wi)
+    {
+        return glm::vec3(0.f);
+    }
+
+    glm::vec3 Sample_Li(Intersection* lightIsect, const glm::vec3& p, glm::vec3* wi, glm::vec2 sample, float* pdf)
+    {
+        *wi = -direction;
+        *pdf = 1.f;
+        return Le;
+    }
+
+    float Pdf(Intersection* lightIsect, const glm::vec3& p, const glm::vec3& wi)
+    {
+        return 0.f;
+    }
+
+    glm::vec3 direction;
+};
+
+class DiskLight : public Light
+{
+public:
+    DiskLight(float radius, glm::vec3 Le, glm::mat4 LightToWorld) : Light(Le, LightToWorld), radius(radius)
+    {
+        isDelta = false;
+    }
+
+    glm::vec3 Li(Intersection* lightIsect, const glm::vec3& p, const glm::vec3& wi)
+    {
+        if (Pdf(lightIsect, p, wi) > 0.f) return Le;
+
+        else return glm::vec3(0.f);
+    }
+
+    glm::vec3 Sample_Li(Intersection* lightIsect, const glm::vec3& p, glm::vec3* wi, glm::vec2 sample, float* pdf)
+    {
+        // Sample disk
+        glm::vec4 diskSample = glm::vec4(UniformSampleDisk(sample), 0.f, 1.f);
+
+        // Transform disk sample to world space
+        diskSample = diskSample * LightToWorld;
+        glm::vec3 n = glm::vec3(glm::vec4(0.f, 0.f, -1.f, 0.f) * LightToWorld);
+
+        // Set wi
+        *wi = glm::vec3(diskSample) - p;
+        *wi = glm::vec3(diskSample) - p;
+        float distPToSample = glm::sqrt(wi->x * wi->x + wi->y * wi->y + wi->z * wi->z);
+        *wi = glm::normalize(*wi);
+
+        // Calculate pdf with respect to disk area
+        *pdf = 1.f / (glm::pi<float>() * radius * radius);
+
+        // Calculate pdf projected onto hemisphere around p
+        *pdf = *pdf * ((distPToSample * distPToSample) / glm::dot(-*wi, n));
+
+        lightIsect->p = diskSample;
+        lightIsect->tMax = distPToSample;
+
+        return Le;
+    }
+
+    float Pdf(Intersection* lightIsect, const glm::vec3& p, const glm::vec3& wi)
+    {
+        glm::vec3 diskCenter = glm::vec3(glm::vec4(0.f, 0.f, 0.f, 1.f) * LightToWorld);
+        glm::vec3 n = glm::vec3(glm::vec4(0.f, 0.f, -1.f, 0.f) * LightToWorld);
+
+        // Distance of plane from origin
+        float D = glm::dot(diskCenter, n);
+
+        // Intersect plane
+        float t = (D - glm::dot(p, n)) / glm::dot(wi, n);
+        glm::vec3 pHit = p + t * wi;
+
+        glm::vec3 diskCenterToPHit = pHit - diskCenter;
+
+        // If not hit, pdf == 0
+        if (diskCenterToPHit.x * diskCenterToPHit.x + diskCenterToPHit.y * diskCenterToPHit.y + diskCenterToPHit.z * diskCenterToPHit.z > radius * radius) return 0.f;
+
+        // If hit, calculate pdf projected onto hemisphere around p
+        float pdf = 1.f / (glm::pi<float>() * radius * radius);
+        pdf = pdf * ((t * t) / glm::dot(-wi, n));
+
+        glm::vec3 pToPHit = pHit - p;
+        float distPToPHit = glm::sqrt(pToPHit.x * pToPHit.x + pToPHit.y * pToPHit.y + pToPHit.z * pToPHit.z);
+        lightIsect->tMax = distPToPHit;
+
+        return pdf;
+    }
+
+    float radius = 1.f;
 };
 
 class Triangle
@@ -850,7 +858,6 @@ public:
     std::shared_ptr<Octree> octree;
 };
 
-// TODO: Add material to mesh
 std::shared_ptr<TriMesh> LoadMeshFromFile(std::string filePath, glm::mat4& objectToWorld, std::shared_ptr<Material> material)
 {
     std::ifstream file;
@@ -1126,12 +1133,12 @@ public:
 
     bool Intersect(const Ray& ray, Intersection* isect) const
     {
-        bvh->Intersect(ray, isect);
+        return bvh->Intersect(ray, isect);
 
-        for (std::shared_ptr<Light> light : lights)
-        {
-            // Intersect each light
-        }
+        // for (std::shared_ptr<Light> light : lights)
+        // {
+        //     // Intersect each light
+        // }
     }
 
     RenderInfo info;
@@ -1141,7 +1148,6 @@ public:
 };
 
 
-// TODO: Add materials to meshes from JSON
 Scene LoadScene(std::string scenePath)
 {
     nlohmann::json json;
@@ -1346,6 +1352,15 @@ Scene LoadScene(std::string scenePath)
                     std::shared_ptr<Light> light = std::make_shared<DistantLight>(Le, lightToWorld);
                     lights.push_back(light);
                 }
+
+                if (type == "disk")
+                {
+                    float radius = elem["radius"].get<float>();
+                    std::vector<float> LeGet = elem["Le"].get<std::vector<float>>();
+                    glm::vec3 Le = glm::vec3(LeGet[0], LeGet[1], LeGet[2]);
+                    std::shared_ptr<Light> light = std::make_shared<DiskLight>(radius, Le, lightToWorld);
+                    lights.push_back(light);
+                }
             }
 
             catch (nlohmann::json::exception& e)
@@ -1354,6 +1369,10 @@ Scene LoadScene(std::string scenePath)
             }
         }
     }
+
+    // Temp code
+    // std::shared_ptr<Light> diskLight = std::make_shared<DiskLight>(glm::vec3(5.f, 5.f, 5.f), glm::mat4((1.0, 0.0, 0.0, 1.0000, 0.0, 1.0, 0.0, 2.0000, 0.0000, 0.0, 1.0, 3.0000, 0.0000, 0.0000, 0.0000, 1.000)));
+    // lights.push_back(diskLight);
 
     return Scene(info, camera, lights, bvh);
 }
@@ -1409,10 +1428,30 @@ std::vector<Pixel> RenderTile(const Scene& scene, const float* filterTable, uint
                         {
                             std::uniform_real_distribution<float> distribution(0.f, 1.f - glm::epsilon<float>());
 
-                            if (bounce == 0) alpha = 1.f;
+                            if (bounce == 0)
+                            {
+                                alpha = 1.f;
 
-                            // If we hit an area light, return area light emission?
-                            // But then are we doubling up on area light contribution?
+                                // Check if a light is occluding the scene
+                                float lightTMax = isect.tMax;
+                                bool lightHit = false;
+                                for (const auto& light : scene.lights)
+                                {
+                                    Intersection lightIsect;
+                                    glm::vec3 Le = light->Li(&lightIsect, ray.o, ray.d);
+                                    if (lightIsect.tMax < lightTMax)
+                                    {
+                                        L = Le;
+                                        lightTMax = lightIsect.tMax;
+                                        lightHit = true;
+                                    }
+                                }
+
+                                if (lightHit)
+                                {
+                                    break;
+                                }
+                            }
 
                             BSDF bsdf = isect.material->CreateBSDF(isect.sn);
                             glm::vec3 wo = bsdf.ToLocal(-ray.d);
@@ -1422,20 +1461,36 @@ std::vector<Pixel> RenderTile(const Scene& scene, const float* filterTable, uint
                             // Compute direct light
                             for (const auto& light : scene.lights)
                             {
-                                glm::vec3 wiWorld;
-                                float lightingPdf = 0.f;
-                                glm::vec2 lightSample(distribution(rng), distribution(rng));
-                                glm::vec3 Li = light->Sample_Li(isect.p, &wiWorld, lightSample, &lightingPdf);
-
-                                // Check if light is visible to p
-                                Ray shadowRay(isect.p + (isect.gn * shadowBias), wiWorld);
-                                Intersection shadowIsect;
-                                if (!scene.bvh->Intersect(shadowRay, &shadowIsect) && lightingPdf > 0.f)
+                                glm::vec3 wi;
+                                float scatteringPdf = 0.f;
+                                glm::vec2 scatterSample(distribution(rng), distribution(rng));
+                                glm::vec3 f = bsdf.Sample_f(wo, &wi, scatterSample, &scatteringPdf);
+                                
+                                if (scatteringPdf > 0.f)
                                 {
-                                    glm::vec3 wi = bsdf.ToLocal(wiWorld);
-                                    glm::vec3 f = bsdf.f(wo, wi);
-                                    L += (f * Li * glm::max(wi.z, 0.f) * beta) / lightingPdf;
+                                    Ray shadowRay(isect.p + (isect.gn * shadowBias), bsdf.ToWorld(wi));
+                                    Intersection lightIsect;
+                                    glm::vec3 Li = light->Li(&lightIsect, isect.p, bsdf.ToWorld(wi));
+                                    if (!scene.bvh->Intersect(shadowRay, &lightIsect))
+                                    {
+                                        L += (f * Li * glm::max(wi.z, 0.f) * beta) / scatteringPdf;
+                                    }
                                 }
+
+                                // glm::vec3 wiWorld;
+                                // float lightingPdf = 0.f;
+                                // glm::vec2 lightSample(distribution(rng), distribution(rng));
+                                // // lightIsect.tMax used for checking shadows
+                                // Intersection lightIsect;
+                                // glm::vec3 Li = light->Sample_Li(&lightIsect, isect.p, &wiWorld, lightSample, &lightingPdf);
+                                // 
+                                // Ray shadowRay(isect.p + (isect.gn * shadowBias), wiWorld);
+                                // if (!scene.bvh->Intersect(shadowRay, &lightIsect) && lightingPdf > 0.f)
+                                // {
+                                //     glm::vec3 wi = bsdf.ToLocal(wiWorld);
+                                //     glm::vec3 f = bsdf.f(wo, wi);
+                                //     L += (f * Li * glm::max(wi.z, 0.f) * beta) / lightingPdf;
+                                // }
                             }
 
                             // Spawn new ray
