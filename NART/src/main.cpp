@@ -88,7 +88,11 @@ public:
     virtual glm::vec3 f(const glm::vec3& wo, const glm::vec3& wi) = 0;
 
     // Sample BRDF, setting wi and pdf
-    virtual glm::vec3 Sample_f(glm::vec3 wo, glm::vec3* wi, glm::vec2 sample, float* pdf) = 0;
+    virtual glm::vec3 Sample_f(glm::vec3 wo, glm::vec3* wi, glm::vec2 sample, float* pdf, bool* isDelta) = 0;
+
+    virtual float Pdf(const glm::vec3& wo, const glm::vec3& wi) = 0;
+
+    bool isDelta = false;
 
 protected:
     BxDF() {}
@@ -140,10 +144,16 @@ public:
         return f;
     }
 
-    // Sample and sum BRDFs, setting wi and averaging pdf
-    glm::vec3 Sample_f(glm::vec3 wo, glm::vec3* wi, glm::vec2 sample, float* pdf)
+    // Sample and sum BRDFs, setting wi and averaging pdfs
+    glm::vec3 Sample_f(glm::vec3 wo, glm::vec3* wi, glm::vec2 sample, float* pdf, bool* isDelta)
     {
-        return bxdfs[0]->Sample_f(wo, wi, sample, pdf);
+        return bxdfs[0]->Sample_f(wo, wi, sample, pdf, isDelta);
+    }
+
+    // Average pdfs
+    float Pdf(const glm::vec3& wo, const glm::vec3& wi)
+    {
+        return bxdfs[0]->Pdf(wo, wi);
     }
 
 protected:
@@ -163,10 +173,16 @@ public:
         return rho * glm::one_over_pi<float>();
     }
 
-    glm::vec3 Sample_f(glm::vec3 wo, glm::vec3* wi, glm::vec2 sample, float* pdf)
+    glm::vec3 Sample_f(glm::vec3 wo, glm::vec3* wi, glm::vec2 sample, float* pdf, bool* isDelta)
     {
+        *isDelta = false;
         *wi = CosineSampleHemisphere(sample, pdf);
         return f(wo, *wi);
+    }
+
+    float Pdf(const glm::vec3& wo, const glm::vec3& wi)
+    {
+        return wi.z * glm::one_over_pi<float>();
     }
 
 private:
@@ -177,7 +193,10 @@ private:
 class SpecularBRDF : public BxDF
 {
 public:
-    SpecularBRDF(glm::vec3 R) : R(R) {}
+    SpecularBRDF(glm::vec3 R) : R(R)
+    {
+        isDelta = true;
+    }
 
     glm::vec3 f(const glm::vec3& wo, const glm::vec3& wi)
     {
@@ -185,8 +204,10 @@ public:
         return glm::vec3(0.f);
     }
 
-    glm::vec3 Sample_f(glm::vec3 wo, glm::vec3* wi, glm::vec2 sample, float* pdf)
+    glm::vec3 Sample_f(glm::vec3 wo, glm::vec3* wi, glm::vec2 sample, float* pdf, bool* isDelta)
     {
+        *isDelta = true;
+
         *wi = glm::vec3(-wo.x, -wo.y, wo.z);
         // Delta distribution, so PDF == 1 at this one sample point
         *pdf = 1.f;
@@ -195,6 +216,11 @@ public:
         if (wi->z == 0.f) return glm::vec3(1.f);
 
         return R / glm::abs(wi->z);
+    }
+
+    float Pdf(const glm::vec3& wo, const glm::vec3& wi)
+    {
+        return 0.f;
     }
 
 private:
@@ -1464,7 +1490,8 @@ std::vector<Pixel> RenderTile(const Scene& scene, const float* filterTable, uint
                                 glm::vec3 wi;
                                 float scatteringPdf = 0.f;
                                 glm::vec2 scatterSample(distribution(rng), distribution(rng));
-                                glm::vec3 f = bsdf.Sample_f(wo, &wi, scatterSample, &scatteringPdf);
+                                bool isDelta = false;
+                                glm::vec3 f = bsdf.Sample_f(wo, &wi, scatterSample, &scatteringPdf, &isDelta);
                                 
                                 if (scatteringPdf > 0.f)
                                 {
@@ -1473,31 +1500,50 @@ std::vector<Pixel> RenderTile(const Scene& scene, const float* filterTable, uint
                                     glm::vec3 Li = light->Li(&lightIsect, isect.p, bsdf.ToWorld(wi));
                                     if (!scene.bvh->Intersect(shadowRay, &lightIsect))
                                     {
-                                        L += (f * Li * glm::max(wi.z, 0.f) * beta) / scatteringPdf;
+                                        float weight = 1.f;
+                                
+                                        if (!isDelta)
+                                        {
+                                            // TODO: I should probably do this in one function
+                                            float lightingPdf = light->Pdf(&lightIsect, isect.p, bsdf.ToWorld(wi));
+                                            weight = scatteringPdf / (scatteringPdf + lightingPdf);
+                                            // weight *= weight;
+                                        }
+                                        
+                                        L += (f * Li * glm::max(wi.z, 0.f) * beta * weight) / scatteringPdf;
                                     }
                                 }
 
-                                // glm::vec3 wiWorld;
-                                // float lightingPdf = 0.f;
-                                // glm::vec2 lightSample(distribution(rng), distribution(rng));
-                                // // lightIsect.tMax used for checking shadows
-                                // Intersection lightIsect;
-                                // glm::vec3 Li = light->Sample_Li(&lightIsect, isect.p, &wiWorld, lightSample, &lightingPdf);
-                                // 
-                                // Ray shadowRay(isect.p + (isect.gn * shadowBias), wiWorld);
-                                // if (!scene.bvh->Intersect(shadowRay, &lightIsect) && lightingPdf > 0.f)
-                                // {
-                                //     glm::vec3 wi = bsdf.ToLocal(wiWorld);
-                                //     glm::vec3 f = bsdf.f(wo, wi);
-                                //     L += (f * Li * glm::max(wi.z, 0.f) * beta) / lightingPdf;
-                                // }
+                                glm::vec3 wiWorld;
+                                float lightingPdf = 0.f;
+                                glm::vec2 lightSample(distribution(rng), distribution(rng));
+                                // lightIsect.tMax used for checking shadows
+                                Intersection lightIsect;
+                                glm::vec3 Li = light->Sample_Li(&lightIsect, isect.p, &wiWorld, lightSample, &lightingPdf);
+                                
+                                Ray shadowRay(isect.p + (isect.gn * shadowBias), wiWorld);
+                                if (!scene.bvh->Intersect(shadowRay, &lightIsect) && lightingPdf > 0.f)
+                                {
+                                    float weight = 1.f;
+                                    wi = bsdf.ToLocal(wiWorld);
+                                    scatteringPdf = bsdf.Pdf(wo, wi);
+                                    if (scatteringPdf > 0.f)
+                                    {
+                                        glm::vec3 wi = bsdf.ToLocal(wiWorld);
+                                        glm::vec3 f = bsdf.f(wo, wi);
+                                        weight = lightingPdf / (scatteringPdf + lightingPdf);
+                                        // weight *= weight;
+                                        L += (f * Li * glm::max(wi.z, 0.f) * beta * weight) / lightingPdf;
+                                    }
+                                }
                             }
 
                             // Spawn new ray
                             glm::vec3 wi;
                             glm::vec2 scatteringSample(distribution(rng), distribution(rng));
                             float scatteringPdf = 0.f;
-                            glm::vec3 f = bsdf.Sample_f(wo, &wi, scatteringSample, &scatteringPdf);
+                            bool isDelta;
+                            glm::vec3 f = bsdf.Sample_f(wo, &wi, scatteringSample, &scatteringPdf, &isDelta);
                             beta *= (f / scatteringPdf) * glm::abs(wi.z);
                             // Transform to world
                             ray = Ray(isect.p + (isect.gn * shadowBias), bsdf.ToWorld(wi));
