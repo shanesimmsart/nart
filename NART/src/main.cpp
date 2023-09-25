@@ -1447,6 +1447,7 @@ std::vector<Pixel> RenderTile(const Scene& scene, const float* filterTable, uint
                     Intersection isect;
                     // Throughput
                     glm::vec3 beta(1.f);
+                    bool isDelta = false;
 
                     for (uint32_t bounce = 0; ; ++bounce)
                     {
@@ -1484,38 +1485,40 @@ std::vector<Pixel> RenderTile(const Scene& scene, const float* filterTable, uint
 
                             float shadowBias = glm::epsilon<float>() * 16.f;
 
+                            glm::vec3 wi;
+                            glm::vec3 Li;
+                            float scatteringPdf = 0.f;
+                            float lightingPdf = 0.f;
+
                             // Compute direct light
                             for (const auto& light : scene.lights)
                             {
-                                glm::vec3 wi;
-                                float scatteringPdf = 0.f;
-                                glm::vec2 scatterSample(distribution(rng), distribution(rng));
-                                bool isDelta = false;
-                                glm::vec3 f = bsdf.Sample_f(wo, &wi, scatterSample, &scatteringPdf, &isDelta);
-                                
-                                if (scatteringPdf > 0.f)
-                                {
-                                    Ray shadowRay(isect.p + (isect.gn * shadowBias), bsdf.ToWorld(wi));
-                                    Intersection lightIsect;
-                                    glm::vec3 Li = light->Li(&lightIsect, isect.p, bsdf.ToWorld(wi));
-                                    if (!scene.bvh->Intersect(shadowRay, &lightIsect))
-                                    {
-                                        float weight = 1.f;
-                                
-                                        if (!isDelta)
-                                        {
-                                            // TODO: I should probably do this in one function
-                                            float lightingPdf = light->Pdf(&lightIsect, isect.p, bsdf.ToWorld(wi));
-                                            weight = scatteringPdf / (scatteringPdf + lightingPdf);
-                                            // weight *= weight;
-                                        }
-                                        
-                                        L += (f * Li * glm::max(wi.z, 0.f) * beta * weight) / scatteringPdf;
-                                    }
-                                }
+                                // scatteringPdf = 0.f;
+                                // glm::vec2 scatterSample(distribution(rng), distribution(rng));
+                                // glm::vec3 f = bsdf.Sample_f(wo, &wi, scatterSample, &scatteringPdf, &isDelta);
+                                // 
+                                // if (scatteringPdf > 0.f)
+                                // {
+                                //     Ray shadowRay(isect.p + (isect.gn * shadowBias), bsdf.ToWorld(wi));
+                                //     Intersection lightIsect;
+                                //     Li = light->Li(&lightIsect, isect.p, bsdf.ToWorld(wi));
+                                //     if (!scene.bvh->Intersect(shadowRay, &lightIsect))
+                                //     {
+                                //         float weight = 1.f;
+                                // 
+                                //         if (!isDelta)
+                                //         {
+                                //             // TODO: I should probably do this in one function
+                                //             lightingPdf = light->Pdf(&lightIsect, isect.p, bsdf.ToWorld(wi));
+                                //             weight = (scatteringPdf * scatteringPdf) / (scatteringPdf * scatteringPdf + lightingPdf * lightingPdf);
+                                //         }
+                                //         
+                                //         L += (f * Li * glm::max(wi.z, 0.f) * beta * weight) / scatteringPdf;
+                                //     }
+                                // }
 
                                 glm::vec3 wiWorld;
-                                float lightingPdf = 0.f;
+                                lightingPdf = 0.f;
                                 glm::vec2 lightSample(distribution(rng), distribution(rng));
                                 // lightIsect.tMax used for checking shadows
                                 Intersection lightIsect;
@@ -1531,18 +1534,15 @@ std::vector<Pixel> RenderTile(const Scene& scene, const float* filterTable, uint
                                     {
                                         glm::vec3 wi = bsdf.ToLocal(wiWorld);
                                         glm::vec3 f = bsdf.f(wo, wi);
-                                        weight = lightingPdf / (scatteringPdf + lightingPdf);
-                                        // weight *= weight;
+                                        // weight = (lightingPdf * lightingPdf) / (scatteringPdf * scatteringPdf + lightingPdf * lightingPdf);
                                         L += (f * Li * glm::max(wi.z, 0.f) * beta * weight) / lightingPdf;
                                     }
                                 }
                             }
 
                             // Spawn new ray
-                            glm::vec3 wi;
                             glm::vec2 scatteringSample(distribution(rng), distribution(rng));
-                            float scatteringPdf = 0.f;
-                            bool isDelta;
+                            scatteringPdf = 0.f;
                             glm::vec3 f = bsdf.Sample_f(wo, &wi, scatteringSample, &scatteringPdf, &isDelta);
                             beta *= (f / scatteringPdf) * glm::abs(wi.z);
                             // Transform to world
