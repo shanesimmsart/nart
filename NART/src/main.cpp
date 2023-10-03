@@ -81,6 +81,22 @@ public:
     glm::vec3 d = glm::vec3(0.f, 1.f, 0.f);
 };
 
+float Fresnel(float etaI, float etaT, float cosTheta)
+{
+    float cosThetaI = cosTheta;
+    if (cosThetaI < 0.f) std::swap(etaI, etaT);
+
+    float sinThetaI = glm::sqrt(1.f - (cosThetaI * cosThetaI));
+    float sinThetaT = (etaI / etaT) * sinThetaI;
+    // TIR
+    if (sinThetaT > 1.f) return 1.f;
+    float cosThetaT = glm::sqrt(1.f - (sinThetaT * sinThetaT));
+
+    float fPara = ((etaT * cosThetaI) - (etaI * cosThetaT)) / ((etaT * cosThetaI) + (etaI * cosThetaT));
+    float fPerp = ((etaI * cosThetaI) - (etaT * cosThetaT)) / ((etaI * cosThetaI) + (etaT * cosThetaT));
+    return ((fPara * fPara) + (fPerp * fPerp)) * 0.5f;
+}
+
 class BxDF
 {
 public:
@@ -193,7 +209,7 @@ private:
 class SpecularBRDF : public BxDF
 {
 public:
-    SpecularBRDF(glm::vec3 R) : R(R)
+    SpecularBRDF(glm::vec3 R, float eta) : R(R), eta(eta)
     {
         isDelta = true;
     }
@@ -215,7 +231,7 @@ public:
         // Mirror-reflection at grazing angles
         if (wi->z == 0.f) return glm::vec3(1.f);
 
-        return R / glm::abs(wi->z);
+        return (R * Fresnel(1.f, eta, wi->z)) / glm::abs(wi->z);
     }
 
     float Pdf(const glm::vec3& wo, const glm::vec3& wi)
@@ -226,7 +242,62 @@ public:
 private:
     // Reflectance
     glm::vec3 R;
+    // IOR
+    float eta;
 };
+
+// TODO
+// glm::vec3 Reflect(const glm::vec3& w1, const glm::vec3& w2) {}
+// 
+// class TorranceSparrowBRDF : public BxDF
+// {
+// public:
+//     TorranceSparrowBRDF(glm::vec3 R, float eta, float alpha) : R(R), eta(eta), alpha(alpha) {}
+// 
+//     // Masking-shadowing Function (Smith)
+//     float G(const glm::vec3& wo, const glm::vec3& wi) {}
+// 
+//     // Normal Distribution Function (GGX)
+//     float D(const glm::vec3 wh) {}
+// 
+//     glm::vec3 f(const glm::vec3& wo, const glm::vec3& wi)
+//     {
+//         glm::vec3 wh = wo + wi;
+//         wh = glm::normalize(wh);
+// 
+//         return (R * G(wo, wi) * D(wh) * Fresnel(eta, 1.f, wh.z)) / (4.f * wo.z * wi.z);
+//     }
+// 
+//     glm::vec3 Sample_f(glm::vec3 wo, glm::vec3* wi, glm::vec2 sample, float* pdf, bool* isDelta)
+//     {
+//         *isDelta = false;
+// 
+//         // Sample distribution to get wh
+//         glm::vec3 wh;
+// 
+//         *wi = Reflect(wo, wh);
+// 
+//         *pdf = wh.z * D(wh);
+// 
+//         return f(wo, *wi);
+//     }
+// 
+//     float Pdf(const glm::vec3& wo, const glm::vec3& wi)
+//     {
+//         glm::vec3 wh = wo + wi;
+//         wh = glm::normalize(wh);
+// 
+//         return wh.z * D(wh);
+//     }
+// 
+// private:
+//     // Reflectance
+//     glm::vec3 R;
+//     // IOR
+//     float eta;
+//     // Roughness
+//     float alpha;
+// };
 
 class Material
 {
@@ -251,24 +322,26 @@ public:
     }
 
 private:
+    // Eventually, material inputs will be replaced with patterns, that vary depending on UVs, position, etc.
     glm::vec3 rho;
 };
 
 class SpecularMaterial : public Material
 {
 public:
-    SpecularMaterial(glm::vec3 R) : R(R)
+    SpecularMaterial(glm::vec3 R, float eta) : R(R), eta(eta)
     {}
 
     BSDF CreateBSDF(glm::vec3 n)
     {
         BSDF bsdf(n, 1);
-        bsdf.AddBxDF(std::make_shared<SpecularBRDF>(R));
+        bsdf.AddBxDF(std::make_shared<SpecularBRDF>(R, eta));
         return bsdf;
     }
 
 private:
     glm::vec3 R;
+    float eta;
 };
 
 struct Intersection
@@ -1287,7 +1360,8 @@ Scene LoadScene(std::string scenePath)
                     {
                         std::vector<float> RGet = mat["R"].get<std::vector<float>>();
                         glm::vec3 R = glm::vec3(glm::min(RGet[0], 1.f - glm::epsilon<float>()), glm::min(RGet[1], 1.f - glm::epsilon<float>()), glm::min(RGet[2], 1.f - glm::epsilon<float>()));
-                        material = std::make_shared<SpecularMaterial>(R);
+                        float eta = mat["eta"].get<float>();
+                        material = std::make_shared<SpecularMaterial>(R, eta);
                     }
 
                     else
@@ -1527,7 +1601,7 @@ std::vector<Pixel> RenderTile(const Scene& scene, const float* filterTable, uint
                                 Ray shadowRay(isect.p + (isect.gn * shadowBias), wiWorld);
                                 if (!scene.bvh->Intersect(shadowRay, &lightIsect) && lightingPdf > 0.f)
                                 {
-                                    float weight = 1.f;
+                                    float weight = 1.f; 
                                     wi = bsdf.ToLocal(wiWorld);
                                     scatteringPdf = bsdf.Pdf(wo, wi);
                                     if (scatteringPdf > 0.f)

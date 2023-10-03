@@ -3,7 +3,7 @@
         "imageWidth": 640,
         "imageHeight": 360,
         "bucketSize": 16,
-        "spp": 16,
+        "spp": 1,
         "filterWidth": 1.5
     },
 
@@ -27,8 +27,9 @@
         "filePath": "input\\meshes\\sphere.geo",
         "material": [
             {
-            "type": "lambert",
-            "rho": [0.9, 0.9, 0.9]
+            "type": "specular",
+            "R": [0.9, 0.9, 0.9],
+            "eta": 100.0
             }
         ],
         "transform": [ 1.0, 0.0, 0.0, 0.0000,
