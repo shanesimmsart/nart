@@ -246,58 +246,60 @@ private:
     float eta;
 };
 
-// TODO
-// glm::vec3 Reflect(const glm::vec3& w1, const glm::vec3& w2) {}
-// 
-// class TorranceSparrowBRDF : public BxDF
-// {
-// public:
-//     TorranceSparrowBRDF(glm::vec3 R, float eta, float alpha) : R(R), eta(eta), alpha(alpha) {}
-// 
-//     // Masking-shadowing Function (Smith)
-//     float G(const glm::vec3& wo, const glm::vec3& wi) {}
-// 
-//     // Normal Distribution Function (GGX)
-//     float D(const glm::vec3 wh) {}
-// 
-//     glm::vec3 f(const glm::vec3& wo, const glm::vec3& wi)
-//     {
-//         glm::vec3 wh = wo + wi;
-//         wh = glm::normalize(wh);
-// 
-//         return (R * G(wo, wi) * D(wh) * Fresnel(eta, 1.f, wh.z)) / (4.f * wo.z * wi.z);
-//     }
-// 
-//     glm::vec3 Sample_f(glm::vec3 wo, glm::vec3* wi, glm::vec2 sample, float* pdf, bool* isDelta)
-//     {
-//         *isDelta = false;
-// 
-//         // Sample distribution to get wh
-//         glm::vec3 wh;
-// 
-//         *wi = Reflect(wo, wh);
-// 
-//         *pdf = wh.z * D(wh);
-// 
-//         return f(wo, *wi);
-//     }
-// 
-//     float Pdf(const glm::vec3& wo, const glm::vec3& wi)
-//     {
-//         glm::vec3 wh = wo + wi;
-//         wh = glm::normalize(wh);
-// 
-//         return wh.z * D(wh);
-//     }
-// 
-// private:
-//     // Reflectance
-//     glm::vec3 R;
-//     // IOR
-//     float eta;
-//     // Roughness
-//     float alpha;
-// };
+glm::vec3 Reflect(const glm::vec3& w1, const glm::vec3& w2)
+{
+    return (2.f * glm::dot(w1, w2) * w2) - w1;
+}
+
+class TorranceSparrowBRDF : public BxDF
+{
+public:
+    TorranceSparrowBRDF(glm::vec3 R, float eta, float alpha) : R(R), eta(eta), alpha(alpha) {}
+
+    // Masking-shadowing Function (Smith)
+    float G(const glm::vec3& wo, const glm::vec3& wi) {}
+
+    // Normal Distribution Function (GGX)
+    float D(const glm::vec3 wh) {}
+
+    glm::vec3 f(const glm::vec3& wo, const glm::vec3& wi)
+    {
+        glm::vec3 wh = wo + wi;
+        wh = glm::normalize(wh);
+
+        return (R * G(wo, wi) * D(wh) * Fresnel(eta, 1.f, wh.z)) / (4.f * wo.z * wi.z);
+    }
+
+    glm::vec3 Sample_f(glm::vec3 wo, glm::vec3* wi, glm::vec2 sample, float* pdf, bool* isDelta)
+    {
+        *isDelta = false;
+
+        // Sample distribution to get wh
+        glm::vec3 wh;
+
+        *wi = Reflect(wo, wh);
+
+        *pdf = wh.z * D(wh);
+
+        return f(wo, *wi);
+    }
+
+    float Pdf(const glm::vec3& wo, const glm::vec3& wi)
+    {
+        glm::vec3 wh = wo + wi;
+        wh = glm::normalize(wh);
+
+        return wh.z * D(wh);
+    }
+
+private:
+    // Reflectance
+    glm::vec3 R;
+    // IOR
+    float eta;
+    // Roughness
+    float alpha;
+};
 
 class Material
 {
