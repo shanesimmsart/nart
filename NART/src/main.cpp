@@ -257,7 +257,17 @@ public:
     TorranceSparrowBRDF(glm::vec3 R, float eta, float alpha) : R(R), eta(eta), alpha(alpha) {}
 
     // Masking-shadowing Function (Smith)
-    float G(const glm::vec3& wo, const glm::vec3& wi) {}
+    float Lambda(const glm::vec3& w) {}
+
+    float G(const glm::vec3& wo, const glm::vec3& wi)
+    {
+        return 1.f / (1.f + Lambda(wo) + Lambda(wi));
+    }
+
+    float G1(const glm::vec3& w)
+    {
+        return 1.f / (1.f + Lambda(w));
+    }
 
     // Normal Distribution Function (GGX)
     float D(const glm::vec3 wh) {}
