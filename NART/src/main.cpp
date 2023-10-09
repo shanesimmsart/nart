@@ -256,8 +256,11 @@ class TorranceSparrowBRDF : public BxDF
 public:
     TorranceSparrowBRDF(glm::vec3 R, float eta, float alpha) : R(R), eta(eta), alpha(alpha) {}
 
-    // Masking-shadowing Function (Smith)
-    float Lambda(const glm::vec3& w) {}
+    // Masking-shadowing Function (Smith) (GGX)
+    float Lambda(const glm::vec3& w)
+    {
+        (std::erf(alpha) - 1.f + (glm::exp(-alpha * alpha) / (alpha * glm::sqrt(glm::pi<float>())))) * 0.5f;
+    }
 
     float G(const glm::vec3& wo, const glm::vec3& wi)
     {
@@ -270,7 +273,15 @@ public:
     }
 
     // Normal Distribution Function (GGX)
-    float D(const glm::vec3 wh) {}
+    float D(const glm::vec3 wh)
+    {
+        float sinTheta = glm::sqrt(1.f - wh.z);
+        float tanTheta = (sinTheta / wh.z);
+        float tan2Theta = tanTheta * tanTheta;
+        // I think I read somewhere that (x * x) * (x * x) is faster than
+        // x * x * x * x
+        return (glm::exp(-tan2Theta / (alpha * alpha))) / (glm::pi<float>() * alpha * alpha * ((wh.z * wh.z) * (wh.z * wh.z)));
+    }
 
     glm::vec3 f(const glm::vec3& wo, const glm::vec3& wi)
     {
