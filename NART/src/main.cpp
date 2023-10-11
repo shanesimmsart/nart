@@ -257,9 +257,9 @@ public:
     TorranceSparrowBRDF(glm::vec3 R, float eta, float alpha) : R(R), eta(eta), alpha(alpha) {}
 
     // Masking-shadowing Function (Smith) (GGX)
-    float Lambda(const glm::vec3& w)
+    float Lambda(const glm::vec3& w)    
     {
-        (std::erf(alpha) - 1.f + (glm::exp(-alpha * alpha) / (alpha * glm::sqrt(glm::pi<float>())))) * 0.5f;
+        return (std::erf(alpha) - 1.f + (glm::exp(-alpha * alpha) / (alpha * glm::sqrt(glm::pi<float>())))) * 0.5f;
     }
 
     float G(const glm::vec3& wo, const glm::vec3& wi)
@@ -296,7 +296,16 @@ public:
         *isDelta = false;
 
         // Sample distribution to get wh
-        glm::vec3 wh;
+        float tanTheta = glm::sqrt(-alpha * alpha * glm::log(1.f - sample.x));
+        float phi = 2.f * glm::pi<float>() * sample.y;
+
+        // TODO: There is definitely a better way to do this...
+        float theta = glm::atan(tanTheta);
+        float x = glm::cos(phi) * glm::sin(theta);
+        float y = glm::sin(phi) * glm::sin(theta);
+        float z = glm::cos(theta);
+
+        glm::vec3 wh(x, y, z);
 
         *wi = Reflect(wo, wh);
 
@@ -363,6 +372,25 @@ public:
     }
 
 private:
+    glm::vec3 R;
+    float eta;
+};
+
+class GlossyDielectricMaterial : public Material
+{
+public:
+    GlossyDielectricMaterial(glm::vec3 R, float eta, float alpha) : R(R), eta(eta), alpha(alpha)
+    {}
+
+    BSDF CreateBSDF(glm::vec3 n)
+    {
+        BSDF bsdf(n, 1);
+        bsdf.AddBxDF(std::make_shared<TorranceSparrowBRDF>(R, eta, alpha));
+        return bsdf;
+    }
+
+private:
+    float alpha;
     glm::vec3 R;
     float eta;
 };
@@ -1384,7 +1412,8 @@ Scene LoadScene(std::string scenePath)
                         std::vector<float> RGet = mat["R"].get<std::vector<float>>();
                         glm::vec3 R = glm::vec3(glm::min(RGet[0], 1.f - glm::epsilon<float>()), glm::min(RGet[1], 1.f - glm::epsilon<float>()), glm::min(RGet[2], 1.f - glm::epsilon<float>()));
                         float eta = mat["eta"].get<float>();
-                        material = std::make_shared<SpecularMaterial>(R, eta);
+                        // material = std::make_shared<SpecularMaterial>(R, eta);
+                        material = std::make_shared<GlossyDielectricMaterial>(R, eta, 0.3f);
                     }
 
                     else
@@ -1590,29 +1619,29 @@ std::vector<Pixel> RenderTile(const Scene& scene, const float* filterTable, uint
                             // Compute direct light
                             for (const auto& light : scene.lights)
                             {
-                                // scatteringPdf = 0.f;
-                                // glm::vec2 scatterSample(distribution(rng), distribution(rng));
-                                // glm::vec3 f = bsdf.Sample_f(wo, &wi, scatterSample, &scatteringPdf, &isDelta);
-                                // 
-                                // if (scatteringPdf > 0.f)
-                                // {
-                                //     Ray shadowRay(isect.p + (isect.gn * shadowBias), bsdf.ToWorld(wi));
-                                //     Intersection lightIsect;
-                                //     Li = light->Li(&lightIsect, isect.p, bsdf.ToWorld(wi));
-                                //     if (!scene.bvh->Intersect(shadowRay, &lightIsect))
-                                //     {
-                                //         float weight = 1.f;
-                                // 
-                                //         if (!isDelta)
-                                //         {
-                                //             // TODO: I should probably do this in one function
-                                //             lightingPdf = light->Pdf(&lightIsect, isect.p, bsdf.ToWorld(wi));
-                                //             weight = (scatteringPdf * scatteringPdf) / (scatteringPdf * scatteringPdf + lightingPdf * lightingPdf);
-                                //         }
-                                //         
-                                //         L += (f * Li * glm::max(wi.z, 0.f) * beta * weight) / scatteringPdf;
-                                //     }
-                                // }
+                                scatteringPdf = 0.f;
+                                glm::vec2 scatterSample(distribution(rng), distribution(rng));
+                                glm::vec3 f = bsdf.Sample_f(wo, &wi, scatterSample, &scatteringPdf, &isDelta);
+                                
+                                if (scatteringPdf > 0.f)
+                                {
+                                    Ray shadowRay(isect.p + (isect.gn * shadowBias), bsdf.ToWorld(wi));
+                                    Intersection lightIsect;
+                                    Li = light->Li(&lightIsect, isect.p, bsdf.ToWorld(wi));
+                                    if (!scene.bvh->Intersect(shadowRay, &lightIsect))
+                                    {
+                                        float weight = 1.f;
+                                
+                                        if (!isDelta)
+                                        {
+                                            // TODO: I should probably do this in one function
+                                            lightingPdf = light->Pdf(&lightIsect, isect.p, bsdf.ToWorld(wi));
+                                            weight = (scatteringPdf * scatteringPdf) / (scatteringPdf * scatteringPdf + lightingPdf * lightingPdf);
+                                        }
+                                        
+                                        L += (f * Li * glm::max(wi.z, 0.f) * beta * weight) / scatteringPdf;
+                                    }
+                                }
 
                                 glm::vec3 wiWorld;
                                 lightingPdf = 0.f;
@@ -1631,7 +1660,7 @@ std::vector<Pixel> RenderTile(const Scene& scene, const float* filterTable, uint
                                     {
                                         glm::vec3 wi = bsdf.ToLocal(wiWorld);
                                         glm::vec3 f = bsdf.f(wo, wi);
-                                        // weight = (lightingPdf * lightingPdf) / (scatteringPdf * scatteringPdf + lightingPdf * lightingPdf);
+                                        weight = (lightingPdf * lightingPdf) / (scatteringPdf * scatteringPdf + lightingPdf * lightingPdf);
                                         L += (f * Li * glm::max(wi.z, 0.f) * beta * weight) / lightingPdf;
                                     }
                                 }
@@ -1640,6 +1669,7 @@ std::vector<Pixel> RenderTile(const Scene& scene, const float* filterTable, uint
                             // Spawn new ray
                             glm::vec2 scatteringSample(distribution(rng), distribution(rng));
                             scatteringPdf = 0.f;
+                            if (scatteringPdf <= 0.f) break;
                             glm::vec3 f = bsdf.Sample_f(wo, &wi, scatteringSample, &scatteringPdf, &isDelta);
                             beta *= (f / scatteringPdf) * glm::abs(wi.z);
                             // Transform to world
