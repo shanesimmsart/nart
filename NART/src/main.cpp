@@ -259,7 +259,10 @@ public:
     // Masking-shadowing Function (Smith) (GGX)
     float Lambda(const glm::vec3& w)    
     {
-        return (std::erf(alpha) - 1.f + (glm::exp(-alpha * alpha) / (alpha * glm::sqrt(glm::pi<float>())))) * 0.5f;
+        float sinTheta = glm::sqrt(1.f - w.z);
+        float tanTheta = (sinTheta / w.z);
+        float a = 1.f / (alpha * tanTheta);
+        return (std::erf(a) - 1.f + (glm::exp(-a * a) / (a * glm::sqrt(glm::pi<float>())))) * 0.5f;
     }
 
     float G(const glm::vec3& wo, const glm::vec3& wi)
@@ -288,7 +291,8 @@ public:
         glm::vec3 wh = wo + wi;
         wh = glm::normalize(wh);
 
-        return (R * G(wo, wi) * D(wh) * Fresnel(eta, 1.f, wh.z)) / (4.f * wo.z * wi.z);
+        return (R * G(wo, wi) * D(wh) * Fresnel(1.f, eta, wh.z)) / (4.f * wo.z * wi.z);
+        // return (R  * D(wh)) / (4.f * wo.z * wi.z);
     }
 
     glm::vec3 Sample_f(glm::vec3 wo, glm::vec3* wi, glm::vec2 sample, float* pdf, bool* isDelta)
@@ -1413,7 +1417,7 @@ Scene LoadScene(std::string scenePath)
                         glm::vec3 R = glm::vec3(glm::min(RGet[0], 1.f - glm::epsilon<float>()), glm::min(RGet[1], 1.f - glm::epsilon<float>()), glm::min(RGet[2], 1.f - glm::epsilon<float>()));
                         float eta = mat["eta"].get<float>();
                         // material = std::make_shared<SpecularMaterial>(R, eta);
-                        material = std::make_shared<GlossyDielectricMaterial>(R, eta, 0.3f);
+                        material = std::make_shared<GlossyDielectricMaterial>(R, eta, 0.01f);
                     }
 
                     else
@@ -1669,8 +1673,8 @@ std::vector<Pixel> RenderTile(const Scene& scene, const float* filterTable, uint
                             // Spawn new ray
                             glm::vec2 scatteringSample(distribution(rng), distribution(rng));
                             scatteringPdf = 0.f;
-                            if (scatteringPdf <= 0.f) break;
                             glm::vec3 f = bsdf.Sample_f(wo, &wi, scatteringSample, &scatteringPdf, &isDelta);
+                            if (scatteringPdf <= 0.f) break;
                             beta *= (f / scatteringPdf) * glm::abs(wi.z);
                             // Transform to world
                             ray = Ray(isect.p + (isect.gn * shadowBias), bsdf.ToWorld(wi));
@@ -1690,18 +1694,18 @@ std::vector<Pixel> RenderTile(const Scene& scene, const float* filterTable, uint
                                 else break;
                             }
 
-                            isect = Intersection();
-                            // if (x == 264 && y == scene.info.imageHeight - 287)
+                            // isect = Intersection();
+                            // if (x == 264 && y == scene.info.imageHeight - 178)
                             // {
-                            //     std::cout << isect.p.x << " " << isect.p.y << " " << isect.p.z << "\n";
-                            //     for (uint8_t i = 0; i < 16; ++i)
-                            //     {
-                            //         glm::vec3 temp = ray.o + (float)i * ray.d;
-                            //         std::cout << temp.x << " " << temp.y << " " << temp.z << "\n";
-                            //     }
+                            //     // std::cout << isect.p.x << " " << isect.p.y << " " << isect.p.z << "\n";
+                            //     // for (uint8_t i = 0; i < 16; ++i)
+                            //     // {
+                            //     //     glm::vec3 temp = ray.o + (float)i * ray.d;
+                            //     //     std::cout << temp.x << " " << temp.y << " " << temp.z << "\n";
+                            //     // }
                             //     
                             //     // std::cout << wi.x << " " << wi.y << " " << wi.z << "\n";
-                            //     L = glm::vec3(1024.f, 0.f, 0.f);
+                            //     L = glm::vec3(1024.f, 1024.f, 1024.f);
                             // }
                         }
 
