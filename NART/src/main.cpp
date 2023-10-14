@@ -291,7 +291,7 @@ public:
         glm::vec3 wh = wo + wi;
         wh = glm::normalize(wh);
 
-        return (R * G(wo, wi) * D(wh) * Fresnel(1.f, eta, wh.z)) / (4.f * wo.z * wi.z);
+        return (R * G(wo, wi) * D(wh) * Fresnel(1.f, eta, glm::dot(wh, wi))) / (4.f * wo.z * wi.z);
         // return (R  * D(wh)) / (4.f * wo.z * wi.z);
     }
 
@@ -313,7 +313,7 @@ public:
 
         *wi = Reflect(wo, wh);
 
-        *pdf = wh.z * D(wh);
+        *pdf = Pdf(wo, *wi);
 
         return f(wo, *wi);
     }
@@ -323,7 +323,8 @@ public:
         glm::vec3 wh = wo + wi;
         wh = glm::normalize(wh);
 
-        return wh.z * D(wh);
+        // Need to convert 1/dwh to 1/dwi
+        return (wh.z * D(wh)) / (4.f * glm::dot(wh, wi));
     }
 
 private:
@@ -1417,7 +1418,7 @@ Scene LoadScene(std::string scenePath)
                         glm::vec3 R = glm::vec3(glm::min(RGet[0], 1.f - glm::epsilon<float>()), glm::min(RGet[1], 1.f - glm::epsilon<float>()), glm::min(RGet[2], 1.f - glm::epsilon<float>()));
                         float eta = mat["eta"].get<float>();
                         // material = std::make_shared<SpecularMaterial>(R, eta);
-                        material = std::make_shared<GlossyDielectricMaterial>(R, eta, 0.01f);
+                        material = std::make_shared<GlossyDielectricMaterial>(R, eta, 0.1f);
                     }
 
                     else
