@@ -18,6 +18,11 @@
 #define Infinity std::numeric_limits<float>::infinity()
 #define FilterTableResolution 64
 
+#define DEBUG_BUCKET 0
+#define DEBUG_BUCKET_X 23
+#define DEBUG_BUCKET_Y 10
+
+
 glm::vec2 UniformSampleDisk(glm::vec2 sample)
 {
     float r = glm::sqrt(sample.x);
@@ -259,7 +264,7 @@ public:
     // Masking-shadowing Function (Smith) (GGX)
     float Lambda(const glm::vec3& w)    
     {
-        float sinTheta = glm::sqrt(1.f - w.z);
+        float sinTheta = glm::sqrt(1.f - (w.z * w.z));
         float tanTheta = (sinTheta / w.z);
         float a = 1.f / (alpha * tanTheta);
         return (std::erf(a) - 1.f + (glm::exp(-a * a) / (a * glm::sqrt(glm::pi<float>())))) * 0.5f;
@@ -278,16 +283,19 @@ public:
     // Normal Distribution Function (GGX)
     float D(const glm::vec3 wh)
     {
-        float sinTheta = glm::sqrt(1.f - wh.z);
+        float sinTheta = glm::sqrt(1.f - (wh.z * wh.z));
         float tanTheta = (sinTheta / wh.z);
         float tan2Theta = tanTheta * tanTheta;
         // I think I read somewhere that (x * x) * (x * x) is faster than
         // x * x * x * x
+        float theta = glm::asin(sinTheta);
         return (glm::exp(-tan2Theta / (alpha * alpha))) / (glm::pi<float>() * alpha * alpha * ((wh.z * wh.z) * (wh.z * wh.z)));
     }
 
     glm::vec3 f(const glm::vec3& wo, const glm::vec3& wi)
     {
+        if (wo.z < 0.f || wi.z < 0.f) return glm::vec3(0.f);
+
         glm::vec3 wh = wo + wi;
         wh = glm::normalize(wh);
 
@@ -309,6 +317,12 @@ public:
         float y = glm::sin(phi) * glm::sin(theta);
         float z = glm::cos(theta);
 
+        if (z < 0.f)
+        {
+            *pdf = 0.f;
+            return glm::vec3(0.f);
+        }
+
         glm::vec3 wh(x, y, z);
 
         *wi = Reflect(wo, wh);
@@ -323,8 +337,12 @@ public:
         glm::vec3 wh = wo + wi;
         wh = glm::normalize(wh);
 
+        if (wh.z < 0.f) return 0.f;
+
         // Need to convert 1/dwh to 1/dwi
-        return (wh.z * D(wh)) / (4.f * glm::dot(wh, wi));
+        float cosThetaH = glm::dot(wh, wi);
+        float d = D(wh);
+        return (wh.z * d) / (4.f * cosThetaH);
     }
 
 private:
@@ -1644,7 +1662,7 @@ std::vector<Pixel> RenderTile(const Scene& scene, const float* filterTable, uint
                                             weight = (scatteringPdf * scatteringPdf) / (scatteringPdf * scatteringPdf + lightingPdf * lightingPdf);
                                         }
                                         
-                                        L += (f * Li * glm::max(wi.z, 0.f) * beta * weight) / scatteringPdf;
+                                        if (lightingPdf > 0.f) L += (f * Li * glm::max(wi.z, 0.f) * beta * weight) / scatteringPdf;
                                     }
                                 }
 
@@ -1748,15 +1766,27 @@ std::vector<Pixel> Render(const Scene& scene)
 
     tbb::task_group tg;
 
+    uint32_t nBucketsComplete = 0;
+
+#if DEBUG_BUCKET
+    for (uint32_t y = DEBUG_BUCKET_Y; y < DEBUG_BUCKET_Y + 1; ++y)
+    {
+        for (uint32_t x = DEBUG_BUCKET_X; x < DEBUG_BUCKET_X + 1; ++x)
+        {
+#else
     for (uint32_t y = 0; y < nBucketsY; ++y)
     {
         for (uint32_t x = 0; x < nBucketsX; ++x)
         {
+#endif
             uint32_t index = y * nBucketsX + x;
-            tg.run([&scene, &filterTable, &tiles, index, x, y]
+            tg.run([&scene, &filterTable, &tiles, index, x, y, &nBucketsComplete, nBuckets]
                 {
                     std::vector<Pixel> tile = RenderTile(scene, filterTable, scene.info.bucketSize * x, scene.info.bucketSize * (x + 1), scene.info.bucketSize * y, scene.info.bucketSize * (y + 1));
                     tiles[index] = tile;
+                    nBucketsComplete++;
+                    // TODO: Multi-threaded logging?
+                    std::cout << "\r" << (int)glm::floor(((float)nBucketsComplete / (float)nBuckets) * 100.f) << "%   " << std::flush;
                 });
         }
     }
@@ -1764,7 +1794,7 @@ std::vector<Pixel> Render(const Scene& scene)
     tg.wait();
 
     // Combine tiles into image
-    std::cout << "Combining tiles into image...\n";
+    std::cout << "\nCombining tiles into image...\n";
 
     for (uint32_t j = 0; j < nBucketsY; ++j)
     {
