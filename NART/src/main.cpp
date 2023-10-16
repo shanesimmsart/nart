@@ -19,8 +19,8 @@
 #define FilterTableResolution 64
 
 #define DEBUG_BUCKET 0
-#define DEBUG_BUCKET_X 23
-#define DEBUG_BUCKET_Y 10
+#define DEBUG_BUCKET_X 16
+#define DEBUG_BUCKET_Y 13
 
 
 glm::vec2 UniformSampleDisk(glm::vec2 sample)
@@ -326,6 +326,8 @@ public:
         glm::vec3 wh(x, y, z);
 
         *wi = Reflect(wo, wh);
+
+        *wi = glm::normalize(*wi);
 
         *pdf = Pdf(wo, *wi);
 
@@ -1451,7 +1453,7 @@ Scene LoadScene(std::string scenePath)
                 }
                 mesh_materials.push_back(material);
             }
-        }
+        } 
     }
 
     else
