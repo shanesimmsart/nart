@@ -19,8 +19,8 @@
 #define FilterTableResolution 64
 
 #define DEBUG_BUCKET 0
-#define DEBUG_BUCKET_X 16
-#define DEBUG_BUCKET_Y 13
+#define DEBUG_BUCKET_X 30
+#define DEBUG_BUCKET_Y 17
 
 
 glm::vec2 UniformSampleDisk(glm::vec2 sample)
@@ -88,7 +88,7 @@ public:
 
 float Fresnel(float etaI, float etaT, float cosTheta)
 {
-    float cosThetaI = cosTheta;
+    float cosThetaI = glm::min(cosTheta, 1.f);
     if (cosThetaI < 0.f) std::swap(etaI, etaT);
 
     float sinThetaI = glm::sqrt(1.f - (cosThetaI * cosThetaI));
@@ -299,7 +299,11 @@ public:
         glm::vec3 wh = wo + wi;
         wh = glm::normalize(wh);
 
-        return (R * G(wo, wi) * D(wh) * Fresnel(1.f, eta, glm::dot(wh, wi))) / (4.f * wo.z * wi.z);
+        float g = G(wo, wi);
+        float d = D(wh);
+        float fr = Fresnel(1.f, eta, glm::dot(wh, wi));
+
+        return (R * g * d * fr) / (4.f * wo.z * wi.z);
         // return (R  * D(wh)) / (4.f * wo.z * wi.z);
     }
 
@@ -342,7 +346,7 @@ public:
         if (wh.z < 0.f) return 0.f;
 
         // Need to convert 1/dwh to 1/dwi
-        float cosThetaH = glm::dot(wh, wi);
+        float cosThetaH = glm::min(glm::dot(wh, wi), 1.f);
         float d = D(wh);
         return (wh.z * d) / (4.f * cosThetaH);
     }
