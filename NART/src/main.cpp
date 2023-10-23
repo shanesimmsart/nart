@@ -19,8 +19,11 @@
 #define FilterTableResolution 64
 
 #define DEBUG_BUCKET 0
-#define DEBUG_BUCKET_X 30
-#define DEBUG_BUCKET_Y 17
+#define DEBUG_BUCKET_X 22
+#define DEBUG_BUCKET_Y 7
+
+#define BSDF_SAMPLING 1
+#define LIGHT_SAMPLING 1
 
 
 glm::vec2 UniformSampleDisk(glm::vec2 sample)
@@ -33,6 +36,25 @@ glm::vec2 UniformSampleDisk(glm::vec2 sample)
 
     float x = r * cosTheta;
     float y = r * sinTheta;
+
+    return glm::vec2(x, y);
+}
+
+glm::vec2 UniformSampleRing(glm::vec2 sample, float* pdf)
+{
+    float r2 = 0.8f;
+    // float r = glm::sqrt(sample.x * (1.f - r2) * (1.f + r2));
+    // float r = glm::sqrt(sample.x * (1.f - (r2 * r2)));
+    float r = glm::sqrt(glm::mix(r2, 1.f, sample.x));
+    float theta = sample.y * glm::two_pi<float>();
+
+    float cosTheta = glm::cos(theta);
+    float sinTheta = glm::sin(theta);
+
+    float x = r * cosTheta;
+    float y = r * sinTheta;
+
+    *pdf = 1.f / (glm::pi<float>() * (1.f - r2));
 
     return glm::vec2(x, y);
 }
@@ -102,6 +124,13 @@ float Fresnel(float etaI, float etaT, float cosTheta)
     return ((fPara * fPara) + (fPerp * fPerp)) * 0.5f;
 }
 
+enum BSDFFlags
+{
+    SPECULAR = 1,
+    GLOSSY = 2,
+    DIFFUSE = 4
+};
+
 class BxDF
 {
 public:
@@ -109,11 +138,13 @@ public:
     virtual glm::vec3 f(const glm::vec3& wo, const glm::vec3& wi) = 0;
 
     // Sample BRDF, setting wi and pdf
-    virtual glm::vec3 Sample_f(glm::vec3 wo, glm::vec3* wi, glm::vec2 sample, float* pdf, bool* isDelta) = 0;
+    virtual glm::vec3 Sample_f(glm::vec3 wo, glm::vec3* wi, glm::vec2 sample, float* pdf, BSDFFlags* flags) = 0;
 
     virtual float Pdf(const glm::vec3& wo, const glm::vec3& wi) = 0;
 
-    bool isDelta = false;
+    virtual void AdjustRoughness(float roughnessOffset) = 0;
+
+    BSDFFlags flags;
 
 protected:
     BxDF() {}
@@ -166,15 +197,23 @@ public:
     }
 
     // Sample and sum BRDFs, setting wi and averaging pdfs
-    glm::vec3 Sample_f(glm::vec3 wo, glm::vec3* wi, glm::vec2 sample, float* pdf, bool* isDelta)
+    glm::vec3 Sample_f(glm::vec3 wo, glm::vec3* wi, glm::vec2 sample, float* pdf, BSDFFlags* flags)
     {
-        return bxdfs[0]->Sample_f(wo, wi, sample, pdf, isDelta);
+        return bxdfs[0]->Sample_f(wo, wi, sample, pdf, flags);
     }
 
     // Average pdfs
     float Pdf(const glm::vec3& wo, const glm::vec3& wi)
     {
         return bxdfs[0]->Pdf(wo, wi);
+    }
+
+    void AdjustRoughness(float roughnessOffset)
+    {
+        for (uint8_t i = 0; i < numBxDFs; ++i)
+        {
+            bxdfs[i]->AdjustRoughness(roughnessOffset);
+        }
     }
 
 protected:
@@ -194,9 +233,9 @@ public:
         return rho * glm::one_over_pi<float>();
     }
 
-    glm::vec3 Sample_f(glm::vec3 wo, glm::vec3* wi, glm::vec2 sample, float* pdf, bool* isDelta)
+    glm::vec3 Sample_f(glm::vec3 wo, glm::vec3* wi, glm::vec2 sample, float* pdf, BSDFFlags* flags)
     {
-        *isDelta = false;
+        *flags = DIFFUSE;
         *wi = CosineSampleHemisphere(sample, pdf);
         return f(wo, *wi);
     }
@@ -206,6 +245,8 @@ public:
         return wi.z * glm::one_over_pi<float>();
     }
 
+    void AdjustRoughness(float roughnessOffset) {}
+
 private:
     // Albedo
     glm::vec3 rho;
@@ -214,10 +255,7 @@ private:
 class SpecularBRDF : public BxDF
 {
 public:
-    SpecularBRDF(glm::vec3 R, float eta) : R(R), eta(eta)
-    {
-        isDelta = true;
-    }
+    SpecularBRDF(glm::vec3 R, float eta) : R(R), eta(eta) {}
 
     glm::vec3 f(const glm::vec3& wo, const glm::vec3& wi)
     {
@@ -225,9 +263,9 @@ public:
         return glm::vec3(0.f);
     }
 
-    glm::vec3 Sample_f(glm::vec3 wo, glm::vec3* wi, glm::vec2 sample, float* pdf, bool* isDelta)
+    glm::vec3 Sample_f(glm::vec3 wo, glm::vec3* wi, glm::vec2 sample, float* pdf, BSDFFlags* flags)
     {
-        *isDelta = true;
+        *flags = SPECULAR;
 
         *wi = glm::vec3(-wo.x, -wo.y, wo.z);
         // Delta distribution, so PDF == 1 at this one sample point
@@ -244,6 +282,8 @@ public:
         return 0.f;
     }
 
+    void AdjustRoughness(float roughnessOffset) {}
+
 private:
     // Reflectance
     glm::vec3 R;
@@ -254,6 +294,16 @@ private:
 glm::vec3 Reflect(const glm::vec3& w1, const glm::vec3& w2)
 {
     return (2.f * glm::dot(w1, w2) * w2) - w1;
+}
+
+float RoughnessToAlpha(float roughness)
+{
+    return 1.62142f * glm::sqrt(roughness);
+}
+
+float AlphaToRoughness(float alpha)
+{
+    return (alpha * alpha) * 0.38037235782f;
 }
 
 class TorranceSparrowBRDF : public BxDF
@@ -307,9 +357,13 @@ public:
         // return (R  * D(wh)) / (4.f * wo.z * wi.z);
     }
 
-    glm::vec3 Sample_f(glm::vec3 wo, glm::vec3* wi, glm::vec2 sample, float* pdf, bool* isDelta)
+    glm::vec3 Sample_f(glm::vec3 wo, glm::vec3* wi, glm::vec2 sample, float* pdf, BSDFFlags* flags)
     {
-        *isDelta = false;
+        *flags = SPECULAR;
+        if (alpha > 0.001f) *flags = GLOSSY;
+        // TODO: PBRT uses this as roughness == 1
+        // Where does this come from??
+        if (alpha >= 1.62142f) *flags = DIFFUSE;
 
         // Sample distribution to get wh
         float tanTheta = glm::sqrt(-alpha * alpha * glm::log(1.f - sample.x));
@@ -349,6 +403,11 @@ public:
         float cosThetaH = glm::min(glm::dot(wh, wi), 1.f);
         float d = D(wh);
         return (wh.z * d) / (4.f * cosThetaH);
+    }
+
+    void AdjustRoughness(float roughnessOffset)
+    {
+        alpha = glm::min(RoughnessToAlpha(AlphaToRoughness(alpha) + roughnessOffset), 1.62142f);
     }
 
 private:
@@ -510,7 +569,8 @@ public:
     glm::vec3 Sample_Li(Intersection* lightIsect, const glm::vec3& p, glm::vec3* wi, glm::vec2 sample, float* pdf)
     {
         // Sample disk
-        glm::vec4 diskSample = glm::vec4(UniformSampleDisk(sample), 0.f, 1.f);
+        // glm::vec4 diskSample = glm::vec4(UniformSampleDisk(sample), 0.f, 1.f);
+        glm::vec4 diskSample = glm::vec4(UniformSampleRing(sample, pdf) * radius, 0.f, 1.f);
 
         // Transform disk sample to world space
         diskSample = diskSample * LightToWorld;
@@ -523,7 +583,10 @@ public:
         *wi = glm::normalize(*wi);
 
         // Calculate pdf with respect to disk area
-        *pdf = 1.f / (glm::pi<float>() * radius * radius);
+        // *pdf = 1.f / (glm::pi<float>() * (radius * radius));
+        float r2 = 0.8f;
+        // *pdf = 1.f / (glm::pi<float>() * ((radius * radius) - (r2 * r2 * radius)));
+        *pdf /= (glm::pi<float>() * radius * radius);
 
         // Calculate pdf projected onto hemisphere around p
         *pdf = *pdf * ((distPToSample * distPToSample) / glm::dot(-*wi, n));
@@ -549,10 +612,15 @@ public:
         glm::vec3 diskCenterToPHit = pHit - diskCenter;
 
         // If not hit, pdf == 0
-        if (diskCenterToPHit.x * diskCenterToPHit.x + diskCenterToPHit.y * diskCenterToPHit.y + diskCenterToPHit.z * diskCenterToPHit.z > radius * radius) return 0.f;
+        float r2 = 0.8f * radius;
+        float dist = diskCenterToPHit.x * diskCenterToPHit.x + diskCenterToPHit.y * diskCenterToPHit.y + diskCenterToPHit.z * diskCenterToPHit.z;
+        if (dist > radius * radius) return 0.f;
+        if (dist < r2 * r2) return 0.f;
 
         // If hit, calculate pdf projected onto hemisphere around p
-        float pdf = 1.f / (glm::pi<float>() * radius * radius);
+        // float pdf = 1.f / (glm::pi<float>() * radius * radius);
+        
+        float pdf = 1.f / (glm::pi<float>() * (1.f - r2 * r2) * radius * radius);
         pdf = pdf * ((t * t) / glm::dot(-wi, n));
 
         glm::vec3 pToPHit = pHit - p;
@@ -1442,7 +1510,7 @@ Scene LoadScene(std::string scenePath)
                         glm::vec3 R = glm::vec3(glm::min(RGet[0], 1.f - glm::epsilon<float>()), glm::min(RGet[1], 1.f - glm::epsilon<float>()), glm::min(RGet[2], 1.f - glm::epsilon<float>()));
                         float eta = mat["eta"].get<float>();
                         // material = std::make_shared<SpecularMaterial>(R, eta);
-                        material = std::make_shared<GlossyDielectricMaterial>(R, eta, 0.1f);
+                        material = std::make_shared<GlossyDielectricMaterial>(R, eta, 0.03f);
                     }
 
                     else
@@ -1602,7 +1670,9 @@ std::vector<Pixel> RenderTile(const Scene& scene, const float* filterTable, uint
                     Intersection isect;
                     // Throughput
                     glm::vec3 beta(1.f);
-                    bool isDelta = false;
+                    BSDFFlags flags;
+
+                    float roughnessOffset = 0.f;
 
                     for (uint32_t bounce = 0; ; ++bounce)
                     {
@@ -1637,6 +1707,7 @@ std::vector<Pixel> RenderTile(const Scene& scene, const float* filterTable, uint
 
                             BSDF bsdf = isect.material->CreateBSDF(isect.sn);
                             glm::vec3 wo = bsdf.ToLocal(-ray.d);
+                            bsdf.AdjustRoughness(roughnessOffset);
 
                             float shadowBias = glm::epsilon<float>() * 16.f;
 
@@ -1648,9 +1719,10 @@ std::vector<Pixel> RenderTile(const Scene& scene, const float* filterTable, uint
                             // Compute direct light
                             for (const auto& light : scene.lights)
                             {
+#if BSDF_SAMPLING
                                 scatteringPdf = 0.f;
                                 glm::vec2 scatterSample(distribution(rng), distribution(rng));
-                                glm::vec3 f = bsdf.Sample_f(wo, &wi, scatterSample, &scatteringPdf, &isDelta);
+                                glm::vec3 f = bsdf.Sample_f(wo, &wi, scatterSample, &scatteringPdf, &flags);
                                 
                                 if (scatteringPdf > 0.f)
                                 {
@@ -1661,17 +1733,24 @@ std::vector<Pixel> RenderTile(const Scene& scene, const float* filterTable, uint
                                     {
                                         float weight = 1.f;
                                 
-                                        if (!isDelta)
+                                        if (!(flags & SPECULAR))
                                         {
                                             // TODO: I should probably do this in one function
                                             lightingPdf = light->Pdf(&lightIsect, isect.p, bsdf.ToWorld(wi));
+#if LIGHT_SAMPLING
                                             weight = (scatteringPdf * scatteringPdf) / (scatteringPdf * scatteringPdf + lightingPdf * lightingPdf);
+#endif
+                                            if (lightingPdf > 0.f) L += (f * Li * glm::max(wi.z, 0.f) * beta * weight) / scatteringPdf;
                                         }
-                                        
-                                        if (lightingPdf > 0.f) L += (f * Li * glm::max(wi.z, 0.f) * beta * weight) / scatteringPdf;
+
+                                        else
+                                        {
+                                            L += (f * Li * glm::max(wi.z, 0.f) * beta * weight) / scatteringPdf;
+                                        }
                                     }
                                 }
-
+#endif
+#if LIGHT_SAMPLING
                                 glm::vec3 wiWorld;
                                 lightingPdf = 0.f;
                                 glm::vec2 lightSample(distribution(rng), distribution(rng));
@@ -1689,17 +1768,21 @@ std::vector<Pixel> RenderTile(const Scene& scene, const float* filterTable, uint
                                     {
                                         glm::vec3 wi = bsdf.ToLocal(wiWorld);
                                         glm::vec3 f = bsdf.f(wo, wi);
+#if BSDF_SAMPLING
                                         weight = (lightingPdf * lightingPdf) / (scatteringPdf * scatteringPdf + lightingPdf * lightingPdf);
+#endif
                                         L += (f * Li * glm::max(wi.z, 0.f) * beta * weight) / lightingPdf;
                                     }
                                 }
+#endif
                             }
 
                             // Spawn new ray
                             glm::vec2 scatteringSample(distribution(rng), distribution(rng));
                             scatteringPdf = 0.f;
-                            glm::vec3 f = bsdf.Sample_f(wo, &wi, scatteringSample, &scatteringPdf, &isDelta);
-                            if (scatteringPdf <= 0.f) break;
+                            glm::vec3 f = bsdf.Sample_f(wo, &wi, scatteringSample, &scatteringPdf, &flags);
+                            if ( scatteringPdf <= 0.f ) break;
+                            if ( flags & DIFFUSE ) roughnessOffset += 0.05f;
                             beta *= (f / scatteringPdf) * glm::abs(wi.z);
                             // Transform to world
                             ray = Ray(isect.p + (isect.gn * shadowBias), bsdf.ToWorld(wi));
@@ -1898,6 +1981,17 @@ int main(int argc, char* argv[])
     //     std::cout << v.x << " " << v.y << " " << v.z << "\n";
     //     // std::cout << vWorld.x << " " << vWorld.y << " " << vWorld.z << "\n";
     //     std::cout << vLocal.x << " " << vLocal.y << " " << vLocal.z << "\n\n";
+    // }
+
+    // std::default_random_engine rng;
+    // rng.seed(0);
+    // std::uniform_real_distribution<float> distribution(0.f, 1.f - glm::epsilon<float>());
+    // for (int i = 0; i < 512; ++i)
+    // {
+    //     glm::vec2 sample(distribution(rng), distribution(rng));
+    //     float pdf;
+    //     glm::vec2 p = UniformSampleRing(sample, &pdf);
+    //     std::cout << p.x << " " << p.y << " " << 0.f << "\n";
     // }
 
     return 0;
