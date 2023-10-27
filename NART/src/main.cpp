@@ -42,7 +42,7 @@ glm::vec2 UniformSampleDisk(glm::vec2 sample)
 
 glm::vec2 UniformSampleRing(glm::vec2 sample, float* pdf)
 {
-    float r2 = 0.8f;
+    float r2 = 0.001f;
     // float r = glm::sqrt(sample.x * (1.f - r2) * (1.f + r2));
     // float r = glm::sqrt(sample.x * (1.f - (r2 * r2)));
     float r = glm::sqrt(glm::mix(r2, 1.f, sample.x));
@@ -142,8 +142,6 @@ public:
 
     virtual float Pdf(const glm::vec3& wo, const glm::vec3& wi) = 0;
 
-    virtual void AdjustRoughness(float roughnessOffset) = 0;
-
     BSDFFlags flags;
 
 protected:
@@ -208,14 +206,6 @@ public:
         return bxdfs[0]->Pdf(wo, wi);
     }
 
-    void AdjustRoughness(float roughnessOffset)
-    {
-        for (uint8_t i = 0; i < numBxDFs; ++i)
-        {
-            bxdfs[i]->AdjustRoughness(roughnessOffset);
-        }
-    }
-
 protected:
     // Coord sys in worldspace
     glm::vec3 nt, nb, n;
@@ -244,8 +234,6 @@ public:
     {
         return wi.z * glm::one_over_pi<float>();
     }
-
-    void AdjustRoughness(float roughnessOffset) {}
 
 private:
     // Albedo
@@ -281,8 +269,6 @@ public:
     {
         return 0.f;
     }
-
-    void AdjustRoughness(float roughnessOffset) {}
 
 private:
     // Reflectance
@@ -405,11 +391,6 @@ public:
         return (wh.z * d) / (4.f * cosThetaH);
     }
 
-    void AdjustRoughness(float roughnessOffset)
-    {
-        alpha = glm::min(RoughnessToAlpha(AlphaToRoughness(alpha) + roughnessOffset), 1.62142f);
-    }
-
 private:
     // Reflectance
     glm::vec3 R;
@@ -422,7 +403,7 @@ private:
 class Material
 {
 public:
-    virtual BSDF CreateBSDF(glm::vec3 n) = 0;
+    virtual BSDF CreateBSDF(glm::vec3 n, float roughnessOffset) = 0;
 
 protected:
     Material() {};
@@ -434,7 +415,7 @@ public:
     DiffuseMaterial(glm::vec3 rho) : rho(rho) // your boat...
     {}
 
-    BSDF CreateBSDF(glm::vec3 n)
+    BSDF CreateBSDF(glm::vec3 n, float roughnessOffset)
     {
         BSDF bsdf(n, 1);
         bsdf.AddBxDF(std::make_shared<LambertBRDF>(rho));
@@ -452,10 +433,18 @@ public:
     SpecularMaterial(glm::vec3 R, float eta) : R(R), eta(eta)
     {}
 
-    BSDF CreateBSDF(glm::vec3 n)
+    BSDF CreateBSDF(glm::vec3 n, float roughnessOffset)
     {
         BSDF bsdf(n, 1);
-        bsdf.AddBxDF(std::make_shared<SpecularBRDF>(R, eta));
+
+        float alpha = glm::min(roughnessOffset, 1.f);
+
+        if (alpha > 0.001f) {
+            bsdf.AddBxDF(std::make_shared<TorranceSparrowBRDF>(R, eta, alpha));
+        }
+
+        else bsdf.AddBxDF(std::make_shared<SpecularBRDF>(R, eta));
+
         return bsdf;
     }
 
@@ -470,10 +459,18 @@ public:
     GlossyDielectricMaterial(glm::vec3 R, float eta, float alpha) : R(R), eta(eta), alpha(alpha)
     {}
 
-    BSDF CreateBSDF(glm::vec3 n)
+    BSDF CreateBSDF(glm::vec3 n, float roughnessOffset)
     {
         BSDF bsdf(n, 1);
-        bsdf.AddBxDF(std::make_shared<TorranceSparrowBRDF>(R, eta, alpha));
+
+        float alphaAdjusted = glm::min(alpha + roughnessOffset, 1.f);
+
+        if (alphaAdjusted > 0.001f) {
+            bsdf.AddBxDF(std::make_shared<TorranceSparrowBRDF>(R, eta, alphaAdjusted));
+        }
+
+        else bsdf.AddBxDF(std::make_shared<SpecularBRDF>(R, eta));
+
         return bsdf;
     }
 
@@ -584,7 +581,7 @@ public:
 
         // Calculate pdf with respect to disk area
         // *pdf = 1.f / (glm::pi<float>() * (radius * radius));
-        float r2 = 0.8f;
+        float r2 = 0.001f; // 0.8f;
         // *pdf = 1.f / (glm::pi<float>() * ((radius * radius) - (r2 * r2 * radius)));
         *pdf /= (glm::pi<float>() * radius * radius);
 
@@ -612,7 +609,7 @@ public:
         glm::vec3 diskCenterToPHit = pHit - diskCenter;
 
         // If not hit, pdf == 0
-        float r2 = 0.8f * radius;
+        float r2 = 0.001f * radius;
         float dist = diskCenterToPHit.x * diskCenterToPHit.x + diskCenterToPHit.y * diskCenterToPHit.y + diskCenterToPHit.z * diskCenterToPHit.z;
         if (dist > radius * radius) return 0.f;
         if (dist < r2 * r2) return 0.f;
@@ -1509,8 +1506,19 @@ Scene LoadScene(std::string scenePath)
                         std::vector<float> RGet = mat["R"].get<std::vector<float>>();
                         glm::vec3 R = glm::vec3(glm::min(RGet[0], 1.f - glm::epsilon<float>()), glm::min(RGet[1], 1.f - glm::epsilon<float>()), glm::min(RGet[2], 1.f - glm::epsilon<float>()));
                         float eta = mat["eta"].get<float>();
-                        // material = std::make_shared<SpecularMaterial>(R, eta);
-                        material = std::make_shared<GlossyDielectricMaterial>(R, eta, 0.03f);
+                        material = std::make_shared<SpecularMaterial>(R, eta);
+                    }
+
+                    else if (type == "glossy")
+                    {
+                        std::vector<float> RGet = mat["R"].get<std::vector<float>>();
+                        glm::vec3 R = glm::vec3(glm::min(RGet[0], 1.f - glm::epsilon<float>()), glm::min(RGet[1], 1.f - glm::epsilon<float>()), glm::min(RGet[2], 1.f - glm::epsilon<float>()));
+                        float eta = mat["eta"].get<float>();
+                        // float alpha = AlphaToRoughness(mat["roughness"].get<float>()); 
+                        // float alpha = roughness * roughness;
+                        // float alpha = RoughnessToAlpha(mat["roughness"].get<float>());
+                        float alpha = mat["roughness"].get<float>();
+                        material = std::make_shared<GlossyDielectricMaterial>(R, eta, alpha);
                     }
 
                     else
@@ -1705,9 +1713,8 @@ std::vector<Pixel> RenderTile(const Scene& scene, const float* filterTable, uint
                                 }
                             }
 
-                            BSDF bsdf = isect.material->CreateBSDF(isect.sn);
+                            BSDF bsdf = isect.material->CreateBSDF(isect.sn, roughnessOffset);
                             glm::vec3 wo = bsdf.ToLocal(-ray.d);
-                            bsdf.AdjustRoughness(roughnessOffset);
 
                             float shadowBias = glm::epsilon<float>() * 16.f;
 
@@ -1782,7 +1789,7 @@ std::vector<Pixel> RenderTile(const Scene& scene, const float* filterTable, uint
                             scatteringPdf = 0.f;
                             glm::vec3 f = bsdf.Sample_f(wo, &wi, scatteringSample, &scatteringPdf, &flags);
                             if ( scatteringPdf <= 0.f ) break;
-                            if ( flags & DIFFUSE ) roughnessOffset += 0.05f;
+                            if ( flags & DIFFUSE ) roughnessOffset += 0.1f;
                             beta *= (f / scatteringPdf) * glm::abs(wi.z);
                             // Transform to world
                             ray = Ray(isect.p + (isect.gn * shadowBias), bsdf.ToWorld(wi));
