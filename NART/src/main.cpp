@@ -20,7 +20,7 @@
 
 #define DEBUG_BUCKET 0
 #define DEBUG_BUCKET_X 22
-#define DEBUG_BUCKET_Y 7
+#define DEBUG_BUCKET_Y 10
 
 #define BSDF_SAMPLING 1
 #define LIGHT_SAMPLING 1
@@ -40,12 +40,11 @@ glm::vec2 UniformSampleDisk(glm::vec2 sample)
     return glm::vec2(x, y);
 }
 
-glm::vec2 UniformSampleRing(glm::vec2 sample, float* pdf)
+glm::vec2 UniformSampleRing(glm::vec2 sample, float* pdf, float innerRadius)
 {
-    float r2 = 0.001f;
     // float r = glm::sqrt(sample.x * (1.f - r2) * (1.f + r2));
     // float r = glm::sqrt(sample.x * (1.f - (r2 * r2)));
-    float r = glm::sqrt(glm::mix(r2, 1.f, sample.x));
+    float r = glm::sqrt(glm::mix(innerRadius, 1.f, sample.x));
     float theta = sample.y * glm::two_pi<float>();
 
     float cosTheta = glm::cos(theta);
@@ -54,7 +53,7 @@ glm::vec2 UniformSampleRing(glm::vec2 sample, float* pdf)
     float x = r * cosTheta;
     float y = r * sinTheta;
 
-    *pdf = 1.f / (glm::pi<float>() * (1.f - r2));
+    *pdf = 1.f / (glm::pi<float>() * (1.f - innerRadius));
 
     return glm::vec2(x, y);
 }
@@ -566,8 +565,7 @@ public:
     glm::vec3 Sample_Li(Intersection* lightIsect, const glm::vec3& p, glm::vec3* wi, glm::vec2 sample, float* pdf)
     {
         // Sample disk
-        // glm::vec4 diskSample = glm::vec4(UniformSampleDisk(sample), 0.f, 1.f);
-        glm::vec4 diskSample = glm::vec4(UniformSampleRing(sample, pdf) * radius, 0.f, 1.f);
+        glm::vec4 diskSample = glm::vec4(UniformSampleDisk(sample), 0.f, 1.f);
 
         // Transform disk sample to world space
         diskSample = diskSample * LightToWorld;
@@ -580,10 +578,7 @@ public:
         *wi = glm::normalize(*wi);
 
         // Calculate pdf with respect to disk area
-        // *pdf = 1.f / (glm::pi<float>() * (radius * radius));
-        float r2 = 0.001f; // 0.8f;
-        // *pdf = 1.f / (glm::pi<float>() * ((radius * radius) - (r2 * r2 * radius)));
-        *pdf /= (glm::pi<float>() * radius * radius);
+        *pdf = 1.f / (glm::pi<float>() * (radius * radius));
 
         // Calculate pdf projected onto hemisphere around p
         *pdf = *pdf * ((distPToSample * distPToSample) / glm::dot(-*wi, n));
@@ -609,15 +604,88 @@ public:
         glm::vec3 diskCenterToPHit = pHit - diskCenter;
 
         // If not hit, pdf == 0
-        float r2 = 0.001f * radius;
         float dist = diskCenterToPHit.x * diskCenterToPHit.x + diskCenterToPHit.y * diskCenterToPHit.y + diskCenterToPHit.z * diskCenterToPHit.z;
-        if (dist > radius * radius) return 0.f;
-        if (dist < r2 * r2) return 0.f;
+        if (dist > radius) return 0.f;
 
         // If hit, calculate pdf projected onto hemisphere around p
-        // float pdf = 1.f / (glm::pi<float>() * radius * radius);
-        
-        float pdf = 1.f / (glm::pi<float>() * (1.f - r2 * r2) * radius * radius);
+        float pdf = 1.f / (glm::pi<float>() * radius * radius);
+        pdf = pdf * ((t * t) / glm::dot(-wi, n));
+
+        glm::vec3 pToPHit = pHit - p;
+        float distPToPHit = glm::sqrt(pToPHit.x * pToPHit.x + pToPHit.y * pToPHit.y + pToPHit.z * pToPHit.z);
+        // TODO: Figure out why this is negative??
+        lightIsect->tMax = distPToPHit;
+
+        return pdf;
+    }
+
+    float radius = 1.f;
+};
+
+class RingLight : public Light
+{
+public:
+    RingLight(float radius, float innerRadius, glm::vec3 Le, glm::mat4 LightToWorld) : Light(Le, LightToWorld), radius(radius), innerRadius(innerRadius)
+    {
+        isDelta = false;
+    }
+
+    glm::vec3 Li(Intersection* lightIsect, const glm::vec3& p, const glm::vec3& wi)
+    {
+        if (Pdf(lightIsect, p, wi) > 0.f) return Le;
+
+        else return glm::vec3(0.f);
+    }
+
+    glm::vec3 Sample_Li(Intersection* lightIsect, const glm::vec3& p, glm::vec3* wi, glm::vec2 sample, float* pdf)
+    {
+        // Sample disk
+        glm::vec4 ringSample = glm::vec4(UniformSampleRing(sample, pdf, innerRadius / radius) * radius, 0.f, 1.f);
+
+        // Transform disk sample to world space
+        ringSample = ringSample * LightToWorld;
+        glm::vec3 n = glm::vec3(glm::vec4(0.f, 0.f, -1.f, 0.f) * LightToWorld);
+
+        // Set wi
+        *wi = glm::vec3(ringSample) - p;
+        *wi = glm::vec3(ringSample) - p;
+        float distPToSample = glm::sqrt(wi->x * wi->x + wi->y * wi->y + wi->z * wi->z);
+        *wi = glm::normalize(*wi);
+
+        // Calculate pdf with respect to disk area
+        *pdf /= (glm::pi<float>() * radius * radius);
+
+        // Calculate pdf projected onto hemisphere around p
+        *pdf = *pdf * ((distPToSample * distPToSample) / glm::dot(-*wi, n));
+        if (!(glm::dot(-*wi, n) > 0.f)) *pdf = 0.f;
+
+        lightIsect->p = ringSample;
+        lightIsect->tMax = distPToSample;
+
+        return Le;
+    }
+
+    float Pdf(Intersection* lightIsect, const glm::vec3& p, const glm::vec3& wi)
+    {
+        glm::vec3 ringCenter = glm::vec3(glm::vec4(0.f, 0.f, 0.f, 1.f) * LightToWorld);
+        glm::vec3 n = glm::vec3(glm::vec4(0.f, 0.f, -1.f, 0.f) * LightToWorld);
+
+        // Distance of plane from origin
+        float D = glm::dot(ringCenter, n);
+
+        // Intersect plane
+        float t = (D - glm::dot(p, n)) / glm::dot(wi, n);
+        glm::vec3 pHit = p + t * wi;
+
+        glm::vec3 diskCenterToPHit = pHit - ringCenter;
+
+        // If not hit, pdf == 0
+        float dist = diskCenterToPHit.x * diskCenterToPHit.x + diskCenterToPHit.y * diskCenterToPHit.y + diskCenterToPHit.z * diskCenterToPHit.z;
+        if (dist > radius * radius) return 0.f;
+        if (dist < innerRadius * innerRadius) return 0.f;
+
+        // If hit, calculate pdf projected onto hemisphere around p
+        float pdf = 1.f / (glm::pi<float>() * (1.f - ((innerRadius * innerRadius) / (radius * radius))) * radius * radius);
         pdf = pdf * ((t * t) / glm::dot(-wi, n));
 
         glm::vec3 pToPHit = pHit - p;
@@ -627,6 +695,7 @@ public:
         return pdf;
     }
 
+    float innerRadius = 0.f;
     float radius = 1.f;
 };
 
@@ -919,7 +988,7 @@ public:
                             {
                                 if (node->chunks[j]->Intersect(ray, &triIsect))
                                 {
-                                    hit = true;
+                                    if (triIsect.tMax < isect->tMax) hit = true;
                                 }
                             }
                         }
@@ -1618,6 +1687,16 @@ Scene LoadScene(std::string scenePath)
                     std::shared_ptr<Light> light = std::make_shared<DiskLight>(radius, Le, lightToWorld);
                     lights.push_back(light);
                 }
+
+                if (type == "ring")
+                {
+                    float radius = elem["radius"].get<float>();
+                    float innerRadius = elem["innerRadius"].get<float>();
+                    std::vector<float> LeGet = elem["Le"].get<std::vector<float>>();
+                    glm::vec3 Le = glm::vec3(LeGet[0], LeGet[1], LeGet[2]);
+                    std::shared_ptr<Light> light = std::make_shared<RingLight>(radius, innerRadius, Le, lightToWorld);
+                    lights.push_back(light);
+                }
             }
 
             catch (nlohmann::json::exception& e)
@@ -1809,8 +1888,9 @@ std::vector<Pixel> RenderTile(const Scene& scene, const float* filterTable, uint
                                 else break;
                             }
 
-                            // isect = Intersection();
-                            // if (x == 264 && y == scene.info.imageHeight - 178)
+                            isect = Intersection();
+
+                            // if (x == 360 && y == scene.info.imageHeight - 188)
                             // {
                             //     // std::cout << isect.p.x << " " << isect.p.y << " " << isect.p.z << "\n";
                             //     // for (uint8_t i = 0; i < 16; ++i)
@@ -1820,7 +1900,7 @@ std::vector<Pixel> RenderTile(const Scene& scene, const float* filterTable, uint
                             //     // }
                             //     
                             //     // std::cout << wi.x << " " << wi.y << " " << wi.z << "\n";
-                            //     L = glm::vec3(1024.f, 1024.f, 1024.f);
+                            //     L = glm::vec3(1.f, 0.f, 1.f);
                             // }
                         }
 
