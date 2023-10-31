@@ -1,9 +1,9 @@
 {
     "renderInfo": {
-        "imageWidth": 640,
-        "imageHeight": 360,
+        "imageWidth": 1280,
+        "imageHeight": 720,
         "bucketSize": 16,
-        "spp": 128,
+        "spp": 16,
         "filterWidth": 2
     },
 
@@ -14,13 +14,13 @@
 
     "meshes": [
         {
-        "filePath": "input\\meshes\\sphere.geo",
+        "filePath": "input\\meshes\\dragon.geo",
         "material": [
             {
             "type": "glossy",
-            "R": [0.99, 0.99, 0.99],
+            "R": [0.99, 0.76, 0.327],
             "eta": 100.0,
-            "roughness": 0.1
+            "roughness": 0.2
             }
         ],
         "transform": [ 1.0, 0.0, 0.0, 0.0000,
@@ -40,16 +40,6 @@
             0.0,  1.0,  0.0, 0.0000,
             0.0000, 0.0,  1.0, 0.0000,
             0.0000,  0.0000,  0.0000, 1.000]
-        },
-        {
-        "filePath": "input\\meshes\\monkeyFlat.geo",
-        "material": [
-            {
-            "type": "lambert",
-            "rho": [0.755, 0.468, 0.95]
-            }
-        ],
-        "transform": [-0.9580658078193665, 0.28654834628105164, 0.0, 0.553266167640686, -0.28654834628105164, -0.9580658078193665, 0.0, -4.510923862457275, 0.0, 0.0, 1.0, -0.2960704267024994, 0.0, 0.0, 0.0, 1.0]
         }
     ],    
 

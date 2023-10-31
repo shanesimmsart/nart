@@ -19,8 +19,8 @@
 #define FilterTableResolution 64
 
 #define DEBUG_BUCKET 0
-#define DEBUG_BUCKET_X 22
-#define DEBUG_BUCKET_Y 10
+#define DEBUG_BUCKET_X 19
+#define DEBUG_BUCKET_Y 9
 
 #define BSDF_SAMPLING 1
 #define LIGHT_SAMPLING 1
@@ -169,12 +169,12 @@ public:
 
     glm::vec3 ToLocal(glm::vec3 v)
     {
-        return glm::vec3(glm::dot(v, nt), glm::dot(v, nb), glm::dot(v, n));
+        return glm::normalize(glm::vec3(glm::dot(v, nt), glm::dot(v, nb), glm::dot(v, n)));
     }
 
     glm::vec3 ToWorld(glm::vec3 v)
     {
-        return v.x * nt + v.y * nb + v.z * n;
+        return glm::normalize(v.x * nt + v.y * nb + v.z * n);
     }
 
     void AddBxDF(std::shared_ptr<BxDF> bxdf)
@@ -1868,7 +1868,7 @@ std::vector<Pixel> RenderTile(const Scene& scene, const float* filterTable, uint
                             scatteringPdf = 0.f;
                             glm::vec3 f = bsdf.Sample_f(wo, &wi, scatteringSample, &scatteringPdf, &flags);
                             if ( scatteringPdf <= 0.f ) break;
-                            if ( flags & DIFFUSE ) roughnessOffset += 0.1f;
+                            if ( flags & DIFFUSE ) roughnessOffset += 0.2f;
                             beta *= (f / scatteringPdf) * glm::abs(wi.z);
                             // Transform to world
                             ray = Ray(isect.p + (isect.gn * shadowBias), bsdf.ToWorld(wi));
