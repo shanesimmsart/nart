@@ -19,8 +19,8 @@
 #define FilterTableResolution 64
 
 #define DEBUG_BUCKET 0
-#define DEBUG_BUCKET_X 29
-#define DEBUG_BUCKET_Y 9
+#define DEBUG_BUCKET_X 59
+#define DEBUG_BUCKET_Y 26
 
 #define BSDF_SAMPLING 1
 #define LIGHT_SAMPLING 1
@@ -193,16 +193,47 @@ public:
         return f;
     }
 
-    // Sample and sum BRDFs, setting wi and averaging pdfs
+    // Sample and sum BRDFs
     glm::vec3 Sample_f(glm::vec3 wo, glm::vec3* wi, glm::vec2 sample, float* pdf, BSDFFlags* flags)
     {
-        return bxdfs[0]->Sample_f(wo, wi, sample, pdf, flags);
+        // Choose a BxDF
+        uint8_t bxdfIndex = static_cast<uint8_t>(sample.x * static_cast<float>(numBxDFs));
+
+        // Remap sample to remove bias
+        sample.x = glm::fract(sample.x * static_cast<float>(numBxDFs));
+
+        glm::vec3 f = bxdfs[bxdfIndex]->Sample_f(wo, wi, sample, pdf, flags);
+
+        if (!(*flags | SPECULAR))
+        {
+            for (uint8_t i = 0; i < numBxDFs; ++i)
+            {
+                if (i != bxdfIndex)
+                {
+                    glm::vec3 w;
+                    float p;
+                    f += bxdfs[i]->f(wo, *wi);
+                    *pdf += bxdfs[i]->Pdf(wo, *wi);
+                }
+            }
+        }
+
+        *pdf /= static_cast<float>(numBxDFs);
+
+        return f;
     }
 
     // Average pdfs
     float Pdf(const glm::vec3& wo, const glm::vec3& wi)
     {
-        return bxdfs[0]->Pdf(wo, wi);
+        float pdf = 0.f;
+
+        for (uint8_t i = 0; i < numBxDFs; ++i)
+        {
+            pdf += bxdfs[i]->Pdf(wo, wi);
+        }
+
+        return pdf / static_cast<float>(numBxDFs);
     }
 
 protected:
@@ -479,6 +510,36 @@ private:
     float eta;
 };
 
+class PlasticMaterial : public Material
+{
+public:
+    PlasticMaterial(glm::vec3 rho, glm::vec3 R, float eta, float alpha) : rho(rho), R(R), eta(eta), alpha(alpha)
+    {}
+
+    BSDF CreateBSDF(glm::vec3 n, float roughnessOffset)
+    {
+        BSDF bsdf(n, 2);
+
+        bsdf.AddBxDF(std::make_shared<LambertBRDF>(rho));
+
+        float alphaAdjusted = glm::min(alpha + roughnessOffset, 1.f);
+
+        if (alphaAdjusted > 0.001f) {
+            bsdf.AddBxDF(std::make_shared<TorranceSparrowBRDF>(R, eta, alphaAdjusted));
+        }
+
+        else bsdf.AddBxDF(std::make_shared<SpecularBRDF>(R, eta));
+
+        return bsdf;
+    }
+
+private:
+    glm::vec3 rho;
+    float alpha;
+    glm::vec3 R;
+    float eta;
+};
+
 struct Intersection
 {
     std::shared_ptr<Material> material;
@@ -580,8 +641,14 @@ public:
         // Calculate pdf with respect to disk area
         *pdf = 1.f / (glm::pi<float>() * (radius * radius));
 
+        float wiDotN = glm::dot(-*wi, n);
+        if (wiDotN <= 0.f)
+        {
+            *pdf = 0.f;
+            return glm::vec3(0.f);
+        }
         // Calculate pdf projected onto hemisphere around p
-        *pdf = *pdf * ((distPToSample * distPToSample) / glm::dot(-*wi, n));
+        *pdf = *pdf * ((distPToSample * distPToSample) / wiDotN);
 
         lightIsect->p = diskSample;
         lightIsect->tMax = distPToSample;
@@ -593,6 +660,8 @@ public:
     {
         glm::vec3 diskCenter = glm::vec3(glm::vec4(0.f, 0.f, 0.f, 1.f) * LightToWorld);
         glm::vec3 n = glm::vec3(glm::vec4(0.f, 0.f, -1.f, 0.f) * LightToWorld);
+
+        if (glm::dot(wi, n) >= 0.f) return 0.f;
 
         // Distance of plane from origin
         float D = glm::dot(diskCenter, n);
@@ -656,8 +725,14 @@ public:
         *pdf /= (glm::pi<float>() * radius * radius);
 
         // Calculate pdf projected onto hemisphere around p
-        *pdf = *pdf * ((distPToSample * distPToSample) / glm::dot(-*wi, n));
-        if (!(glm::dot(-*wi, n) > 0.f)) *pdf = 0.f;
+        float wiDotN = glm::dot(-*wi, n);
+        if (wiDotN <= 0.f)
+        {
+            *pdf = 0.f;
+            return glm::vec3(0.f);
+        }
+        // Calculate pdf projected onto hemisphere around p
+        *pdf = *pdf * ((distPToSample * distPToSample) / wiDotN);
 
         lightIsect->p = ringSample;
         lightIsect->tMax = distPToSample;
@@ -669,6 +744,8 @@ public:
     {
         glm::vec3 ringCenter = glm::vec3(glm::vec4(0.f, 0.f, 0.f, 1.f) * LightToWorld);
         glm::vec3 n = glm::vec3(glm::vec4(0.f, 0.f, -1.f, 0.f) * LightToWorld);
+
+        if (glm::dot(wi, n) >= 0.f) return 0.f;
 
         // Distance of plane from origin
         float D = glm::dot(ringCenter, n);
@@ -1590,6 +1667,20 @@ Scene LoadScene(std::string scenePath)
                         material = std::make_shared<GlossyDielectricMaterial>(R, eta, alpha);
                     }
 
+                    else if (type == "plastic")
+                    {
+                        std::vector<float> rhoGet = mat["rho"].get<std::vector<float>>();
+                        glm::vec3 rho = glm::vec3(rhoGet[0], rhoGet[1], rhoGet[2]);
+                        std::vector<float> RGet = mat["R"].get<std::vector<float>>();
+                        glm::vec3 R = glm::vec3(glm::min(RGet[0], 1.f - glm::epsilon<float>()), glm::min(RGet[1], 1.f - glm::epsilon<float>()), glm::min(RGet[2], 1.f - glm::epsilon<float>()));
+                        float eta = mat["eta"].get<float>();
+                        // float alpha = AlphaToRoughness(mat["roughness"].get<float>()); 
+                        // float alpha = roughness * roughness;
+                        // float alpha = RoughnessToAlpha(mat["roughness"].get<float>());
+                        float alpha = mat["roughness"].get<float>();
+                        material = std::make_shared<PlasticMaterial>(rho, R, eta, alpha);
+                    }
+
                     else
                     {
                         std::cerr << "Error: '" << type << "' is not a material type.\nAborting.\n";
@@ -1761,7 +1852,7 @@ std::vector<Pixel> RenderTile(const Scene& scene, const float* filterTable, uint
 
                     float roughnessOffset = 0.f;
 
-                    for (uint32_t bounce = 0; ; ++bounce)
+                    for (uint32_t bounce = 0; bounce < 6; ++bounce)
                     {
                         // TODO: Move this inside of scene.Intersect()
                         float lightTMax = isect.tMax;
@@ -1798,7 +1889,7 @@ std::vector<Pixel> RenderTile(const Scene& scene, const float* filterTable, uint
                             BSDF bsdf = isect.material->CreateBSDF(isect.sn, roughnessOffset);
                             glm::vec3 wo = bsdf.ToLocal(-ray.d);
 
-                            float shadowBias = glm::epsilon<float>() * 16.f;
+                            float shadowBias = 0.01f;
 
                             glm::vec3 wi;
                             glm::vec3 Li;
