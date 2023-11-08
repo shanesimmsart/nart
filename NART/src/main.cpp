@@ -204,21 +204,24 @@ public:
 
         glm::vec3 f = bxdfs[bxdfIndex]->Sample_f(wo, wi, sample, pdf, flags);
 
-        if (!(*flags | SPECULAR))
+        float numEvaluated = 1.f;
+
+        if (!(*flags & SPECULAR))
         {
             for (uint8_t i = 0; i < numBxDFs; ++i)
             {
-                if (i != bxdfIndex)
+                if (i != bxdfIndex && !(bxdfs[i]->flags & SPECULAR))
                 {
                     glm::vec3 w;
                     float p;
                     f += bxdfs[i]->f(wo, *wi);
                     *pdf += bxdfs[i]->Pdf(wo, *wi);
+                    numEvaluated += 1.f;
                 }
             }
         }
 
-        *pdf /= static_cast<float>(numBxDFs);
+        *pdf /= numEvaluated;
 
         return f;
     }
@@ -246,7 +249,10 @@ protected:
 class LambertBRDF : public BxDF
 {
 public:
-    LambertBRDF(glm::vec3 rho) : rho(rho) {}
+    LambertBRDF(glm::vec3 rho) : rho(rho)
+    {
+        flags = DIFFUSE;
+    }
 
     glm::vec3 f(const glm::vec3& wo, const glm::vec3& wi)
     {
@@ -273,7 +279,10 @@ private:
 class SpecularBRDF : public BxDF
 {
 public:
-    SpecularBRDF(glm::vec3 R, float eta) : R(R), eta(eta) {}
+    SpecularBRDF(glm::vec3 R, float eta) : R(R), eta(eta)
+    {
+        flags = SPECULAR;
+    }
 
     glm::vec3 f(const glm::vec3& wo, const glm::vec3& wi)
     {
@@ -325,7 +334,10 @@ float AlphaToRoughness(float alpha)
 class TorranceSparrowBRDF : public BxDF
 {
 public:
-    TorranceSparrowBRDF(glm::vec3 R, float eta, float alpha) : R(R), eta(eta), alpha(alpha) {}
+    TorranceSparrowBRDF(glm::vec3 R, float eta, float alpha) : R(R), eta(eta), alpha(alpha)
+    {
+        flags = GLOSSY;
+    }
 
     // Masking-shadowing Function (Smith) (GGX)
     float Lambda(const glm::vec3& w)    
@@ -1378,7 +1390,7 @@ std::shared_ptr<TriMesh> LoadMeshFromFile(std::string filePath, glm::mat4& objec
     for (uint32_t i = 0; i < maxNormIndex + 1; ++i)
     {
         // Need to transform normals by inverse transpose - otherwise the normal will get scaled by any non-uniform scaling
-        norms[i] = glm::normalize(glm::inverse(objectToWorld) * glm::vec4(normCoords[j], normCoords[j + 1], normCoords[j + 2], 0.f));
+        norms[i] = glm::normalize(glm::transpose(glm::inverse(objectToWorld)) * glm::vec4(normCoords[j], normCoords[j + 1], normCoords[j + 2], 0.f));
         j += 3;
     }
 
@@ -1889,7 +1901,7 @@ std::vector<Pixel> RenderTile(const Scene& scene, const float* filterTable, uint
                             BSDF bsdf = isect.material->CreateBSDF(isect.sn, roughnessOffset);
                             glm::vec3 wo = bsdf.ToLocal(-ray.d);
 
-                            float shadowBias = 0.01f;
+                            float shadowBias = 0.0001f;
 
                             glm::vec3 wi;
                             glm::vec3 Li;
