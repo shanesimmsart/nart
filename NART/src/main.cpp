@@ -212,16 +212,13 @@ public:
             {
                 if (i != bxdfIndex && !(bxdfs[i]->flags & SPECULAR))
                 {
-                    glm::vec3 w;
-                    float p;
                     f += bxdfs[i]->f(wo, *wi);
                     *pdf += bxdfs[i]->Pdf(wo, *wi);
                     numEvaluated += 1.f;
                 }
             }
+            *pdf /= static_cast<float>(numBxDFs); //numEvaluated;
         }
-
-        *pdf /= numEvaluated;
 
         return f;
     }
@@ -1864,7 +1861,7 @@ std::vector<Pixel> RenderTile(const Scene& scene, const float* filterTable, uint
 
                     float roughnessOffset = 0.f;
 
-                    for (uint32_t bounce = 0; bounce < 6; ++bounce)
+                    for (uint32_t bounce = 0; bounce < 10; ++bounce)
                     {
                         // TODO: Move this inside of scene.Intersect()
                         float lightTMax = isect.tMax;
@@ -1885,8 +1882,6 @@ std::vector<Pixel> RenderTile(const Scene& scene, const float* filterTable, uint
 
                         if (bounce == 0)
                         {
-                            alpha = 1.f;
-
                             if (lightHit == true)
                             {
                                 L = Le;
@@ -1896,6 +1891,8 @@ std::vector<Pixel> RenderTile(const Scene& scene, const float* filterTable, uint
 
                         if (scene.Intersect(ray, &isect))
                         {
+                            if (bounce == 0) alpha = 1.f;
+
                             std::uniform_real_distribution<float> distribution(0.f, 1.f - glm::epsilon<float>());
 
                             BSDF bsdf = isect.material->CreateBSDF(isect.sn, roughnessOffset);
@@ -1911,12 +1908,13 @@ std::vector<Pixel> RenderTile(const Scene& scene, const float* filterTable, uint
                             float numLights = static_cast<float>(scene.lights.size());
                             uint8_t lightIndex = static_cast<uint8_t>(glm::min(distribution(rng), 1.f - glm::epsilon<float>()) * numLights);
                             std::shared_ptr<Light> light = scene.lights[lightIndex];
+                            glm::vec3 f(0.f);
 
                             // Compute direct light
 #if BSDF_SAMPLING
                             scatteringPdf = 0.f;
                             glm::vec2 scatterSample(distribution(rng), distribution(rng));
-                            glm::vec3 f = bsdf.Sample_f(wo, &wi, scatterSample, &scatteringPdf, &flags);
+                            f = bsdf.Sample_f(wo, &wi, scatterSample, &scatteringPdf, &flags);
                                 
                             if (scatteringPdf > 0.f)
                             {
@@ -1934,7 +1932,11 @@ std::vector<Pixel> RenderTile(const Scene& scene, const float* filterTable, uint
 #if LIGHT_SAMPLING
                                         weight = (scatteringPdf * scatteringPdf) / (scatteringPdf * scatteringPdf + lightingPdf * lightingPdf);
 #endif
-                                        if (lightingPdf > 0.f) L += (f * Li * glm::max(wi.z, 0.f) * beta * weight) / scatteringPdf;
+                                        if (lightingPdf > 0.f)
+                                        {
+                                            L += (f * Li * glm::max(wi.z, 0.f) * beta * weight) / scatteringPdf;
+                                            L *= numLights;
+                                        }
                                     }
 
                                     else
@@ -1967,7 +1969,7 @@ std::vector<Pixel> RenderTile(const Scene& scene, const float* filterTable, uint
                                     weight = (lightingPdf * lightingPdf) / (scatteringPdf * scatteringPdf + lightingPdf * lightingPdf);
 #endif
                                     L += (f * Li * glm::max(wi.z, 0.f) * beta * weight) / lightingPdf;
-                                    L *= numLights;
+                                    // L *= numLights;
                                 }
                             }
 #endif
