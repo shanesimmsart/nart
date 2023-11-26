@@ -19,8 +19,8 @@
 #define FilterTableResolution 64
 
 #define DEBUG_BUCKET 0
-#define DEBUG_BUCKET_X 59
-#define DEBUG_BUCKET_Y 26
+#define DEBUG_BUCKET_X 53
+#define DEBUG_BUCKET_Y 21
 
 #define BSDF_SAMPLING 1
 #define LIGHT_SAMPLING 1
@@ -212,9 +212,13 @@ public:
             {
                 if (i != bxdfIndex && !(bxdfs[i]->flags & SPECULAR))
                 {
-                    f += bxdfs[i]->f(wo, *wi);
-                    *pdf += bxdfs[i]->Pdf(wo, *wi);
-                    numEvaluated += 1.f;
+                    float bxdfPdf = bxdfs[i]->Pdf(wo, *wi);
+                    if (bxdfPdf > 0.f)
+                    {
+                        *pdf += bxdfs[i]->Pdf(wo, *wi);
+                        f += bxdfs[i]->f(wo, *wi);
+                        numEvaluated += 1.f;
+                    }
                 }
             }
             *pdf /= static_cast<float>(numBxDFs); //numEvaluated;
@@ -377,6 +381,8 @@ public:
         float g = G(wo, wi);
         float d = D(wh);
         float fr = Fresnel(1.f, eta, glm::dot(wh, wi));
+
+        if (wo.z * wi.z == 0.f) return glm::vec3(0.f);
 
         return (R * g * d * fr) / (4.f * wo.z * wi.z);
         // return (R  * D(wh)) / (4.f * wo.z * wi.z);
@@ -568,7 +574,7 @@ struct Intersection
 class Light
 {
 public:
-    Light(glm::vec3 Le, glm::mat4 LightToWorld) : Le(Le), LightToWorld(LightToWorld) {}
+    Light(glm::vec3 Le, float intensity, glm::mat4 LightToWorld) : Le(Le), intensity(intensity), LightToWorld(LightToWorld) {}
 
     // Return incident radiance from light, set wi
     virtual glm::vec3 Li(Intersection* lightIsect, const glm::vec3& p, const glm::vec3& wi) = 0;
@@ -584,13 +590,14 @@ public:
 protected:
     // Radiance emitted
     glm::vec3 Le;
+    float intensity;
     glm::mat4 LightToWorld;
 };
 
 class DistantLight : public Light
 {
 public:
-    DistantLight(glm::vec3 Le, glm::mat4 LightToWorld) : Light(Le, LightToWorld)
+    DistantLight(glm::vec3 Le, float intensity, glm::mat4 LightToWorld) : Light(Le, intensity, LightToWorld)
     {
         isDelta = true;
         // Pointing down by default
@@ -606,7 +613,7 @@ public:
     {
         *wi = -direction;
         *pdf = 1.f;
-        return Le;
+        return Le * intensity;
     }
 
     float Pdf(Intersection* lightIsect, const glm::vec3& p, const glm::vec3& wi)
@@ -620,14 +627,14 @@ public:
 class DiskLight : public Light
 {
 public:
-    DiskLight(float radius, glm::vec3 Le, glm::mat4 LightToWorld) : Light(Le, LightToWorld), radius(radius)
+    DiskLight(float radius, glm::vec3 Le, float intensity, glm::mat4 LightToWorld) : Light(Le, intensity, LightToWorld), radius(radius)
     {
         isDelta = false;
     }
 
     glm::vec3 Li(Intersection* lightIsect, const glm::vec3& p, const glm::vec3& wi)
     {
-        if (Pdf(lightIsect, p, wi) > 0.f) return Le;
+        if (Pdf(lightIsect, p, wi) > 0.f) return Le * intensity;
 
         else return glm::vec3(0.f);
     }
@@ -635,20 +642,19 @@ public:
     glm::vec3 Sample_Li(Intersection* lightIsect, const glm::vec3& p, glm::vec3* wi, glm::vec2 sample, float* pdf)
     {
         // Sample disk
-        glm::vec4 diskSample = glm::vec4(UniformSampleDisk(sample), 0.f, 1.f);
+        glm::vec4 diskSample = glm::vec4(UniformSampleDisk(sample) * radius, 0.f, 1.f);
 
         // Transform disk sample to world space
         diskSample = diskSample * LightToWorld;
         glm::vec3 n = glm::vec3(glm::vec4(0.f, 0.f, -1.f, 0.f) * LightToWorld);
 
-        // Set wi
-        *wi = glm::vec3(diskSample) - p;
+        // Set w
         *wi = glm::vec3(diskSample) - p;
         float distPToSample = glm::sqrt(wi->x * wi->x + wi->y * wi->y + wi->z * wi->z);
         *wi = glm::normalize(*wi);
 
         // Calculate pdf with respect to disk area
-        *pdf = 1.f / (glm::pi<float>() * (radius * radius));
+        *pdf = 1.f / (glm::pi<float>() * radius * radius);
 
         float wiDotN = glm::dot(-*wi, n);
         if (wiDotN <= 0.f)
@@ -662,7 +668,7 @@ public:
         lightIsect->p = diskSample;
         lightIsect->tMax = distPToSample;
 
-        return Le;
+        return Le * intensity;
     }
 
     float Pdf(Intersection* lightIsect, const glm::vec3& p, const glm::vec3& wi)
@@ -685,7 +691,7 @@ public:
 
         // If not hit, pdf == 0
         float dist = diskCenterToPHit.x * diskCenterToPHit.x + diskCenterToPHit.y * diskCenterToPHit.y + diskCenterToPHit.z * diskCenterToPHit.z;
-        if (dist > radius) return 0.f;
+        if (dist > radius * radius) return 0.f;
 
         // If hit, calculate pdf projected onto hemisphere around p
         float pdf = 1.f / (glm::pi<float>() * radius * radius);
@@ -703,14 +709,14 @@ public:
 class RingLight : public Light
 {
 public:
-    RingLight(float radius, float innerRadius, glm::vec3 Le, glm::mat4 LightToWorld) : Light(Le, LightToWorld), radius(radius), innerRadius(innerRadius)
+    RingLight(float radius, float innerRadius, glm::vec3 Le, float intensity, glm::mat4 LightToWorld) : Light(Le, intensity, LightToWorld), radius(radius), innerRadius(innerRadius)
     {
         isDelta = false;
     }
 
     glm::vec3 Li(Intersection* lightIsect, const glm::vec3& p, const glm::vec3& wi)
     {
-        if (Pdf(lightIsect, p, wi) > 0.f) return Le;
+        if (Pdf(lightIsect, p, wi) > 0.f) return Le * intensity;
 
         else return glm::vec3(0.f);
     }
@@ -746,7 +752,7 @@ public:
         lightIsect->p = ringSample;
         lightIsect->tMax = distPToSample;
 
-        return Le;
+        return Le * intensity;
     }
 
     float Pdf(Intersection* lightIsect, const glm::vec3& p, const glm::vec3& wi)
@@ -1223,6 +1229,8 @@ public:
                 glm::vec3 triangleMin = glm::min(glm::min(meshes[j]->triangles[i].v0, meshes[j]->triangles[i].v1), meshes[j]->triangles[i].v2) - sceneMin;
                 glm::vec3 chunkCoords = glm::floor((triangleMin / sceneSize) * resolution);
                 uint32_t chunkIndex = static_cast<uint32_t>(glm::floor(chunkCoords.x * resolution.y * resolution.z + chunkCoords.y * resolution.z + chunkCoords.x));
+                // TODO: Find source of overshoots
+                chunkIndex = glm::min(chunkIndex, numChunks);
                 if (!chunks[chunkIndex])
                 {
                     std::shared_ptr<Chunk> chunk = std::make_shared<Chunk>();
@@ -1387,7 +1395,7 @@ std::shared_ptr<TriMesh> LoadMeshFromFile(std::string filePath, glm::mat4& objec
     for (uint32_t i = 0; i < maxNormIndex + 1; ++i)
     {
         // Need to transform normals by inverse transpose - otherwise the normal will get scaled by any non-uniform scaling
-        norms[i] = glm::normalize(glm::transpose(glm::inverse(objectToWorld)) * glm::vec4(normCoords[j], normCoords[j + 1], normCoords[j + 2], 0.f));
+        norms[i] = glm::normalize(glm::vec3(glm::inverse(((objectToWorld))) * glm::vec4(normCoords[j], normCoords[j + 1], normCoords[j + 2], 0.f)));
         j += 3;
     }
 
@@ -1672,7 +1680,7 @@ Scene LoadScene(std::string scenePath)
                         // float alpha = AlphaToRoughness(mat["roughness"].get<float>()); 
                         // float alpha = roughness * roughness;
                         // float alpha = RoughnessToAlpha(mat["roughness"].get<float>());
-                        float alpha = mat["roughness"].get<float>();
+                        float alpha = mat["alpha"].get<float>();
                         material = std::make_shared<GlossyDielectricMaterial>(R, eta, alpha);
                     }
 
@@ -1686,7 +1694,7 @@ Scene LoadScene(std::string scenePath)
                         // float alpha = AlphaToRoughness(mat["roughness"].get<float>()); 
                         // float alpha = roughness * roughness;
                         // float alpha = RoughnessToAlpha(mat["roughness"].get<float>());
-                        float alpha = mat["roughness"].get<float>();
+                        float alpha = mat["alpha"].get<float>();
                         material = std::make_shared<PlasticMaterial>(rho, R, eta, alpha);
                     }
 
@@ -1774,8 +1782,9 @@ Scene LoadScene(std::string scenePath)
                 if (type == "distant")
                 {
                     std::vector<float> LeGet = elem["Le"].get<std::vector<float>>();
+                    float intensity = elem["intensity"].get<float>();
                     glm::vec3 Le = glm::vec3(LeGet[0], LeGet[1], LeGet[2]);
-                    std::shared_ptr<Light> light = std::make_shared<DistantLight>(Le, lightToWorld);
+                    std::shared_ptr<Light> light = std::make_shared<DistantLight>(Le, intensity, lightToWorld);
                     lights.push_back(light);
                 }
 
@@ -1783,8 +1792,9 @@ Scene LoadScene(std::string scenePath)
                 {
                     float radius = elem["radius"].get<float>();
                     std::vector<float> LeGet = elem["Le"].get<std::vector<float>>();
+                    float intensity = elem["intensity"].get<float>();
                     glm::vec3 Le = glm::vec3(LeGet[0], LeGet[1], LeGet[2]);
-                    std::shared_ptr<Light> light = std::make_shared<DiskLight>(radius, Le, lightToWorld);
+                    std::shared_ptr<Light> light = std::make_shared<DiskLight>(radius, Le, intensity, lightToWorld);
                     lights.push_back(light);
                 }
 
@@ -1793,8 +1803,9 @@ Scene LoadScene(std::string scenePath)
                     float radius = elem["radius"].get<float>();
                     float innerRadius = elem["innerRadius"].get<float>();
                     std::vector<float> LeGet = elem["Le"].get<std::vector<float>>();
+                    float intensity = elem["intensity"].get<float>();
                     glm::vec3 Le = glm::vec3(LeGet[0], LeGet[1], LeGet[2]);
-                    std::shared_ptr<Light> light = std::make_shared<RingLight>(radius, innerRadius, Le, lightToWorld);
+                    std::shared_ptr<Light> light = std::make_shared<RingLight>(radius, innerRadius, Le, intensity, lightToWorld);
                     lights.push_back(light);
                 }
             }
@@ -1963,7 +1974,6 @@ std::vector<Pixel> RenderTile(const Scene& scene, const float* filterTable, uint
                                 scatteringPdf = bsdf.Pdf(wo, wi);
                                 if (scatteringPdf > 0.f)
                                 {
-                                    glm::vec3 wi = bsdf.ToLocal(wiWorld);
                                     glm::vec3 f = bsdf.f(wo, wi);
 #if BSDF_SAMPLING
                                     weight = (lightingPdf * lightingPdf) / (scatteringPdf * scatteringPdf + lightingPdf * lightingPdf);
