@@ -1,9 +1,12 @@
 # nart
 Not Another Ray Tracer is yet another one of my ray tracing projects.
 
-Everything is written without referring to existing code or ray tracing resources, just what I can remember from what I've learned and have been able to derive by myself. Therefore, expect some pretty dodgy code!
+Everything is written without referring to existing code or ray tracing resources, just what I can remember from what I've learned and have been able to derive by myself.
 
-![progres 11](https://github.com/shanesimmsart/nart/assets/9335280/43f44dfa-ad56-411e-afa7-6f684896e955)
+You can follow my progress [here](https://twitter.com/shaneasimms/status/1728665955797217295).
+
+![progres 40](https://github.com/shanesimmsart/nart/assets/9335280/73c2d403-7943-4572-8ac5-ea2031828160)
+![progres 41](https://github.com/shanesimmsart/nart/assets/9335280/9f8b50ad-87e1-4efb-a1b8-a5a86f2ffd9a)
 
 ## Features so far:
   - JSON scene file description
@@ -11,7 +14,10 @@ Everything is written without referring to existing code or ray tracing resource
   - BVH acceleration structure
   - Gaussian image filtering
   - EXR file format
-  - ...not a whole lot else (yet)
+  - Lambertian and microfacet specular BRDFs
+  - Analytic disk and ring area lights
+  - Multiple importance sampling
+  - Russian roulette
 
 ## Dependencies:
   - [OpenEXR](https://openexr.com/en/latest/install.html#install)
