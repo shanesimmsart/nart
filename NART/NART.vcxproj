@@ -169,6 +169,17 @@
   <ItemGroup>
     <ClCompile Include="src\main.cpp" />
   </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="src\bvh.h" />
+    <ClInclude Include="src\geometry.h" />
+    <ClInclude Include="src\lights.h" />
+    <ClInclude Include="src\materials.h" />
+    <ClInclude Include="src\nart.h" />
+    <ClInclude Include="src\reflection.h" />
+    <ClInclude Include="src\render.h" />
+    <ClInclude Include="src\sampling.h" />
+    <ClInclude Include="src\scene.h" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
