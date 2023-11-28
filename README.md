@@ -18,6 +18,7 @@ You can follow my progress [here](https://twitter.com/shaneasimms/status/1728665
   - Analytic disk and ring area lights
   - Multiple importance sampling
   - Russian roulette
+  - Firefly reduction via increasing roughness on secondary specular bounces after diffuse bounces (arguably better than clamping / filtering out caustics)
 
 ## Dependencies:
   - [OpenEXR](https://openexr.com/en/latest/install.html#install)
