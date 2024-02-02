@@ -167,7 +167,15 @@
     <ProjectReference />
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="src\bvh.cpp" />
+    <ClCompile Include="src\geometry.cpp" />
+    <ClCompile Include="src\lights.cpp" />
     <ClCompile Include="src\main.cpp" />
+    <ClCompile Include="src\materials.cpp" />
+    <ClCompile Include="src\reflection.cpp" />
+    <ClCompile Include="src\render.cpp" />
+    <ClCompile Include="src\sampling.cpp" />
+    <ClCompile Include="src\scene.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\bvh.h" />
