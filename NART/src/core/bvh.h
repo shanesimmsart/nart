@@ -21,7 +21,7 @@ struct BoundingVolume
 // A chunk of triangles to be placed inside of a bounding volume
 class Chunk
 {
-    // Stores a mesh pointer and an index into one of it's triangles
+    // Stores a mesh pointer and an index into one of its triangles
     struct TriangleIndex
     {
         TriangleIndex(std::shared_ptr<TriMesh> mesh, const uint32_t& index) : mesh(mesh), index(index) {}

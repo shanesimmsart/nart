@@ -5,7 +5,7 @@
 #include <vector>
 #include <memory>
 
-#include "materials.h"
+#include "material.h"
 
 #define Infinity std::numeric_limits<float>::infinity()
 

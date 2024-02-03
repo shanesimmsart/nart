@@ -4,7 +4,7 @@ BoundingVolume::BoundingVolume()
 {
     // Bounding volumes are defined by slabs along the cardinal direction vectors
     // and diagonally oriented vectors
-    float OneOverSqrt3 = 1.f / glm::sqrt(3);
+    float OneOverSqrt3 = 1.f / glm::sqrt(3.f);
     normals[0] = glm::vec3(1, 0, 0);
     normals[1] = glm::vec3(0, 1, 0);
     normals[2] = glm::vec3(0, 0, 1);

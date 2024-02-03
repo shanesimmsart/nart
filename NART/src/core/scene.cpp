@@ -184,23 +184,7 @@ std::shared_ptr<TriMesh> LoadMeshFromFile(std::string filePath, glm::mat4& objec
 
 
 
-Camera::Camera(float fov, glm::mat4 cameraToWorld) : fov(fov), cameraToWorld(cameraToWorld) {}
-
-
-
-
-RenderInfo::RenderInfo(uint32_t imageWidth, uint32_t imageHeight, uint32_t bucketSize, uint32_t spp, float filterWidth) :
-    imageWidth(imageWidth), imageHeight(imageHeight), bucketSize(bucketSize), spp(spp), filterWidth(filterWidth)
-{
-    filterBounds = static_cast<uint32_t>(glm::ceil(filterWidth));
-    tileSize = bucketSize + (filterBounds * 2);
-    totalWidth = imageWidth + (filterBounds * 2);
-    totalHeight = imageHeight + (filterBounds * 2);
-}
-
-
-
-Scene::Scene(RenderInfo info, Camera camera, std::vector<std::shared_ptr<Light>> lights, std::shared_ptr<BVH> bvh) : info(info), camera(camera), lights(lights), bvh(bvh)
+Scene::Scene(std::shared_ptr<Camera> camera, std::vector<std::shared_ptr<Light>> lights, std::shared_ptr<BVH> bvh) : camera(camera), lights(lights), bvh(bvh)
 {}
 
 bool Scene::Intersect(const Ray& ray, Intersection* isect) const
@@ -230,39 +214,6 @@ Scene LoadScene(std::string scenePath)
         std::abort();
     }
 
-    nlohmann::json jsonInfo = json["renderInfo"];
-
-    // Default values if not found in json
-    uint32_t imageWidth = 64;
-    uint32_t imageHeight = 64;
-    uint32_t bucketSize = 32;
-    uint32_t spp = 1;
-    float filterWidth = 1.f;
-
-    if (!jsonInfo.is_null())
-    {
-        try
-        {
-            imageWidth = jsonInfo["imageWidth"].get<uint32_t>();
-            imageHeight = jsonInfo["imageHeight"].get<uint32_t>();
-            bucketSize = jsonInfo["bucketSize"].get<uint32_t>();
-            spp = jsonInfo["spp"].get<uint32_t>();
-            filterWidth = jsonInfo["filterWidth"].get<float>();
-        }
-
-        catch (nlohmann::json::exception& e)
-        {
-            std::cerr << "Error in renderInfo: " << e.what() << "\n";
-        }
-    }
-
-    else
-    {
-        std::cerr << "Warning: No render info found.\n";
-    }
-
-    RenderInfo info(imageWidth, imageHeight, bucketSize, spp, filterWidth);
-
     // Default values if not found in json
     glm::mat4 cameraToWorld(1.f);
     float fov = 1.f;
@@ -285,7 +236,7 @@ Scene LoadScene(std::string scenePath)
         j += 4;
     }
 
-    Camera camera(fov, cameraToWorld);
+    std::shared_ptr<Camera> camera = std::make_shared<PinholeCamera>(fov, cameraToWorld);
 
     std::vector<std::string> mesh_filePaths;
     std::vector<std::shared_ptr<Material>> mesh_materials;
@@ -464,7 +415,7 @@ Scene LoadScene(std::string scenePath)
         }
     }
 
-    return Scene(info, camera, lights, bvh);
+    return Scene(camera, lights, bvh);
 }
 
 

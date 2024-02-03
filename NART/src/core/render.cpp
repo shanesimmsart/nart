@@ -9,23 +9,22 @@
 #define BSDF_SAMPLING 1
 #define LIGHT_SAMPLING 1
 
-float Gaussian(float width, float x)
+RenderSession::RenderSession(const Scene& scene, uint32_t imageWidth, uint32_t imageHeight, uint32_t bucketSize, uint32_t spp, float filterWidth) :
+    scene(scene), imageWidth(imageWidth), imageHeight(imageHeight), bucketSize(bucketSize), spp(spp), filterWidth(filterWidth)
 {
-    if (x >= width) return 0.f;
-
-    // In a Gaussian distribution, any value beyond 3 standard deviations is negligible (<0.3%)
-    float sigma = width / 3.f;
-
-    return (1.f / glm::sqrt(2.f * glm::pi<float>() * sigma * sigma)) * glm::exp(-(x * x) / (2.f * sigma * sigma));
+    filterBounds = static_cast<uint32_t>(glm::ceil(filterWidth));
+    tileSize = bucketSize + (filterBounds * 2);
+    totalWidth = imageWidth + (filterBounds * 2);
+    totalHeight = imageHeight + (filterBounds * 2);
 }
 
-void AddSample(const RenderInfo& info, const float* filterTable, glm::vec2 sampleCoords, glm::vec4 L, std::vector<Pixel>& pixels)
+void RenderSession::AddSample(const float* filterTable, glm::vec2 sampleCoords, glm::vec4 L, std::vector<Pixel>& pixels)
 {
     // Calculate discrete x and y bounds of filter
-    uint32_t x0 = static_cast<uint32_t>(glm::floor(sampleCoords.x - info.filterWidth));
-    uint32_t x1 = static_cast<uint32_t>(glm::ceil(sampleCoords.x + info.filterWidth));
-    uint32_t y0 = static_cast<uint32_t>(glm::floor(sampleCoords.y - info.filterWidth));
-    uint32_t y1 = static_cast<uint32_t>(glm::ceil(sampleCoords.y + info.filterWidth));
+    uint32_t x0 = static_cast<uint32_t>(glm::floor(sampleCoords.x - filterWidth));
+    uint32_t x1 = static_cast<uint32_t>(glm::ceil(sampleCoords.x + filterWidth));
+    uint32_t y0 = static_cast<uint32_t>(glm::floor(sampleCoords.y - filterWidth));
+    uint32_t y1 = static_cast<uint32_t>(glm::ceil(sampleCoords.y + filterWidth));
 
     for (uint32_t y = y0; y < y1; ++y)
     {
@@ -37,15 +36,15 @@ void AddSample(const RenderInfo& info, const float* filterTable, glm::vec2 sampl
             float dist = glm::sqrt(distX * distX + distY * distY);
 
             // Get index into precomputed filter table based on distance from sample, as opposed to:
-            // float filterWeight = Gaussian(scene.info.filterWidth, dist);
-            uint8_t filterIndex = glm::min(static_cast<uint8_t>((dist / info.filterWidth) * FilterTableResolution), static_cast<uint8_t>(FilterTableResolution - 1));
+            // float filterWeight = Gaussian(filterWidth, dist);
+            uint8_t filterIndex = glm::min(static_cast<uint8_t>((dist / filterWidth) * FilterTableResolution), static_cast<uint8_t>(FilterTableResolution - 1));
             float filterWeight = filterTable[filterIndex];
 
             // Transform image coords into discrete tile coords
-            uint32_t tileX = static_cast<uint32_t>(glm::floor(distX + glm::mod(sampleCoords.x - static_cast<float>(info.filterBounds), static_cast<float>(info.bucketSize)) + static_cast<float>(info.filterBounds)));
-            uint32_t tileY = static_cast<uint32_t>(glm::floor(distY + glm::mod(sampleCoords.y - static_cast<float>(info.filterBounds), static_cast<float>(info.bucketSize)) + static_cast<float>(info.filterBounds)));
+            uint32_t tileX = static_cast<uint32_t>(glm::floor(distX + glm::mod(sampleCoords.x - static_cast<float>(filterBounds), static_cast<float>(bucketSize)) + static_cast<float>(filterBounds)));
+            uint32_t tileY = static_cast<uint32_t>(glm::floor(distY + glm::mod(sampleCoords.y - static_cast<float>(filterBounds), static_cast<float>(bucketSize)) + static_cast<float>(filterBounds)));
 
-            uint32_t tileIndex = (tileY * info.tileSize) + tileX;
+            uint32_t tileIndex = (tileY * tileSize) + tileX;
 
             pixels[tileIndex].contribution += L * filterWeight;
             pixels[tileIndex].filterWeightSum += filterWeight;
@@ -53,43 +52,28 @@ void AddSample(const RenderInfo& info, const float* filterTable, glm::vec2 sampl
     }
 }
 
-std::vector<Pixel> RenderTile(const Scene& scene, const float* filterTable, uint32_t x0, uint32_t x1, uint32_t y0, uint32_t y1)
+std::vector<Pixel> RenderSession::RenderTile(const float* filterTable, uint32_t x0, uint32_t x1, uint32_t y0, uint32_t y1)
 {
-    std::vector<Pixel> pixels((scene.info.tileSize) * (scene.info.tileSize));
+    std::vector<Pixel> pixels((tileSize) * (tileSize));
 
     for (uint32_t y = y0; y < y1; ++y)
     {
         for (uint32_t x = x0; x < x1; ++x)
         {
             // Don't render beyond total image extents when the current tile goes beyond them
-            if (x < scene.info.totalWidth && y < scene.info.totalHeight)
+            if (x < totalWidth && y < totalHeight)
             {
                 // Create stratified image samples in a Latin square pattern
                 std::default_random_engine rng;
-                rng.seed(y * scene.info.totalWidth + x);
-                std::vector<glm::vec2> imageSamples(scene.info.spp);
-                LatinSquare(rng, scene.info.spp, imageSamples);
+                rng.seed(y * totalWidth + x);
+                std::vector<glm::vec2> imageSamples(spp);
+                LatinSquare(rng, spp, imageSamples);
 
-                for (uint32_t i = 0; i < scene.info.spp; ++i)
+                for (uint32_t i = 0; i < spp; ++i)
                 {
                     glm::vec2 imageSample = imageSamples[i];
 
-                    // Create ray in camera-space
-                    float aspectRatio = static_cast<float>(scene.info.imageWidth) / static_cast<float>(scene.info.imageHeight);
-                    float px = (((static_cast<float>(x) + imageSample.x) / static_cast<float>(scene.info.imageWidth)) * 2.f - 1.f) * glm::tan(glm::radians(scene.camera.fov)) * aspectRatio;
-                    float py = (((static_cast<float>(y) + imageSample.y) / static_cast<float>(scene.info.imageHeight)) * -2.f + 1.f) * glm::tan(glm::radians(scene.camera.fov));
-
-                    glm::vec4 o = glm::vec4(0.f, 0.f, 0.f, 1.f);
-                    glm::vec4 d(px, py, -1.f, 0.f);
-                    glm::normalize(d);
-
-                    // Transform ray into world-space using camera transform
-                    glm::mat4 camToWorld = scene.camera.cameraToWorld;
-
-                    o = o * camToWorld;
-                    d = d * camToWorld;
-
-                    Ray ray(o, d);
+                    Ray ray = scene.camera->CastRay(imageSample, imageWidth, imageHeight, x, y);
 
                     // Radiance
                     glm::vec3 L(0.f, 0.f, 0.f);
@@ -245,11 +229,11 @@ std::vector<Pixel> RenderTile(const Scene& scene, const float* filterTable, uint
                     }
 
                     // Transform image sample to "total" image coords (image including filter bounds)
-                    glm::vec2 sampleCoords = glm::vec2(static_cast<float>(x + scene.info.filterBounds) + imageSample.x, static_cast<float>(y + scene.info.filterBounds) + imageSample.y);
+                    glm::vec2 sampleCoords = glm::vec2(static_cast<float>(x + filterBounds) + imageSample.x, static_cast<float>(y + filterBounds) + imageSample.y);
                     // Add sample to pixels within filter width
                     // Sample coords are respective to total image size
                     glm::vec4 Lalpha(L, alpha);
-                    AddSample(scene.info, filterTable, sampleCoords, Lalpha, pixels);
+                    AddSample(filterTable, sampleCoords, Lalpha, pixels);
                 }
             }
         }
@@ -258,12 +242,12 @@ std::vector<Pixel> RenderTile(const Scene& scene, const float* filterTable, uint
     return pixels;
 }
 
-std::vector<Pixel> Render(const Scene& scene)
+std::vector<Pixel> RenderSession::Render()
 {
-    std::vector<Pixel> pixels(scene.info.totalHeight * scene.info.totalWidth);
+    std::vector<Pixel> pixels(totalHeight * totalWidth);
 
-    uint32_t nBucketsX = uint32_t(glm::ceil(static_cast<float>(scene.info.imageWidth) / static_cast<float>(scene.info.bucketSize)));
-    uint32_t nBucketsY = uint32_t(glm::ceil(static_cast<float>(scene.info.imageHeight) / static_cast<float>(scene.info.bucketSize)));
+    uint32_t nBucketsX = uint32_t(glm::ceil(static_cast<float>(imageWidth) / static_cast<float>(bucketSize)));
+    uint32_t nBucketsY = uint32_t(glm::ceil(static_cast<float>(imageHeight) / static_cast<float>(bucketSize)));
     uint32_t nBuckets = nBucketsX * nBucketsY;
 
     // Pre-compute filter values (only need to do this in 1D as filter is currently only isotropic)
@@ -274,7 +258,7 @@ std::vector<Pixel> Render(const Scene& scene)
     }
 
     // Create tiles and render each one in parallel
-    std::vector<Pixel> p(scene.info.tileSize * scene.info.tileSize);
+    std::vector<Pixel> p(tileSize * tileSize);
     std::vector<std::vector<Pixel>> tiles(nBuckets, p);
 
     tbb::task_group tg;
@@ -293,9 +277,9 @@ std::vector<Pixel> Render(const Scene& scene)
         {
 #endif
             uint32_t index = y * nBucketsX + x;
-            tg.run([&scene, &filterTable, &tiles, index, x, y, &nBucketsComplete, nBuckets]
+            tg.run([this, &filterTable, &tiles, index, x, y, &nBucketsComplete, nBuckets]
                 {
-                    std::vector<Pixel> tile = RenderTile(scene, filterTable, scene.info.bucketSize * x, scene.info.bucketSize * (x + 1), scene.info.bucketSize * y, scene.info.bucketSize * (y + 1));
+                    std::vector<Pixel> tile = RenderTile(filterTable, bucketSize * x, bucketSize * (x + 1), bucketSize * y, bucketSize * (y + 1));
                     tiles[index] = tile;
                     nBucketsComplete++;
                     // TODO: Multi-threaded logging?
@@ -313,19 +297,19 @@ std::vector<Pixel> Render(const Scene& scene)
     {
         for (uint32_t i = 0; i < nBucketsX; ++i)
         {
-            for (uint32_t y = 0; y < scene.info.tileSize; ++y)
+            for (uint32_t y = 0; y < tileSize; ++y)
             {
-                for (uint32_t x = 0; x < scene.info.tileSize; ++x)
+                for (uint32_t x = 0; x < tileSize; ++x)
                 {
                     std::vector<Pixel> v = tiles[j * nBucketsX + i];
-                    uint32_t pX = x + (i * scene.info.bucketSize);
-                    uint32_t pY = y + (j * scene.info.bucketSize);
+                    uint32_t pX = x + (i * bucketSize);
+                    uint32_t pY = y + (j * bucketSize);
                     // Ignore tile pixels beyond image bounds
-                    if (pX < (scene.info.imageWidth + scene.info.filterBounds) && pY < (scene.info.imageHeight + scene.info.filterBounds))
+                    if (pX < (imageWidth + filterBounds) && pY < (imageHeight + filterBounds))
                     {
-                        uint32_t pIndex = (pY * scene.info.totalWidth) + pX;
-                        pixels[pIndex].contribution += v[(y * scene.info.tileSize) + x].contribution;
-                        pixels[pIndex].filterWeightSum += v[(y * scene.info.tileSize) + x].filterWeightSum;
+                        uint32_t pIndex = (pY * totalWidth) + pX;
+                        pixels[pIndex].contribution += v[(y * tileSize) + x].contribution;
+                        pixels[pIndex].filterWeightSum += v[(y * tileSize) + x].filterWeightSum;
                     }
                 }
             }
@@ -335,30 +319,87 @@ std::vector<Pixel> Render(const Scene& scene)
     return pixels;
 }
 
-void WriteImageToEXR(const RenderInfo& info, const std::vector<Pixel>& pixels, const char* filePath)
+void RenderSession::WriteImageToEXR(const std::vector<Pixel>& pixels, const char* filePath)
 {
     // Write image to EXR
-    Imf::Array2D<Imf::Rgba> imagePixels(info.imageHeight, info.imageWidth);
+    Imf::Array2D<Imf::Rgba> imagePixels(imageHeight, imageWidth);
 
     // Ignore pixels beyond image bounds
-    for (uint32_t y = info.filterBounds; y < (info.imageHeight + info.filterBounds); ++y)
+    for (uint32_t y = filterBounds; y < (imageHeight + filterBounds); ++y)
     {
-        for (uint32_t x = info.filterBounds; x < (info.imageWidth + info.filterBounds); ++x)
+        for (uint32_t x = filterBounds; x < (imageWidth + filterBounds); ++x)
         {
             glm::vec4 result(0.f);
 
-            result = pixels[y * info.totalWidth + x].contribution / pixels[y * info.totalWidth + x].filterWeightSum;
+            result = pixels[y * totalWidth + x].contribution / pixels[y * totalWidth + x].filterWeightSum;
 
-            imagePixels[y - info.filterBounds][x - info.filterBounds].r = result.r;
-            imagePixels[y - info.filterBounds][x - info.filterBounds].g = result.g;
-            imagePixels[y - info.filterBounds][x - info.filterBounds].b = result.b;
-            imagePixels[y - info.filterBounds][x - info.filterBounds].a = result.a;
+            imagePixels[y - filterBounds][x - filterBounds].r = result.r;
+            imagePixels[y - filterBounds][x - filterBounds].g = result.g;
+            imagePixels[y - filterBounds][x - filterBounds].b = result.b;
+            imagePixels[y - filterBounds][x - filterBounds].a = result.a;
         }
     }
 
-    Imf::RgbaOutputFile file(filePath, info.imageWidth, info.imageHeight, Imf::WRITE_RGBA);
-    file.setFrameBuffer(&imagePixels[0][0], 1, info.imageWidth);
-    file.writePixels(info.imageHeight);
+    Imf::RgbaOutputFile file(filePath, imageWidth, imageHeight, Imf::WRITE_RGBA);
+    file.setFrameBuffer(&imagePixels[0][0], 1, imageWidth);
+    file.writePixels(imageHeight);
+}
+
+std::vector<std::shared_ptr<RenderSession>> LoadSessions(std::string scenePath, const Scene& scene)
+{
+    nlohmann::json json;
+    std::ifstream ifs;
+    ifs.open(scenePath);
+
+    if (!ifs)
+    {
+        std::cerr << "Error: Scene file could not be opened.\n";
+    }
+
+    try
+    {
+        ifs >> json;
+    }
+
+    catch (nlohmann::json::exception& e)
+    {
+        std::cerr << "Error parsing scene: " << e.what() << "\nAborting.\n";
+        std::abort();
+    }
+
+    // nlohmann::json jsonInfo = json["renderSessions"];
+
+    std::vector<std::shared_ptr<RenderSession>> sessions;
+
+    if (!json["renderSessions"].is_null()) {
+        for (auto& elem : json["renderSessions"])
+        {
+            // Default values if not found in json
+            uint32_t imageWidth = 64;
+            uint32_t imageHeight = 64;
+            uint32_t bucketSize = 32;
+            uint32_t spp = 1;
+            float filterWidth = 1.f;
+
+            try
+            {
+                imageWidth = elem["imageWidth"].get<uint32_t>();
+                imageHeight = elem["imageHeight"].get<uint32_t>();
+                bucketSize = elem["bucketSize"].get<uint32_t>();
+                spp = elem["spp"].get<uint32_t>();
+                filterWidth = elem["filterWidth"].get<float>();
+            }
+
+            catch (nlohmann::json::exception& e)
+            {
+                std::cerr << "Error in renderInfo: " << e.what() << "\n";
+            }
+
+            sessions.push_back(std::make_shared<RenderSession>(scene, imageWidth, imageHeight, bucketSize, spp, filterWidth));
+        }
+    }
+
+    return sessions;
 }
 
 
