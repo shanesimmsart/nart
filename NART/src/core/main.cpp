@@ -26,7 +26,7 @@ int main(int argc, char* argv[])
 
     auto end = std::chrono::high_resolution_clock::now();
     std::chrono::duration<float> duration = end - start;
-    std::cout << "Completed in " << duration.count() << "s\n";
+    std::cout << "Completed in a " << duration.count() << "s\n";
 
     return 0;
 }

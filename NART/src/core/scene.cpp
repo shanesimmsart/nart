@@ -281,7 +281,8 @@ Scene LoadScene(std::string scenePath)
                         std::vector<float> RGet = mat["R"].get<std::vector<float>>();
                         glm::vec3 R = glm::vec3(glm::min(RGet[0], 1.f - glm::epsilon<float>()), glm::min(RGet[1], 1.f - glm::epsilon<float>()), glm::min(RGet[2], 1.f - glm::epsilon<float>()));
                         float eta = mat["eta"].get<float>();
-                        float alpha = mat["alpha"].get<float>();
+                        float roughness = mat["roughness"].get<float>();
+                        float alpha = roughness * roughness;
                         material = std::make_shared<GlossyDielectricMaterial>(R, eta, alpha);
                     }
 
@@ -292,7 +293,8 @@ Scene LoadScene(std::string scenePath)
                         std::vector<float> RGet = mat["R"].get<std::vector<float>>();
                         glm::vec3 R = glm::vec3(glm::min(RGet[0], 1.f - glm::epsilon<float>()), glm::min(RGet[1], 1.f - glm::epsilon<float>()), glm::min(RGet[2], 1.f - glm::epsilon<float>()));
                         float eta = mat["eta"].get<float>();
-                        float alpha = mat["alpha"].get<float>();
+                        float roughness = mat["roughness"].get<float>();
+                        float alpha = roughness * roughness;
                         material = std::make_shared<PlasticMaterial>(rho, R, eta, alpha);
                     }
 
