@@ -29,6 +29,8 @@ public:
 
     virtual float Pdf(const glm::vec3& wo, const glm::vec3& wi) = 0;
 
+    virtual ~BxDF() {}
+
     BSDFFlags flags;
 
 protected:

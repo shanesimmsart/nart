@@ -5,14 +5,14 @@ RingLight::RingLight(float radius, float innerRadius, glm::vec3 Le, float intens
     isDelta = false;
 }
 
-glm::vec3 RingLight::Li(Intersection* lightIsect, const glm::vec3& p, const glm::vec3& wi)
+glm::vec3 RingLight::Li(Intersection* lightIsect, const glm::vec3& p, const glm::vec3& wi) const
 {
     if (Pdf(lightIsect, p, wi) > 0.f) return Le * intensity;
 
     else return glm::vec3(0.f);
 }
 
-glm::vec3 RingLight::Sample_Li(Intersection* lightIsect, const glm::vec3& p, glm::vec3* wi, glm::vec2 sample, float* pdf)
+glm::vec3 RingLight::Sample_Li(Intersection* lightIsect, const glm::vec3& p, glm::vec3* wi, glm::vec2 sample, float* pdf) const
 {
     // Sample disk
     glm::vec4 ringSample = glm::vec4(UniformSampleRing(sample, pdf, innerRadius / radius) * radius, 0.f, 1.f);
@@ -46,7 +46,7 @@ glm::vec3 RingLight::Sample_Li(Intersection* lightIsect, const glm::vec3& p, glm
     return Le * intensity;
 }
 
-float RingLight::Pdf(Intersection* lightIsect, const glm::vec3& p, const glm::vec3& wi)
+float RingLight::Pdf(Intersection* lightIsect, const glm::vec3& p, const glm::vec3& wi) const
 {
     glm::vec3 ringCenter = glm::vec3(glm::vec4(0.f, 0.f, 0.f, 1.f) * LightToWorld);
     glm::vec3 n = glm::vec3(glm::vec4(0.f, 0.f, -1.f, 0.f) * LightToWorld);

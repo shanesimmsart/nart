@@ -20,12 +20,22 @@ std::shared_ptr<TriMesh> LoadMeshFromFile(std::string filePath, glm::mat4& objec
 class Scene
 {
 public:
-    Scene(std::shared_ptr<Camera> camera, std::vector<std::shared_ptr<Light>> lights, std::shared_ptr<BVH> bvh);
+    Scene(std::shared_ptr<Camera> camera, std::vector<const Light*> lights, std::shared_ptr<BVH> bvh);
+
+    ~Scene()
+    {
+        for (const Light* light : lights)
+        {
+            delete light;
+        }
+
+        lights.clear();
+    }
 
     bool Intersect(const Ray& ray, Intersection* isect) const;
 
     std::shared_ptr<Camera> camera;
-    std::vector<std::shared_ptr<Light>> lights;
+    std::vector<const Light*> lights;
     std::shared_ptr<BVH> bvh;
 };
 

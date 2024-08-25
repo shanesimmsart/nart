@@ -7,6 +7,8 @@ class Material
 public:
     virtual BSDF CreateBSDF(glm::vec3 n, float roughnessOffset) = 0;
 
+    virtual ~Material() {}
+
 protected:
     Material() {};
 };

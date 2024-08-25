@@ -131,7 +131,7 @@ std::vector<Pixel> RenderSession::RenderTile(const float* filterTable, uint32_t 
 
                             float numLights = static_cast<float>(scene.lights.size());
                             uint8_t lightIndex = static_cast<uint8_t>(glm::min(distribution(rng), 1.f - glm::epsilon<float>()) * numLights);
-                            std::shared_ptr<Light> light = scene.lights[lightIndex];
+                            const Light* light = scene.lights[lightIndex];
                             glm::vec3 f(0.f);
 
                             // Compute direct light

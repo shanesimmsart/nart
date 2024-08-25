@@ -184,7 +184,7 @@ std::shared_ptr<TriMesh> LoadMeshFromFile(std::string filePath, glm::mat4& objec
 
 
 
-Scene::Scene(std::shared_ptr<Camera> camera, std::vector<std::shared_ptr<Light>> lights, std::shared_ptr<BVH> bvh) : camera(camera), lights(lights), bvh(bvh)
+Scene::Scene(std::shared_ptr<Camera> camera, std::vector<const Light*> lights, std::shared_ptr<BVH> bvh) : camera(camera), lights(lights), bvh(bvh)
 {}
 
 bool Scene::Intersect(const Ray& ray, Intersection* isect) const
@@ -352,7 +352,7 @@ Scene LoadScene(std::string scenePath)
     std::cout << "Building BVH...\n";
     std::shared_ptr<BVH> bvh = std::make_shared<BVH>(BVH(meshes));
 
-    std::vector<std::shared_ptr<Light>> lights;
+    std::vector<const Light*> lights;
 
     if (!json["lights"].is_null()) {
         for (auto& elem : json["lights"])
@@ -384,7 +384,7 @@ Scene LoadScene(std::string scenePath)
                     std::vector<float> LeGet = elem["Le"].get<std::vector<float>>();
                     float intensity = elem["intensity"].get<float>();
                     glm::vec3 Le = glm::vec3(LeGet[0], LeGet[1], LeGet[2]);
-                    std::shared_ptr<Light> light = std::make_shared<DistantLight>(Le, intensity, lightToWorld);
+                    const Light* light = new DistantLight(Le, intensity, lightToWorld);
                     lights.push_back(light);
                 }
 
@@ -394,7 +394,7 @@ Scene LoadScene(std::string scenePath)
                     std::vector<float> LeGet = elem["Le"].get<std::vector<float>>();
                     float intensity = elem["intensity"].get<float>();
                     glm::vec3 Le = glm::vec3(LeGet[0], LeGet[1], LeGet[2]);
-                    std::shared_ptr<Light> light = std::make_shared<DiskLight>(radius, Le, intensity, lightToWorld);
+                    const Light* light = new DiskLight(radius, Le, intensity, lightToWorld);
                     lights.push_back(light);
                 }
 
@@ -405,7 +405,7 @@ Scene LoadScene(std::string scenePath)
                     std::vector<float> LeGet = elem["Le"].get<std::vector<float>>();
                     float intensity = elem["intensity"].get<float>();
                     glm::vec3 Le = glm::vec3(LeGet[0], LeGet[1], LeGet[2]);
-                    std::shared_ptr<Light> light = std::make_shared<RingLight>(radius, innerRadius, Le, intensity, lightToWorld);
+                    const Light* light = new RingLight(radius, innerRadius, Le, intensity, lightToWorld);
                     lights.push_back(light);
                 }
             }
