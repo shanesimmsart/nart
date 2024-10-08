@@ -1,10 +1,10 @@
 {
     "renderSessions": [
         {
-            "imageWidth": 128,
-            "imageHeight": 72,
-            "bucketSize": 128,
-            "spp": 4,
+            "imageWidth": 1280,
+            "imageHeight": 720,
+            "bucketSize": 16,
+            "spp": 64,
             "filterWidth": 2
         }
     ],
@@ -29,7 +29,7 @@
             0.0000,  0.0000,  0.0000, 1.000]
         },
         {
-        "filePath": "input\\meshes\\dragon.geo",
+        "filePath": "input\\meshes\\dragon_lo.geo",
         "material": [
             {
             "type": "glossy",
@@ -38,10 +38,7 @@
             "roughness": 0.31622776601
             }
         ],
-        "transform": [ 1.0, 0.0, 0.0, 0.0000,
-            0.0,  1.0,  0.0, 0.0000,
-            0.0000, 0.0,  1.0, 0.168848,
-            0.0000,  0.0000,  0.0000, 1.000]
+        "transform": [ 7.628658, -23.807638, 0.000000, 0.335121, 23.807638, 7.628658, 0.000000, 0.112525, 0.000000, 0.000000, 25.000000, -2.593325, 0.000000, 0.000000, 0.000000, 1.000000 ]
         },
         {
         "filePath": "input\\meshes\\sphere.geo",

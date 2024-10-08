@@ -199,6 +199,7 @@
     <ClInclude Include="src\core\nart.h" />
     <ClInclude Include="src\core\reflection.h" />
     <ClInclude Include="src\core\render.h" />
+    <ClInclude Include="src\core\rng.h" />
     <ClInclude Include="src\core\sampling.h" />
     <ClInclude Include="src\core\scene.h" />
     <ClInclude Include="src\lights\disklight.h" />

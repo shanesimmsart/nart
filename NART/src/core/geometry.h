@@ -9,13 +9,21 @@
 
 #define Infinity std::numeric_limits<float>::infinity()
 
+#define WOOT 1
+
 class Ray
 {
 public:
     Ray(glm::vec3 o, glm::vec3 d);
 
     glm::vec3 o = glm::vec3(0.f, 0.f, 0.f);
-    glm::vec3 d = glm::vec3(0.f, 1.f, 0.f);
+    glm::vec3 d = glm::vec3(0.f, 0.f, 1.f);
+#if WOOT
+    uint8_t majorAxis = 2;
+    float Sx = 1.f;
+    float Sy = 1.f;
+    float Sz = 1.f;
+#endif
 };
 
 struct Intersection

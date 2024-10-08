@@ -3,11 +3,14 @@
 #define FilterTableResolution 64
 
 #define DEBUG_BUCKET 0
-#define DEBUG_BUCKET_X 53
-#define DEBUG_BUCKET_Y 21
+#define DEBUG_BUCKET_X 32
+#define DEBUG_BUCKET_Y 13
 
 #define BSDF_SAMPLING 1
 #define LIGHT_SAMPLING 1
+#define MAX_BOUNCES 10
+
+#define NEW_RNG 1
 
 RenderSession::RenderSession(const Scene& scene, uint32_t imageWidth, uint32_t imageHeight, uint32_t bucketSize, uint32_t spp, float filterWidth) :
     scene(scene), imageWidth(imageWidth), imageHeight(imageHeight), bucketSize(bucketSize), spp(spp), filterWidth(filterWidth)
@@ -64,8 +67,13 @@ std::vector<Pixel> RenderSession::RenderTile(const float* filterTable, uint32_t 
             if (x < totalWidth && y < totalHeight)
             {
                 // Create stratified image samples in a Latin square pattern
+#if !NEW_RNG
                 std::default_random_engine rng;
                 rng.seed(y * totalWidth + x);
+#else
+                RNG rng;
+                rng.Seed(y * totalWidth + x);
+#endif
                 std::vector<glm::vec2> imageSamples(spp);
                 LatinSquare(rng, spp, imageSamples);
 
@@ -85,7 +93,7 @@ std::vector<Pixel> RenderSession::RenderTile(const float* filterTable, uint32_t 
 
                     float roughnessOffset = 0.f;
 
-                    for (uint32_t bounce = 0; bounce < 10; ++bounce)
+                    for (uint32_t bounce = 0; bounce < MAX_BOUNCES; ++bounce)
                     {
                         // TODO: Move this inside of scene.Intersect()
                         float lightTMax = isect.tMax;
@@ -117,7 +125,9 @@ std::vector<Pixel> RenderSession::RenderTile(const float* filterTable, uint32_t 
                         {
                             if (bounce == 0) alpha = 1.f;
 
+#if !NEW_RNG
                             std::uniform_real_distribution<float> distribution(0.f, 1.f - glm::epsilon<float>());
+#endif
 
                             BSDF bsdf = isect.material->CreateBSDF(isect.sn, roughnessOffset);
                             glm::vec3 wo = bsdf.ToLocal(-ray.d);
@@ -130,14 +140,22 @@ std::vector<Pixel> RenderSession::RenderTile(const float* filterTable, uint32_t 
                             float lightingPdf = 0.f;
 
                             float numLights = static_cast<float>(scene.lights.size());
+#if !NEW_RNG
                             uint8_t lightIndex = static_cast<uint8_t>(glm::min(distribution(rng), 1.f - glm::epsilon<float>()) * numLights);
+#else
+                            uint8_t lightIndex = static_cast<uint8_t>(glm::min(rng.UniformFloat(), 1.f - glm::epsilon<float>()) * numLights);
+#endif
                             const Light* light = scene.lights[lightIndex];
                             glm::vec3 f(0.f);
 
                             // Compute direct light
 #if BSDF_SAMPLING
                             scatteringPdf = 0.f;
+#if !NEW_RNG
                             glm::vec2 scatterSample(distribution(rng), distribution(rng));
+#else
+                            glm::vec2 scatterSample(rng.UniformFloat(), rng.UniformFloat());
+#endif
                             f = bsdf.Sample_f(wo, &wi, scatterSample, &scatteringPdf, &flags);
 
                             if (scatteringPdf > 0.f)
@@ -174,7 +192,11 @@ std::vector<Pixel> RenderSession::RenderTile(const float* filterTable, uint32_t 
 #if LIGHT_SAMPLING
                             glm::vec3 wiWorld;
                             lightingPdf = 0.f;
+#if !NEW_RNG
                             glm::vec2 lightSample(distribution(rng), distribution(rng));
+#else
+                            glm::vec2 lightSample(rng.UniformFloat(), rng.UniformFloat());
+#endif
                             // lightIsect.tMax used for checking shadows
                             Intersection lightIsect;
                             Li = light->Sample_Li(&lightIsect, isect.p, &wiWorld, lightSample, &lightingPdf);
@@ -198,7 +220,11 @@ std::vector<Pixel> RenderSession::RenderTile(const float* filterTable, uint32_t 
 #endif
 
                             // Spawn new ray
+#if !NEW_RNG
                             glm::vec2 scatteringSample(distribution(rng), distribution(rng));
+#else
+                            glm::vec2 scatteringSample(rng.UniformFloat(), rng.UniformFloat());
+#endif
                             scatteringPdf = 0.f;
                             f = bsdf.Sample_f(wo, &wi, scatteringSample, &scatteringPdf, &flags);
                             if (scatteringPdf <= 0.f) break;
@@ -214,7 +240,11 @@ std::vector<Pixel> RenderSession::RenderTile(const float* filterTable, uint32_t 
 
                             if (bounce > 3)
                             {
+#if !NEW_RNG
                                 if (q >= distribution(rng))
+#else
+                                if (q >= rng.UniformFloat())
+#endif
                                 {
                                     beta /= q;
                                 }
@@ -222,6 +252,7 @@ std::vector<Pixel> RenderSession::RenderTile(const float* filterTable, uint32_t 
                                 else break;
                             }
 
+                            
                             isect = Intersection();
                         }
 
@@ -233,6 +264,7 @@ std::vector<Pixel> RenderSession::RenderTile(const float* filterTable, uint32_t 
                     // Add sample to pixels within filter width
                     // Sample coords are respective to total image size
                     glm::vec4 Lalpha(L, alpha);
+                    // glm::vec4 Lalpha(isect.sn, alpha);
                     AddSample(filterTable, sampleCoords, Lalpha, pixels);
                 }
             }
@@ -283,7 +315,7 @@ std::vector<Pixel> RenderSession::Render()
                     tiles[index] = tile;
                     nBucketsComplete++;
                     // TODO: Multi-threaded logging?
-                    std::cout << "\r" << (int)glm::floor(((float)nBucketsComplete / (float)nBuckets) * 100.f) << "%   " << std::flush;
+                    // std::cout << "\r" << (int)glm::floor(((float)nBucketsComplete / (float)nBuckets) * 100.f) << "%   " << std::flush;
                 });
         }
     }
@@ -291,7 +323,7 @@ std::vector<Pixel> RenderSession::Render()
     tg.wait();
 
     // Combine tiles into image
-    std::cout << "\nCombining tiles into image...\n";
+    // std::cout << "\nCombining tiles into image...\n";
 
     for (uint32_t j = 0; j < nBucketsY; ++j)
     {
