@@ -194,6 +194,9 @@ bool Scene::Intersect(const Ray& ray, Intersection* isect) const
 
 Scene LoadScene(std::string scenePath)
 {
+    // TODO: Raw const pointers for all scene state
+    //       Break into smaller functions
+    //       Make less ugly
     nlohmann::json json;
     std::ifstream ifs;
     ifs.open(scenePath);
@@ -238,21 +241,27 @@ Scene LoadScene(std::string scenePath)
 
     std::shared_ptr<Camera> camera = std::make_shared<PinholeCamera>(fov, cameraToWorld);
 
-    std::vector<std::string> mesh_filePaths;
-    std::vector<std::shared_ptr<Material>> mesh_materials;
+    std::vector<std::string> meshFilePaths;
+    std::vector<std::shared_ptr<Material>> meshMaterials;
+    std::vector<glm::mat4> meshTransforms;
     if (!json["meshes"].is_null()) {
+        uint8_t numMeshes = json["meshes"].size();
+
+        meshFilePaths.reserve(numMeshes);
+        meshMaterials.reserve(numMeshes);
+        meshTransforms.reserve(numMeshes);
+
         for (auto& elem : json["meshes"])
         {
             std::string filePath = "";
             try
             {
-                filePath = elem["filePath"].get<std::string>();
+                meshFilePaths.push_back(elem["filePath"].get<std::string>());
             }
             catch (nlohmann::json::exception& e)
             {
                 std::cerr << "Error in mesh file path: " << e.what() << "\n";
             }
-            mesh_filePaths.push_back(filePath);
 
             for (auto& mat : elem["material"])
             {
@@ -265,7 +274,7 @@ Scene LoadScene(std::string scenePath)
                     {
                         std::vector<float> rhoGet = mat["rho"].get<std::vector<float>>();
                         glm::vec3 rho = glm::vec3(rhoGet[0], rhoGet[1], rhoGet[2]);
-                        material = std::make_shared<DiffuseMaterial>(rho);
+                        meshMaterials.push_back(std::make_shared<DiffuseMaterial>(rho));
                     }
 
                     else if (type == "specular")
@@ -273,7 +282,7 @@ Scene LoadScene(std::string scenePath)
                         std::vector<float> RGet = mat["R"].get<std::vector<float>>();
                         glm::vec3 R = glm::vec3(glm::min(RGet[0], 1.f - glm::epsilon<float>()), glm::min(RGet[1], 1.f - glm::epsilon<float>()), glm::min(RGet[2], 1.f - glm::epsilon<float>()));
                         float eta = mat["eta"].get<float>();
-                        material = std::make_shared<SpecularMaterial>(R, eta);
+                        meshMaterials.push_back(std::make_shared<SpecularMaterial>(R, eta));
                     }
 
                     else if (type == "glossy")
@@ -283,7 +292,7 @@ Scene LoadScene(std::string scenePath)
                         float eta = mat["eta"].get<float>();
                         float roughness = mat["roughness"].get<float>();
                         float alpha = roughness * roughness;
-                        material = std::make_shared<GlossyDielectricMaterial>(R, eta, alpha);
+                        meshMaterials.push_back(std::make_shared<GlossyDielectricMaterial>(R, eta, alpha));
                     }
 
                     else if (type == "plastic")
@@ -295,7 +304,7 @@ Scene LoadScene(std::string scenePath)
                         float eta = mat["eta"].get<float>();
                         float roughness = mat["roughness"].get<float>();
                         float alpha = roughness * roughness;
-                        material = std::make_shared<PlasticMaterial>(rho, R, eta, alpha);
+                        meshMaterials.push_back(std::make_shared<PlasticMaterial>(rho, R, eta, alpha));
                     }
 
                     else
@@ -308,18 +317,9 @@ Scene LoadScene(std::string scenePath)
                 {
                     std::cerr << "Error in mesh material type: " << e.what() << "\n";
                 }
-                mesh_materials.push_back(material);
             }
         }
-    }
 
-    else
-    {
-        std::cerr << "Error: No meshes found.\n";
-    }
-
-    std::vector<glm::mat4> meshTransforms;
-    if (!json["meshes"].is_null()) {
         for (auto& elem : json["meshes"])
         {
             std::vector<float> meshTransform = { 1.f, 0.f, 0.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f };
@@ -343,10 +343,16 @@ Scene LoadScene(std::string scenePath)
         }
     }
 
-    std::vector<std::shared_ptr<TriMesh>> meshes;
+    else
+    {
+        std::cerr << "Error: No meshes found.\n";
+    }
 
-    for (uint32_t i = 0; i < mesh_filePaths.size(); ++i) {
-        meshes.push_back(LoadMeshFromFile(mesh_filePaths[i], meshTransforms[i], mesh_materials[i]));
+    std::vector<std::shared_ptr<TriMesh>> meshes;
+    meshes.reserve(meshFilePaths.size());
+
+    for (uint32_t i = 0; i < meshFilePaths.size(); ++i) {
+        meshes.push_back(LoadMeshFromFile(meshFilePaths[i], meshTransforms[i], meshMaterials[i]));
     }
 
     std::cout << "Building BVH...\n";
@@ -355,6 +361,10 @@ Scene LoadScene(std::string scenePath)
     std::vector<const Light*> lights;
 
     if (!json["lights"].is_null()) {
+
+        uint8_t numLights = json["lights"].size();
+        lights.reserve(numLights);
+
         for (auto& elem : json["lights"])
         {
             std::vector<float> lightTransform = { 1.f, 0.f, 0.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f };

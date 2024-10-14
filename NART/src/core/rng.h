@@ -10,6 +10,7 @@ class RNG
 public:
 	void Seed(uint32_t seed)
 	{
+		// This is the seed Marsaglia uses
 		y = seed + 2463534242;
 	}
 
