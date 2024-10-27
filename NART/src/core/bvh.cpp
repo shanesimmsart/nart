@@ -1,6 +1,6 @@
 #include "bvh.h"
 
-#define OLDBVH 0
+#define OLDBVH 1
 
 BoundingVolume::BoundingVolume()
 {

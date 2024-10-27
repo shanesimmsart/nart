@@ -48,7 +48,7 @@ public:
 		// Treat y as a fraction, as though it's divided by 2^32
 		// Multiply by (max + 1) to remap to [0, max + 1)
 		// Take the integer part by bit-shifting to the right by 32 and casting to 32 bits
-		return (static_cast<uint64_t>(y * 0x9E3779BB) * (static_cast<uint64_t>(max) + 1)) >> 32;
+		return (static_cast<uint64_t>(y * 0x9E3779B9) * (static_cast<uint64_t>(max) + 1)) >> 32;
 	}
 
 private:

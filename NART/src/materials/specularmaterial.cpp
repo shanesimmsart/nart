@@ -3,14 +3,15 @@
 SpecularMaterial::SpecularMaterial(glm::vec3 R, float eta) : R(R), eta(eta)
 {}
 
-BSDF SpecularMaterial::CreateBSDF(glm::vec3 n, float roughnessOffset)
+BSDF SpecularMaterial::CreateBSDF(glm::vec3 n, float alphaTweak)
 {
     BSDF bsdf(n, 1);
 
-    float alpha = glm::min(roughnessOffset, 1.f);
+    float alpha = 0.f;
+    float alpha_prime = 1.f - ((1.f - alpha) * alphaTweak);
 
-    if (alpha > 0.001f) {
-        bsdf.AddBxDF(std::make_shared<TorranceSparrowBRDF>(R, eta, alpha));
+    if (alpha_prime > 0.0001f) {
+        bsdf.AddBxDF(std::make_shared<TorranceSparrowBRDF>(R, eta, glm::max(0.0001f, alpha), alpha_prime));
     }
 
     else bsdf.AddBxDF(std::make_shared<SpecularBRDF>(R, eta));

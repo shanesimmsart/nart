@@ -4,70 +4,7 @@
             "imageWidth": 1280,
             "imageHeight": 720,
             "bucketSize": 16,
-            "spp": 1,
-            "filterWidth": 2
-        },
-        {
-            "imageWidth": 1280,
-            "imageHeight": 720,
-            "bucketSize": 16,
-            "spp": 1,
-            "filterWidth": 2
-        },
-        {
-            "imageWidth": 1280,
-            "imageHeight": 720,
-            "bucketSize": 16,
-            "spp": 1,
-            "filterWidth": 2
-        },
-        {
-            "imageWidth": 1280,
-            "imageHeight": 720,
-            "bucketSize": 16,
-            "spp": 1,
-            "filterWidth": 2
-        },
-        {
-            "imageWidth": 1280,
-            "imageHeight": 720,
-            "bucketSize": 16,
-            "spp": 1,
-            "filterWidth": 2
-        },
-        {
-            "imageWidth": 1280,
-            "imageHeight": 720,
-            "bucketSize": 16,
-            "spp": 1,
-            "filterWidth": 2
-        },
-        {
-            "imageWidth": 1280,
-            "imageHeight": 720,
-            "bucketSize": 16,
-            "spp": 1,
-            "filterWidth": 2
-        },
-        {
-            "imageWidth": 1280,
-            "imageHeight": 720,
-            "bucketSize": 16,
-            "spp": 1,
-            "filterWidth": 2
-        },
-        {
-            "imageWidth": 1280,
-            "imageHeight": 720,
-            "bucketSize": 16,
-            "spp": 1,
-            "filterWidth": 2
-        },
-        {
-            "imageWidth": 1280,
-            "imageHeight": 720,
-            "bucketSize": 16,
-            "spp": 1,
+            "spp": 4,
             "filterWidth": 2
         }
     ],

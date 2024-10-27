@@ -4,7 +4,7 @@
 
 #include "geometry.h"
 
-#define OLDBVH 0
+#define OLDBVH 1
 
 struct BoundingVolume
 {

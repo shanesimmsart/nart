@@ -91,7 +91,8 @@ std::vector<Pixel> RenderSession::RenderTile(const float* filterTable, uint32_t 
                     glm::vec3 beta(1.f);
                     BSDFFlags flags;
 
-                    float roughnessOffset = 0.f;
+                    float gamma = 0.1f;
+                    float alphaTweak = 1.f;
 
                     for (uint32_t bounce = 0; bounce < MAX_BOUNCES; ++bounce)
                     {
@@ -129,7 +130,7 @@ std::vector<Pixel> RenderSession::RenderTile(const float* filterTable, uint32_t 
                             std::uniform_real_distribution<float> distribution(0.f, 1.f - glm::epsilon<float>());
 #endif
 
-                            BSDF bsdf = isect.material->CreateBSDF(isect.sn, roughnessOffset);
+                            BSDF bsdf = isect.material->CreateBSDF(isect.sn, alphaTweak);
                             glm::vec3 wo = bsdf.ToLocal(-ray.d);
 
                             float shadowBias = 0.0001f;
@@ -156,7 +157,9 @@ std::vector<Pixel> RenderSession::RenderTile(const float* filterTable, uint32_t 
 #else
                             glm::vec2 scatterSample(rng.UniformFloat(), rng.UniformFloat());
 #endif
-                            f = bsdf.Sample_f(wo, &wi, scatterSample, &scatteringPdf, &flags);
+                            // TODO: Remove unnecessary value
+                            float tempAlpha;
+                            f = bsdf.Sample_f(wo, &wi, scatterSample, &scatteringPdf, &flags, &tempAlpha, 1);
 
                             if (scatteringPdf > 0.f)
                             {
@@ -206,10 +209,10 @@ std::vector<Pixel> RenderSession::RenderTile(const float* filterTable, uint32_t 
                             {
                                 float weight = 1.f;
                                 wi = bsdf.ToLocal(wiWorld);
-                                scatteringPdf = bsdf.Pdf(wo, wi);
+                                scatteringPdf = bsdf.Pdf(wo, wi, 1);
                                 if (scatteringPdf > 0.f)
                                 {
-                                    glm::vec3 f = bsdf.f(wo, wi);
+                                    glm::vec3 f = bsdf.f(wo, wi, 1);
 #if BSDF_SAMPLING
                                     weight = (lightingPdf * lightingPdf) / (scatteringPdf * scatteringPdf + lightingPdf * lightingPdf);
 #endif
@@ -226,9 +229,15 @@ std::vector<Pixel> RenderSession::RenderTile(const float* filterTable, uint32_t 
                             glm::vec2 scatteringSample(rng.UniformFloat(), rng.UniformFloat());
 #endif
                             scatteringPdf = 0.f;
-                            f = bsdf.Sample_f(wo, &wi, scatteringSample, &scatteringPdf, &flags);
+                            // Sample for new alpha
+                            float alpha_i;
+                            f = bsdf.Sample_f(wo, &wi, scatteringSample, &scatteringPdf, &flags, &alpha_i, 0);
+                            // Sample for new ray
+                            // bsdf = isect.material->CreateBSDF(isect.sn, 1.f);
+                            // float tempAlpha2;
+                            // f = bsdf.Sample_f(wo, &wi, scatteringSample, &scatteringPdf, &flags, &tempAlpha2);
                             if (scatteringPdf <= 0.f) break;
-                            if (flags & DIFFUSE) roughnessOffset += 0.5f;
+                            alphaTweak = (1.f - (gamma * alpha_i)) * alphaTweak;
                             beta *= (f / scatteringPdf) * glm::abs(wi.z);
                             // Transform to world
                             ray = Ray(isect.p + (isect.gn * shadowBias), bsdf.ToWorld(wi));
@@ -315,7 +324,7 @@ std::vector<Pixel> RenderSession::Render()
                     tiles[index] = tile;
                     nBucketsComplete++;
                     // TODO: Multi-threaded logging?
-                    // std::cout << "\r" << (int)glm::floor(((float)nBucketsComplete / (float)nBuckets) * 100.f) << "%   " << std::flush;
+                    std::cout << "\r" << (int)glm::floor(((float)nBucketsComplete / (float)nBuckets) * 100.f) << "%   " << std::flush;
                 });
         }
     }
