@@ -3,8 +3,8 @@
 #define FilterTableResolution 64
 
 #define DEBUG_BUCKET 0
-#define DEBUG_BUCKET_X 32
-#define DEBUG_BUCKET_Y 13
+#define DEBUG_BUCKET_X 30
+#define DEBUG_BUCKET_Y 20
 
 #define BSDF_SAMPLING 1
 #define LIGHT_SAMPLING 1
@@ -89,7 +89,7 @@ std::vector<Pixel> RenderSession::RenderTile(const float* filterTable, uint32_t 
                     Intersection isect;
                     // Throughput
                     glm::vec3 beta(1.f);
-                    BSDFFlags flags;
+                    uint8_t flags;
 
                     float gamma = 0.1f;
                     float alphaTweak = 1.f;
@@ -133,7 +133,7 @@ std::vector<Pixel> RenderSession::RenderTile(const float* filterTable, uint32_t 
                             BSDF bsdf = isect.material->CreateBSDF(isect.sn, alphaTweak);
                             glm::vec3 wo = bsdf.ToLocal(-ray.d);
 
-                            float shadowBias = 0.0001f;
+                            float shadowBias = 0.01f;
 
                             glm::vec3 wi;
                             glm::vec3 Li;
@@ -163,10 +163,11 @@ std::vector<Pixel> RenderSession::RenderTile(const float* filterTable, uint32_t 
 
                             if (scatteringPdf > 0.f)
                             {
-                                Ray shadowRay(isect.p + (isect.gn * shadowBias), bsdf.ToWorld(wi));
+                                float flip = wi.z > 0.f ? 1.f : -1.f;
+                                Ray shadowRay(isect.p + (isect.gn * shadowBias * flip), bsdf.ToWorld(wi));
                                 Intersection lightIsect;
                                 Li = light->Li(&lightIsect, isect.p, bsdf.ToWorld(wi));
-                                if (!scene.bvh->Intersect(shadowRay, &lightIsect))
+                                if (!scene.bvh->Intersect(shadowRay, &lightIsect)) // || flags && TRANSMISSIVE)
                                 {
                                     float weight = 1.f;
 
@@ -179,14 +180,14 @@ std::vector<Pixel> RenderSession::RenderTile(const float* filterTable, uint32_t 
 #endif
                                         if (lightingPdf > 0.f)
                                         {
-                                            L += (f * Li * glm::max(wi.z, 0.f) * beta * weight) / scatteringPdf;
+                                            L += (f * Li * glm::abs(wi.z) * beta * weight) / scatteringPdf;
                                             L *= numLights;
                                         }
                                     }
 
                                     else
                                     {
-                                        L += (f * Li * glm::max(wi.z, 0.f) * beta * weight) / scatteringPdf;
+                                        L += (f * Li * glm::abs(wi.z) * beta * weight) / scatteringPdf;
                                         L *= numLights;
                                     }
                                 }
@@ -204,8 +205,9 @@ std::vector<Pixel> RenderSession::RenderTile(const float* filterTable, uint32_t 
                             Intersection lightIsect;
                             Li = light->Sample_Li(&lightIsect, isect.p, &wiWorld, lightSample, &lightingPdf);
 
-                            Ray shadowRay(isect.p + (isect.gn * shadowBias), wiWorld);
-                            if (!scene.bvh->Intersect(shadowRay, &lightIsect) && lightingPdf > 0.f)
+                            float flip = wi.z > 0.f ? 1.f : -1.f;
+                            Ray shadowRay(isect.p + (isect.gn * shadowBias * flip), wiWorld);
+                            if (!scene.bvh->Intersect(shadowRay, &lightIsect) && lightingPdf > 0.f) // || flags && TRANSMISSIVE)
                             {
                                 float weight = 1.f;
                                 wi = bsdf.ToLocal(wiWorld);
@@ -216,7 +218,7 @@ std::vector<Pixel> RenderSession::RenderTile(const float* filterTable, uint32_t 
 #if BSDF_SAMPLING
                                     weight = (lightingPdf * lightingPdf) / (scatteringPdf * scatteringPdf + lightingPdf * lightingPdf);
 #endif
-                                    L += (f * Li * glm::max(wi.z, 0.f) * beta * weight) / lightingPdf;
+                                    L += (f * Li * glm::abs(wi.z) * beta * weight) / lightingPdf;
                                     // L *= numLights;
                                 }
                             }
@@ -240,7 +242,10 @@ std::vector<Pixel> RenderSession::RenderTile(const float* filterTable, uint32_t 
                             alphaTweak = (1.f - (gamma * alpha_i)) * alphaTweak;
                             beta *= (f / scatteringPdf) * glm::abs(wi.z);
                             // Transform to world
-                            ray = Ray(isect.p + (isect.gn * shadowBias), bsdf.ToWorld(wi));
+                            flip = wi.z > 0.f ? 1.f : -1.f;
+                            ray = Ray(isect.p + (isect.gn * shadowBias * flip), bsdf.ToWorld(wi));
+
+                            // std::cout << isect.p.x << ", " << isect.p.y << ", " << isect.p.z << "\n";
 
                             // Russian roulette
                             float q = glm::max((beta.x + beta.y + beta.z) * 0.33333f, 0.f);

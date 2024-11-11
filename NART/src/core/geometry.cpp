@@ -22,7 +22,7 @@ bool Triangle::Intersect(const Ray& ray, Intersection* isect)
 {
 #if WOOT
     glm::vec3 n = glm::cross(v1 - v0, v2 - v0);
-    if (glm::dot(n, ray.d) >= 0.f) return false;
+    // if (glm::dot(n, ray.d) >= 0.f) return false;
 
     float t = (glm::dot(v0, n) - glm::dot(ray.o, n)) / glm::dot(ray.d, n);
 

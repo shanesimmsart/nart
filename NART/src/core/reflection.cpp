@@ -1,18 +1,24 @@
 #include "reflection.h"
 
-float Fresnel(float etaI, float etaT, float cosTheta)
+float Fresnel(float eta_o, float eta_i, float cosTheta)
 {
-    float cosThetaI = glm::min(cosTheta, 1.f);
-    if (cosThetaI < 0.f) std::swap(etaI, etaT);
+    float cosTheta_o = glm::min(cosTheta, 1.f);
+    if (cosTheta_o < 0.f)
+    {
+        cosTheta_o = -cosTheta_o;
+        std::swap(eta_o, eta_i);
+    }
 
-    float sinThetaI = glm::sqrt(1.f - (cosThetaI * cosThetaI));
-    float sinThetaT = (etaI / etaT) * sinThetaI;
+    float sinTheta_o = glm::sqrt(1.f - (cosTheta_o * cosTheta_o));
+    float sinTheta_i = (eta_o / eta_i) * sinTheta_o;
     // TIR
-    if (sinThetaT > 1.f) return 1.f;
-    float cosThetaT = glm::sqrt(1.f - (sinThetaT * sinThetaT));
+    if (sinTheta_i > 1.f) return 1.f;
+    float cosTheta_i = glm::sqrt(1.f - (sinTheta_i * sinTheta_i));
 
-    float fPara = ((etaT * cosThetaI) - (etaI * cosThetaT)) / ((etaT * cosThetaI) + (etaI * cosThetaT));
-    float fPerp = ((etaI * cosThetaI) - (etaT * cosThetaT)) / ((etaI * cosThetaI) + (etaT * cosThetaT));
+    if (glm::abs(cosTheta_o + cosTheta_i) < 0.00001f) return 0.f;
+
+    float fPara = ((eta_i * cosTheta_o) - (eta_o * cosTheta_i)) / ((eta_i * cosTheta_o) + (eta_o * cosTheta_i));
+    float fPerp = ((eta_o * cosTheta_o) - (eta_i * cosTheta_i)) / ((eta_o * cosTheta_o) + (eta_i * cosTheta_i));
     return ((fPara * fPara) + (fPerp * fPerp)) * 0.5f;
 }
 

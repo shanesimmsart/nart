@@ -285,6 +285,14 @@ Scene LoadScene(std::string scenePath)
                         meshMaterials.push_back(std::make_shared<SpecularMaterial>(R, eta));
                     }
 
+                    else if (type == "glass")
+                    {
+                        std::vector<float> rhoGet = mat["rho"].get<std::vector<float>>();
+                        glm::vec3 rho = glm::vec3(glm::min(rhoGet[0], 1.f - glm::epsilon<float>()), glm::min(rhoGet[1], 1.f - glm::epsilon<float>()), glm::min(rhoGet[2], 1.f - glm::epsilon<float>()));
+                        float eta = mat["eta"].get<float>();
+                        meshMaterials.push_back(std::make_shared<SpecularDielectricMaterial>(rho, eta));
+                    }
+
                     else if (type == "glossy")
                     {
                         std::vector<float> RGet = mat["R"].get<std::vector<float>>();
