@@ -4,8 +4,6 @@
 
 #include "geometry.h"
 
-#define OLDBVH 1
-
 struct BoundingVolume
 {
     BoundingVolume();
@@ -15,15 +13,9 @@ struct BoundingVolume
 
     bool Intersect(const Ray& ray, Intersection* isect);
 
-#if OLDBVH
-    glm::vec3 normals[7];
-    float boundsMin[7];
-    float boundsMax[7];
-#else
     glm::vec3 normals[3];
     float boundsMin[3];
     float boundsMax[3];
-#endif
 };
 
 // A chunk of triangles to be placed inside of a bounding volume
@@ -85,11 +77,7 @@ private:
 
     void BuildBoundingVolumes(std::shared_ptr<OctreeNode> node);
 
-#if OLDBVH
-    const uint8_t maxDepth = 6;
-#else
     const uint8_t maxDepth = 5;
-#endif
     std::shared_ptr<OctreeNode> root;
     const glm::vec3 sceneMin;
     const glm::vec3 sceneMax;

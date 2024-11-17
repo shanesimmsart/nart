@@ -55,6 +55,6 @@ private:
     uint32_t totalHeight;
 };
 
-std::vector<std::shared_ptr<RenderSession>> LoadSessions(std::string scenePath, const Scene& scene);
+std::vector<std::unique_ptr<RenderSession>> LoadSessions(std::string scenePath, const Scene& scene);
 
 

@@ -10,8 +10,6 @@
 #define LIGHT_SAMPLING 1
 #define MAX_BOUNCES 10
 
-#define NEW_RNG 1
-
 RenderSession::RenderSession(const Scene& scene, uint32_t imageWidth, uint32_t imageHeight, uint32_t bucketSize, uint32_t spp, float filterWidth) :
     scene(scene), imageWidth(imageWidth), imageHeight(imageHeight), bucketSize(bucketSize), spp(spp), filterWidth(filterWidth)
 {
@@ -67,13 +65,9 @@ std::vector<Pixel> RenderSession::RenderTile(const float* filterTable, uint32_t 
             if (x < totalWidth && y < totalHeight)
             {
                 // Create stratified image samples in a Latin square pattern
-#if !NEW_RNG
-                std::default_random_engine rng;
-                rng.seed(y * totalWidth + x);
-#else
                 RNG rng;
                 rng.Seed(y * totalWidth + x);
-#endif
+
                 std::vector<glm::vec2> imageSamples(spp);
                 LatinSquare(rng, spp, imageSamples);
 
@@ -126,10 +120,6 @@ std::vector<Pixel> RenderSession::RenderTile(const float* filterTable, uint32_t 
                         {
                             if (bounce == 0) alpha = 1.f;
 
-#if !NEW_RNG
-                            std::uniform_real_distribution<float> distribution(0.f, 1.f - glm::epsilon<float>());
-#endif
-
                             BSDF bsdf = isect.material->CreateBSDF(isect.sn, alphaTweak);
                             glm::vec3 wo = bsdf.ToLocal(-ray.d);
 
@@ -141,25 +131,17 @@ std::vector<Pixel> RenderSession::RenderTile(const float* filterTable, uint32_t 
                             float lightingPdf = 0.f;
 
                             float numLights = static_cast<float>(scene.lights.size());
-#if !NEW_RNG
-                            uint8_t lightIndex = static_cast<uint8_t>(glm::min(distribution(rng), 1.f - glm::epsilon<float>()) * numLights);
-#else
                             uint8_t lightIndex = static_cast<uint8_t>(glm::min(rng.UniformFloat(), 1.f - glm::epsilon<float>()) * numLights);
-#endif
+
                             const Light* light = scene.lights[lightIndex];
                             glm::vec3 f(0.f);
 
                             // Compute direct light
 #if BSDF_SAMPLING
                             scatteringPdf = 0.f;
-#if !NEW_RNG
-                            glm::vec2 scatterSample(distribution(rng), distribution(rng));
-#else
                             glm::vec2 scatterSample(rng.UniformFloat(), rng.UniformFloat());
-#endif
-                            // TODO: Remove unnecessary value
-                            float tempAlpha;
-                            f = bsdf.Sample_f(wo, &wi, scatterSample, &scatteringPdf, &flags, &tempAlpha, 1);
+
+                            f = bsdf.Sample_f(wo, &wi, scatterSample, &scatteringPdf, &flags, 1);
 
                             if (scatteringPdf > 0.f)
                             {
@@ -173,7 +155,7 @@ std::vector<Pixel> RenderSession::RenderTile(const float* filterTable, uint32_t 
 
                                     if (!(flags & SPECULAR))
                                     {
-                                        // TODO: I should probably do this in one function
+                                        // TODO: I should probably do this inside of one function
                                         lightingPdf = light->Pdf(&lightIsect, isect.p, bsdf.ToWorld(wi));
 #if LIGHT_SAMPLING
                                         weight = (scatteringPdf * scatteringPdf) / (scatteringPdf * scatteringPdf + lightingPdf * lightingPdf);
@@ -196,11 +178,8 @@ std::vector<Pixel> RenderSession::RenderTile(const float* filterTable, uint32_t 
 #if LIGHT_SAMPLING
                             glm::vec3 wiWorld;
                             lightingPdf = 0.f;
-#if !NEW_RNG
-                            glm::vec2 lightSample(distribution(rng), distribution(rng));
-#else
                             glm::vec2 lightSample(rng.UniformFloat(), rng.UniformFloat());
-#endif
+
                             // lightIsect.tMax used for checking shadows
                             Intersection lightIsect;
                             Li = light->Sample_Li(&lightIsect, isect.p, &wiWorld, lightSample, &lightingPdf);
@@ -219,25 +198,17 @@ std::vector<Pixel> RenderSession::RenderTile(const float* filterTable, uint32_t 
                                     weight = (lightingPdf * lightingPdf) / (scatteringPdf * scatteringPdf + lightingPdf * lightingPdf);
 #endif
                                     L += (f * Li * glm::abs(wi.z) * beta * weight) / lightingPdf;
-                                    // L *= numLights;
                                 }
                             }
 #endif
 
                             // Spawn new ray
-#if !NEW_RNG
-                            glm::vec2 scatteringSample(distribution(rng), distribution(rng));
-#else
                             glm::vec2 scatteringSample(rng.UniformFloat(), rng.UniformFloat());
-#endif
                             scatteringPdf = 0.f;
                             // Sample for new alpha
                             float alpha_i;
-                            f = bsdf.Sample_f(wo, &wi, scatteringSample, &scatteringPdf, &flags, &alpha_i, 0);
+                            f = bsdf.Sample_f(wo, &wi, scatteringSample, &scatteringPdf, &flags, 0, &alpha_i);
                             // Sample for new ray
-                            // bsdf = isect.material->CreateBSDF(isect.sn, 1.f);
-                            // float tempAlpha2;
-                            // f = bsdf.Sample_f(wo, &wi, scatteringSample, &scatteringPdf, &flags, &tempAlpha2);
                             if (scatteringPdf <= 0.f) break;
                             alphaTweak = (1.f - (gamma * alpha_i)) * alphaTweak;
                             beta *= (f / scatteringPdf) * glm::abs(wi.z);
@@ -245,20 +216,12 @@ std::vector<Pixel> RenderSession::RenderTile(const float* filterTable, uint32_t 
                             flip = wi.z > 0.f ? 1.f : -1.f;
                             ray = Ray(isect.p + (isect.gn * shadowBias * flip), bsdf.ToWorld(wi));
 
-                            // std::cout << isect.p.x << ", " << isect.p.y << ", " << isect.p.z << "\n";
-
                             // Russian roulette
                             float q = glm::max((beta.x + beta.y + beta.z) * 0.33333f, 0.f);
 
-                            // std::cout << q << "\n";
-
                             if (bounce > 3)
                             {
-#if !NEW_RNG
-                                if (q >= distribution(rng))
-#else
                                 if (q >= rng.UniformFloat())
-#endif
                                 {
                                     beta /= q;
                                 }
@@ -278,7 +241,6 @@ std::vector<Pixel> RenderSession::RenderTile(const float* filterTable, uint32_t 
                     // Add sample to pixels within filter width
                     // Sample coords are respective to total image size
                     glm::vec4 Lalpha(L, alpha);
-                    // glm::vec4 Lalpha(isect.sn, alpha);
                     AddSample(filterTable, sampleCoords, Lalpha, pixels);
                 }
             }
@@ -337,9 +299,7 @@ std::vector<Pixel> RenderSession::Render()
     tg.wait();
 
     // Combine tiles into image
-    // std::cout << "\nCombining tiles into image...\n";
-
-    for (uint32_t j = 0; j < nBucketsY; ++j)
+      for (uint32_t j = 0; j < nBucketsY; ++j)
     {
         for (uint32_t i = 0; i < nBucketsX; ++i)
         {
@@ -391,7 +351,7 @@ void RenderSession::WriteImageToEXR(const std::vector<Pixel>& pixels, const char
     file.writePixels(imageHeight);
 }
 
-std::vector<std::shared_ptr<RenderSession>> LoadSessions(std::string scenePath, const Scene& scene)
+std::vector<std::unique_ptr<RenderSession>> LoadSessions(std::string scenePath, const Scene& scene)
 {
     nlohmann::json json;
     std::ifstream ifs;
@@ -415,7 +375,7 @@ std::vector<std::shared_ptr<RenderSession>> LoadSessions(std::string scenePath, 
 
     // nlohmann::json jsonInfo = json["renderSessions"];
 
-    std::vector<std::shared_ptr<RenderSession>> sessions;
+    std::vector<std::unique_ptr<RenderSession>> sessions;
 
     if (!json["renderSessions"].is_null()) {
         for (auto& elem : json["renderSessions"])
@@ -441,7 +401,7 @@ std::vector<std::shared_ptr<RenderSession>> LoadSessions(std::string scenePath, 
                 std::cerr << "Error in renderInfo: " << e.what() << "\n";
             }
 
-            sessions.push_back(std::make_shared<RenderSession>(scene, imageWidth, imageHeight, bucketSize, spp, filterWidth));
+            sessions.push_back(std::make_unique<RenderSession>(scene, imageWidth, imageHeight, bucketSize, spp, filterWidth));
         }
     }
 

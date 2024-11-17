@@ -1,8 +1,6 @@
 #include "sampling.h"
 #include "rng.h"
 
-#define NEW_RNG 1
-
 glm::vec2 UniformSampleDisk(glm::vec2 sample)
 {
     float r = glm::sqrt(sample.x);
@@ -46,37 +44,6 @@ glm::vec3 CosineSampleHemisphere(glm::vec2 sample, float* pdf)
     return glm::vec3(diskSample, z);
 }
 
-
-#if !NEW_RNG
-float StratifiedSample1D(std::default_random_engine& rng, uint32_t n, uint32_t nSamples)
-{
-    float invNSamples = 1.f / static_cast<float>(nSamples);
-    std::uniform_real_distribution<float> distribution(0.f, 1.f - glm::epsilon<float>());
-    return (static_cast<float>(n) + distribution(rng)) * invNSamples;
-}
-
-// Using this technique instead of stratifying in x and y independently lets have any number of spp
-// including primes, e.g 2, 3, 5, 7... and have them be evenly distributed
-void LatinSquare(std::default_random_engine& rng, uint32_t nSamples, std::vector<glm::vec2>& samples)
-{
-    // Create stratified samples along diagonal
-    for (uint32_t i = 0; i < nSamples; ++i)
-    {
-        samples[i] = glm::vec2(StratifiedSample1D(rng, i, nSamples), StratifiedSample1D(rng, i, nSamples));
-    }
-
-    // Shuffle dimensions
-    for (uint32_t i = 0; i < nSamples; ++i)
-    {
-        std::uniform_int_distribution<uint32_t> distribution(0, nSamples - 1 - i);
-        uint32_t choice = distribution(rng);
-        std::swap(samples[i].x, samples[choice].x);
-        choice = distribution(rng);
-        std::swap(samples[i].y, samples[choice].y);
-    }
-}
-
-#else
 float StratifiedSample1D(RNG& rng, uint32_t n, uint32_t nSamples)
 {
     float invNSamples = 1.f / static_cast<float>(nSamples);
@@ -102,5 +69,3 @@ void LatinSquare(RNG& rng, uint32_t nSamples, std::vector<glm::vec2>& samples)
         std::swap(samples[i].y, samples[choice].y);
     }
 }
-
-#endif

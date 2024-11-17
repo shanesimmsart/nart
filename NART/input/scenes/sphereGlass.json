@@ -4,7 +4,7 @@
             "imageWidth": 1280,
             "imageHeight": 720,
             "bucketSize": 16,
-            "spp": 16,
+            "spp": 1,
             "filterWidth": 2
         }
     ],
@@ -22,7 +22,7 @@
             "type": "glass",
             "rho": [1, 1, 1],
             "R": [1, 1, 1],
-            "eta": 1,
+            "eta": 1.5,
             "roughness": 0.0
             }
         ],

@@ -1,5 +1,15 @@
 #include "scene.h"
 
+Scene::Scene(const Camera* camera, std::vector<const Light*> lights, const BVH* bvh) : camera(camera), lights(lights), bvh(bvh)
+{}
+
+bool Scene::Intersect(const Ray& ray, Intersection* isect) const
+{
+    return bvh->Intersect(ray, isect);
+}
+
+
+
 std::shared_ptr<TriMesh> LoadMeshFromFile(std::string filePath, glm::mat4& objectToWorld, std::shared_ptr<Material> material)
 {
     std::ifstream file;
@@ -182,65 +192,22 @@ std::shared_ptr<TriMesh> LoadMeshFromFile(std::string filePath, glm::mat4& objec
     return mesh;
 }
 
-
-
-Scene::Scene(std::shared_ptr<Camera> camera, std::vector<const Light*> lights, std::shared_ptr<BVH> bvh) : camera(camera), lights(lights), bvh(bvh)
-{}
-
-bool Scene::Intersect(const Ray& ray, Intersection* isect) const
+glm::mat4 SceneMatrixFromVector(std::vector<float> vector)
 {
-    return bvh->Intersect(ray, isect);
-}
-
-Scene LoadScene(std::string scenePath)
-{
-    // TODO: Raw const pointers for all scene state
-    //       Break into smaller functions
-    //       Make less ugly
-    nlohmann::json json;
-    std::ifstream ifs;
-    ifs.open(scenePath);
-
-    if (!ifs)
-    {
-        std::cerr << "Error: Scene file could not be opened.\n";
-    }
-
-    try
-    {
-        ifs >> json;
-    }
-
-    catch (nlohmann::json::exception& e)
-    {
-        std::cerr << "Error parsing scene: " << e.what() << "\nAborting.\n";
-        std::abort();
-    }
-
-    // Default values if not found in json
-    glm::mat4 cameraToWorld(1.f);
-    float fov = 1.f;
-    std::vector<float> camTransform = { 1.f, 0.f, 0.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f };
-
-    try {
-        fov = json["camera"]["fov"].get<float>();
-        camTransform = json["camera"]["transform"].get<std::vector<float>>();
-    }
-
-    catch (nlohmann::json::exception& e)
-    {
-        std::cerr << "Error in camera: " << e.what() << "\n";
-    }
+    glm::mat4 matrix(1.f);
 
     uint8_t j = 0;
     for (uint8_t i = 0; i < 4; ++i)
     {
-        cameraToWorld[i] = glm::vec4(camTransform[j], camTransform[j + 1], camTransform[j + 2], camTransform[j + 3]);
+        matrix[i] = glm::vec4(vector[j], vector[j + 1], vector[j + 2], vector[j + 3]);
         j += 4;
     }
 
-    std::shared_ptr<Camera> camera = std::make_shared<PinholeCamera>(fov, cameraToWorld);
+    return matrix;
+}
 
+std::vector<std::shared_ptr<TriMesh>> LoadMeshes(const nlohmann::json json)
+{
     std::vector<std::string> meshFilePaths;
     std::vector<std::shared_ptr<Material>> meshMaterials;
     std::vector<glm::mat4> meshTransforms;
@@ -340,13 +307,7 @@ Scene LoadScene(std::string scenePath)
                 std::cerr << "Error in mesh transform: " << e.what() << "\n";
             }
 
-            glm::mat4 objectToWorld(1.f);
-            uint8_t j = 0;
-            for (uint8_t i = 0; i < 4; ++i)
-            {
-                objectToWorld[i] = glm::vec4(meshTransform[j], meshTransform[j + 1], meshTransform[j + 2], meshTransform[j + 3]);
-                j += 4;
-            }
+            glm::mat4 objectToWorld = SceneMatrixFromVector(meshTransform);
             meshTransforms.push_back(objectToWorld);
         }
     }
@@ -363,9 +324,32 @@ Scene LoadScene(std::string scenePath)
         meshes.push_back(LoadMeshFromFile(meshFilePaths[i], meshTransforms[i], meshMaterials[i]));
     }
 
-    std::cout << "Building BVH...\n";
-    std::shared_ptr<BVH> bvh = std::make_shared<BVH>(BVH(meshes));
+    return meshes;
+}
 
+const Camera* LoadCamera(const nlohmann::json json)
+{
+    glm::mat4 cameraToWorld(1.f);
+    float fov = 1.f;
+    std::vector<float> camTransform = { 1.f, 0.f, 0.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f };
+
+    try {
+        fov = json["camera"]["fov"].get<float>();
+        camTransform = json["camera"]["transform"].get<std::vector<float>>();
+    }
+
+    catch (nlohmann::json::exception& e)
+    {
+        std::cerr << "Error in camera: " << e.what() << "\n";
+    }
+
+    cameraToWorld = SceneMatrixFromVector(camTransform);
+
+    return new PinholeCamera(fov, cameraToWorld);
+}
+
+std::vector<const Light*> LoadLights(const nlohmann::json json)
+{
     std::vector<const Light*> lights;
 
     if (!json["lights"].is_null()) {
@@ -385,13 +369,7 @@ Scene LoadScene(std::string scenePath)
                 std::cerr << "Error in light transform: " << e.what() << "\n";
             }
 
-            glm::mat4 lightToWorld(1.f);
-            uint8_t j = 0;
-            for (uint8_t i = 0; i < 4; ++i)
-            {
-                lightToWorld[i] = glm::vec4(lightTransform[j], lightTransform[j + 1], lightTransform[j + 2], lightTransform[j + 3]);
-                j += 4;
-            }
+            glm::mat4 lightToWorld = SceneMatrixFromVector(lightTransform);
 
             try
             {
@@ -434,6 +412,39 @@ Scene LoadScene(std::string scenePath)
             }
         }
     }
+
+    return lights;
+}
+
+Scene LoadScene(std::string scenePath)
+{
+    nlohmann::json json;
+    std::ifstream ifs;
+    ifs.open(scenePath);
+
+    if (!ifs)
+    {
+        std::cerr << "Error: Scene file could not be opened.\n";
+    }
+
+    try
+    {
+        ifs >> json;
+    }
+
+    catch (nlohmann::json::exception& e)
+    {
+        std::cerr << "Error parsing scene: " << e.what() << "\nAborting.\n";
+        std::abort();
+    }
+
+    const Camera* camera = LoadCamera(json);
+
+    std::vector<std::shared_ptr<TriMesh>> meshes = LoadMeshes(json);
+
+    const BVH* bvh = new BVH(meshes);
+
+    std::vector<const Light*> lights = LoadLights(json);
 
     return Scene(camera, lights, bvh);
 }

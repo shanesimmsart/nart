@@ -1,7 +1,5 @@
 #include "bvh.h"
 
-#define OLDBVH 1
-
 BoundingVolume::BoundingVolume()
 {
     // Bounding volumes are defined by slabs along the cardinal direction vectors
@@ -9,19 +7,8 @@ BoundingVolume::BoundingVolume()
     normals[0] = glm::vec3(1, 0, 0);
     normals[1] = glm::vec3(0, 1, 0);
     normals[2] = glm::vec3(0, 0, 1);
-#if OLDBVH
-    float OneOverSqrt3 = 1.f / glm::sqrt(3.f);
-    normals[3] = glm::vec3(OneOverSqrt3, OneOverSqrt3, OneOverSqrt3);
-    normals[4] = glm::vec3(OneOverSqrt3, -OneOverSqrt3, OneOverSqrt3);
-    normals[5] = glm::vec3(-OneOverSqrt3, OneOverSqrt3, OneOverSqrt3);
-    normals[6] = glm::vec3(-OneOverSqrt3, -OneOverSqrt3, OneOverSqrt3);
-#endif
 
-#if OLDBVH
-    for (uint8_t i = 0; i < 7; ++i)
-#else
     for (uint8_t i = 0; i < 3; ++i)
-#endif
     {
         boundsMin[i] = Infinity;
         boundsMax[i] = -Infinity;
@@ -30,11 +17,7 @@ BoundingVolume::BoundingVolume()
 
 void BoundingVolume::ExtendBy(const BoundingVolume& bv)
 {
-#if OLDBVH
-    for (uint8_t i = 0; i < 7; ++i)
-#else
     for (uint8_t i = 0; i < 3; ++i)
-#endif
     {
         boundsMin[i] = glm::min(boundsMin[i], bv.boundsMin[i]);
         boundsMax[i] = glm::max(boundsMax[i], bv.boundsMax[i]);
@@ -47,11 +30,7 @@ bool BoundingVolume::Intersect(const Ray& ray, Intersection* isect)
     float tMax = Infinity;
     float dotLow = Infinity;
 
-#if OLDBVH
-    for (uint8_t i = 0; i < 7; ++i)
-#else
     for (uint8_t i = 0; i < 3; ++i)
-#endif
     {
         // Equation of a plane:
         // (o+td)dotN - bound = 0
@@ -110,21 +89,10 @@ bool Chunk::Intersect(const Ray& ray, Intersection* isect) const
 
 void Chunk::CalculateBounds()
 {
-#if OLDBVH
-    glm::vec3 normals[7];
-    float OneOverSqrt3 = 1.f / glm::sqrt(3);
-#else
     glm::vec3 normals[3];
-#endif
     normals[0] = glm::vec3(1, 0, 0);
     normals[1] = glm::vec3(0, 1, 0);
     normals[2] = glm::vec3(0, 0, 1);
-#if OLDBVH
-    normals[3] = glm::vec3(OneOverSqrt3, OneOverSqrt3, OneOverSqrt3);
-    normals[4] = glm::vec3(OneOverSqrt3, -OneOverSqrt3, OneOverSqrt3);
-    normals[5] = glm::vec3(-OneOverSqrt3, OneOverSqrt3, OneOverSqrt3);
-    normals[6] = glm::vec3(-OneOverSqrt3, -OneOverSqrt3, OneOverSqrt3);
-#endif
 
     for (TriangleIndex triIndex : triangleIndices)
     {
@@ -139,11 +107,7 @@ void Chunk::CalculateBounds()
         bboxMin = glm::min(bboxMin, triangle.v2);
         bboxMax = glm::max(bboxMax, triangle.v2);
 
-#if OLDBVH
-        for (uint8_t i = 0; i < 7; ++i)
-#else
         for (uint8_t i = 0; i < 3; ++i)
-#endif
         {
             float v0DotNorm = glm::dot(triangle.v0, normals[i]);
             bv.boundsMin[i] = glm::min(v0DotNorm, bv.boundsMin[i]);
@@ -333,11 +297,7 @@ BVH::BVH(std::vector<std::shared_ptr<TriMesh>> meshes) : meshes(meshes)
     // Cleary et al. 1983. Design and analysis of a parallel ray tracing computer.
     // In their formula, lambda controls the granularity of the grid;
     // values between 3 and 5 are recommended
-#if OLDBVH
     float lambda = 3.f;
-#else
-    float lambda = 5.f;
-#endif
     float sceneVolume = sceneSize.x * sceneSize.y * sceneSize.z;
     // Calculate resolution of grid, and create a chunk per grid cell
     glm::vec3 resolution = glm::floor(sceneSize * glm::pow((glm::vec3(static_cast<float>(numTriangles)) / sceneVolume) * lambda, glm::vec3(1.f / 3.f)));

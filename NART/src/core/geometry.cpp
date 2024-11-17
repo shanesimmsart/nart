@@ -1,10 +1,7 @@
 #include "geometry.h"
 
-#define WOOT 1
-
 Ray::Ray(glm::vec3 o, glm::vec3 d) : o(o), d(d)
 {
-#if WOOT
     glm::vec3 absD = glm::abs(d);
     majorAxis = (absD.x > absD.y) ? ((absD.x > absD.z) ? 0 : 2) : ((absD.y > absD.z) ? 1 : 2);
     Sz = 1.f / d[majorAxis];
@@ -12,7 +9,6 @@ Ray::Ray(glm::vec3 o, glm::vec3 d) : o(o), d(d)
     uint8_t minorAxis1 = (majorAxis + 2); if (minorAxis1 >= 3) minorAxis1 -= 3;
     Sx = -d[minorAxis0] * Sz;
     Sy = -d[minorAxis1] * Sz;
-#endif
 }
 
 Triangle::Triangle(const glm::vec3& v0, const glm::vec3& v1, const glm::vec3& v2, const glm::vec3& n0, const glm::vec3& n1, const glm::vec3& n2) :
@@ -20,8 +16,8 @@ Triangle::Triangle(const glm::vec3& v0, const glm::vec3& v1, const glm::vec3& v2
 
 bool Triangle::Intersect(const Ray& ray, Intersection* isect)
 {
-#if WOOT
     glm::vec3 n = glm::cross(v1 - v0, v2 - v0);
+    // Back-face culling
     // if (glm::dot(n, ray.d) >= 0.f) return false;
 
     float t = (glm::dot(v0, n) - glm::dot(ray.o, n)) / glm::dot(ray.d, n);
@@ -46,7 +42,6 @@ bool Triangle::Intersect(const Ray& ray, Intersection* isect)
     // Shear ray direction to lie on +z
     // x' = x*1  + y*0  + z * (-dx/dz)
     // z' = x*0  + y*0  + z / dz
-    // TODO: Precompute, save in ray
     // float Sz = 1.f / ray.d[majorAxis];
     p0.x += p0.z * ray.Sx;
     p0.y += p0.z * ray.Sy;
@@ -71,15 +66,8 @@ bool Triangle::Intersect(const Ray& ray, Intersection* isect)
     p1.z = p1.z * ray.Sz;
     p2.z = p2.z * ray.Sz;
 
-    // Calculate t
-    // float det = ;
-    // float t = (p0.z * e0 + p1.z * e1 + p2.z * e2);
-    // if ((t * det) < 0) return false;
-    float invDet = 1.f / (e0 + e1 + e2);
-    // t *= invDet;
-    // if (t <= isect->tMin || t >= isect->tMax) return false;
-
     // Calculate intersection
+    float invDet = 1.f / (e0 + e1 + e2);
     glm::vec3 p = (v0 * e0 + v1 * e1 + v2 * e2) * invDet;
 
     float u = e0 * invDet;
@@ -90,53 +78,11 @@ bool Triangle::Intersect(const Ray& ray, Intersection* isect)
     isect->tMax = t;
     isect->u = u;
     isect->v = v;
-    isect->gn = n; // *invLengthN;
+    isect->gn = n;
     isect->sn = n0 * isect->u + n1 * isect->v + n2 * (1 - isect->u - isect->v);
     isect->p = p;
 
     return true;
-#else
-    // Un-normalised direction of surface
-    glm::vec3 n = glm::cross((v2 - v1), (v0 - v1));
-    // Length of cross product == area of triangle bounded by vectors * 2
-    float area = glm::length(n) / 2.f;
-
-    // Back-face culling
-    if (glm::dot(n, ray.d) >= 0.f) return false;
-
-    // Find t of intersection with plane
-    // Note: n doesn't need to be normalised yet as denominator divides by n's length
-    float t = (glm::dot(v0, n) - glm::dot(ray.o, n)) / glm::dot(ray.d, n);
-
-    if (t <= isect->tMin || t >= isect->tMax) return false;
-
-    glm::vec3 p = ray.o + t * ray.d;
-
-    // Check if p is on the correct side of each vector, and compute barycentric coords
-    glm::vec3 v0v1 = v1 - v0;
-    glm::vec3 v0p = p - v0;
-    if (glm::dot((glm::cross(v0v1, v0p)), n) < 0.f) return false;
-
-    glm::vec3 v1v2 = v2 - v1;
-    glm::vec3 v1p = p - v1;
-    glm::vec3 c1 = glm::cross(v1v2, v1p);
-    if (glm::dot(c1, n) < 0.f) return false;
-    float u = glm::length(c1) / 2.f / area;
-
-    glm::vec3 v2v0 = v0 - v2;
-    glm::vec3 v2p = p - v2;
-    glm::vec3 c2 = glm::cross(v2v0, v2p);
-    if (glm::dot(c2, n) < 0.f) return false;
-
-    isect->tMax = t;
-    isect->u = u;
-    isect->v = glm::length(c2) / 2.f / area;
-    isect->gn = glm::normalize(n);
-    isect->sn = n0 * isect->u + n1 * isect->v + n2 * (1 - isect->u - isect->v);
-    isect->p = p;
-
-    return true;
-#endif
 }
 
 TriMesh::TriMesh(std::shared_ptr<Material> material) : material(material) {}

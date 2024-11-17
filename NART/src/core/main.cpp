@@ -4,31 +4,34 @@
 
 int main(int argc, char* argv[])
 { 
-    // std::cout << "Loading " << argv[1] << "...\n";
+    if (argc < 3)
+    {
+        std::cerr << "Too few arguments given.\nUsage example: " << argv[0] << " <scene file> <output path>";
+    }
+
+    std::cout << "Loading " << argv[1] << "...\n";
     Scene scene = LoadScene(argv[1]);
-    std::vector<std::shared_ptr<RenderSession>> sessions = LoadSessions(argv[1], scene);
+    std::vector<std::unique_ptr<RenderSession>> sessions = LoadSessions(argv[1], scene);
     
     uint8_t n = 0;
     for (auto& session : sessions)
     {
         auto start = std::chrono::high_resolution_clock::now();
 
-        // std::cout << "\nRendering...\n";
+        std::cout << "Rendering...\n";
         std::vector<Pixel> image = session->Render();
+        
+        std::ostringstream oss;
+        oss << argv[2] << std::to_string(n++) << ".exr";
+        std::string filePath = oss.str();
 
-        std::string seshID = std::to_string(n++);
-        std::string extension = ".exr";
-        std::string filePath = argv[2] + seshID + extension;
-
-        // std::cout << "Writing to " << filePath << "...\n";
+        std::cout << "\nWriting to " << filePath.c_str() << "...\n";
         session->WriteImageToEXR(image, filePath.c_str());
 
         auto end = std::chrono::high_resolution_clock::now();
         std::chrono::duration<float> duration = end - start;
-        std::cout << duration.count() << "\n";
+        std::cout << "Completed in " << duration.count() << "s\n";
     }
-
-    std::cin.get();
 
     return 0;
 }

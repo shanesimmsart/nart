@@ -7,8 +7,6 @@
 
 #include "sampling.h"
 
-#define VNDF 1
-
 float Fresnel(float etaI, float etaT, float cosTheta);
 
 enum BSDFFlags
@@ -74,7 +72,7 @@ public:
     }
 
     // Sample and sum BRDFs
-    glm::vec3 Sample_f(glm::vec3 wo, glm::vec3* wi, glm::vec2 sample, float* pdf, uint8_t* flags, float* alpha_i, bool use_alpha_prime)
+    glm::vec3 Sample_f(glm::vec3 wo, glm::vec3* wi, glm::vec2 sample, float* pdf, uint8_t* flags, bool use_alpha_prime, float* alpha_i = nullptr)
     {
         // Choose a BxDF
         uint8_t bxdfIndex = static_cast<uint8_t>(sample.x * static_cast<float>(numBxDFs));
@@ -147,7 +145,8 @@ public:
 
     glm::vec3 Sample_f(glm::vec3 wo, glm::vec3* wi, glm::vec2 sample, float* pdf, uint8_t* flags, float* alpha_i, bool use_alpha_prime)
     {
-        *alpha_i = alpha;
+        if (alpha_i != nullptr) *alpha_i = alpha;
+        
         *flags = DIFFUSE;
         *wi = CosineSampleHemisphere(sample, pdf);
         return f(wo, *wi, use_alpha_prime);
@@ -180,7 +179,7 @@ public:
 
     glm::vec3 Sample_f(glm::vec3 wo, glm::vec3* wi, glm::vec2 sample, float* pdf, uint8_t* flags, float* alpha_i, bool use_alpha_prime)
     {
-        *alpha_i = 0.f;
+        if (alpha_i != nullptr) *alpha_i = 0.f;
         *flags = SPECULAR;
 
         *wi = glm::vec3(-wo.x, -wo.y, wo.z);
@@ -222,7 +221,7 @@ public:
 
     glm::vec3 Sample_f(glm::vec3 wo, glm::vec3* wi, glm::vec2 sample, float* pdf, uint8_t* flags, float* alpha_i, bool use_alpha_prime)
     {
-        *alpha_i = 0.f;
+        if (alpha_i != nullptr) *alpha_i = 0.f;
         *flags = SPECULAR;
 
         // Check if inside or outside of medium
@@ -360,14 +359,13 @@ public:
         if (use_alpha_prime) alpha = alpha_prime;
         else alpha = alpha0;
 
-        *alpha_i = alpha;
+        if (alpha_i != nullptr) *alpha_i = alpha;
         *flags = SPECULAR;
         if (alpha > 0.001f) *flags = GLOSSY;
         // TODO: PBRT uses 1.62142f as roughness == 1
         // Where does that come from??
         if (alpha >= 1.0f) *flags = DIFFUSE;
 
-#if VNDF
         // Transform wi from ellipsoid to hemisphere
         glm::vec3 wo_h = glm::vec3(wo.x * alpha, wo.y * alpha, wo.z);
         wo_h = glm::normalize(wo_h);
@@ -392,25 +390,7 @@ public:
         // Transform wh to ellipsoid (Inverse transpose)
         wh = glm::vec3(wh.x * alpha, wh.y * alpha, wh.z);
         wh = glm::normalize(wh);
-#else
-        float tanTheta = glm::sqrt((sample.x * alpha * alpha) / (1.f - sample.x));
-        float phi = 2.f * glm::pi<float>() * sample.y;
 
-        // TODO: There is definitely a better way to do this...
-        float theta = glm::atan(tanTheta);
-        float x = glm::cos(phi) * glm::sin(theta);
-        float y = glm::sin(phi) * glm::sin(theta);
-        float z = glm::cos(theta);
-
-        if (z < 0.f)
-        {
-            *pdf = 0.f;
-            return glm::vec3(0.f);
-        }
-
-        glm::vec3 wh(x, y, z);
-
-#endif
         *wi = Reflect(wo, wh);
 
         *wi = glm::normalize(*wi);
@@ -430,16 +410,9 @@ public:
 
         if (wh.z < 0.f) return 0.f;
 
-#if VNDF
         float cosThetaH = glm::min(glm::dot(wo, wh), 1.f);
         float pdf = (D(wh) * glm::min(glm::dot(wo, wh), 1.f) * G1(wo)) / wo.z;
         return glm::max(0.f, pdf / (4.f * cosThetaH));
-#else
-        // Need to convert 1/dwh to 1/dwi
-        float cosThetaH = glm::min(glm::dot(wh, wi), 1.f);
-        float d = D(wh);
-        return (wh.z * d) / (4.f * cosThetaH);
-#endif
     }
 
 private:
