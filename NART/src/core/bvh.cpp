@@ -4,16 +4,11 @@ BoundingVolume::BoundingVolume()
 {
     // Bounding volumes are defined by slabs along the cardinal direction vectors
     // and diagonally oriented vectors
-    float OneOverSqrt3 = 1.f / glm::sqrt(3.f);
     normals[0] = glm::vec3(1, 0, 0);
     normals[1] = glm::vec3(0, 1, 0);
     normals[2] = glm::vec3(0, 0, 1);
-    normals[3] = glm::vec3(OneOverSqrt3, OneOverSqrt3, OneOverSqrt3);
-    normals[4] = glm::vec3(OneOverSqrt3, -OneOverSqrt3, OneOverSqrt3);
-    normals[5] = glm::vec3(-OneOverSqrt3, OneOverSqrt3, OneOverSqrt3);
-    normals[6] = glm::vec3(-OneOverSqrt3, -OneOverSqrt3, OneOverSqrt3);
 
-    for (uint8_t i = 0; i < 7; ++i)
+    for (uint8_t i = 0; i < 3; ++i)
     {
         boundsMin[i] = Infinity;
         boundsMax[i] = -Infinity;
@@ -22,7 +17,7 @@ BoundingVolume::BoundingVolume()
 
 void BoundingVolume::ExtendBy(const BoundingVolume& bv)
 {
-    for (uint8_t i = 0; i < 7; ++i)
+    for (uint8_t i = 0; i < 3; ++i)
     {
         boundsMin[i] = glm::min(boundsMin[i], bv.boundsMin[i]);
         boundsMax[i] = glm::max(boundsMax[i], bv.boundsMax[i]);
@@ -35,7 +30,7 @@ bool BoundingVolume::Intersect(const Ray& ray, Intersection* isect)
     float tMax = Infinity;
     float dotLow = Infinity;
 
-    for (uint8_t i = 0; i < 7; ++i)
+    for (uint8_t i = 0; i < 3; ++i)
     {
         // Equation of a plane:
         // (o+td)dotN - bound = 0
@@ -94,16 +89,10 @@ bool Chunk::Intersect(const Ray& ray, Intersection* isect) const
 
 void Chunk::CalculateBounds()
 {
-    float OneOverSqrt3 = 1.f / glm::sqrt(3);
-
-    glm::vec3 normals[7];
+    glm::vec3 normals[3];
     normals[0] = glm::vec3(1, 0, 0);
     normals[1] = glm::vec3(0, 1, 0);
     normals[2] = glm::vec3(0, 0, 1);
-    normals[3] = glm::vec3(OneOverSqrt3, OneOverSqrt3, OneOverSqrt3);
-    normals[4] = glm::vec3(OneOverSqrt3, -OneOverSqrt3, OneOverSqrt3);
-    normals[5] = glm::vec3(-OneOverSqrt3, OneOverSqrt3, OneOverSqrt3);
-    normals[6] = glm::vec3(-OneOverSqrt3, -OneOverSqrt3, OneOverSqrt3);
 
     for (TriangleIndex triIndex : triangleIndices)
     {
@@ -118,7 +107,7 @@ void Chunk::CalculateBounds()
         bboxMin = glm::min(bboxMin, triangle.v2);
         bboxMax = glm::max(bboxMax, triangle.v2);
 
-        for (uint8_t i = 0; i < 7; ++i)
+        for (uint8_t i = 0; i < 3; ++i)
         {
             float v0DotNorm = glm::dot(triangle.v0, normals[i]);
             bv.boundsMin[i] = glm::min(v0DotNorm, bv.boundsMin[i]);

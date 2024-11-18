@@ -7,34 +7,37 @@
 
 #include "sampling.h"
 
-#define BECKMANN 0
-
 float Fresnel(float etaI, float etaT, float cosTheta);
 
 enum BSDFFlags
 {
     SPECULAR = 1,
     GLOSSY = 2,
-    DIFFUSE = 4
+    DIFFUSE = 4,
+    TRANSMISSIVE = 8
 };
 
 class BxDF
 {
 public:
     // BxDF - wo and wi must always be in local coord sys
-    virtual glm::vec3 f(const glm::vec3& wo, const glm::vec3& wi) = 0;
+    virtual glm::vec3 f(const glm::vec3& wo, const glm::vec3& wi, bool use_alpha_prime) = 0;
 
     // Sample BRDF, setting wi and pdf
-    virtual glm::vec3 Sample_f(glm::vec3 wo, glm::vec3* wi, glm::vec2 sample, float* pdf, BSDFFlags* flags) = 0;
+    virtual glm::vec3 Sample_f(glm::vec3 wo, glm::vec3* wi, glm::vec2 sample, float* pdf, uint8_t* flags, float* alpha_i, bool use_alpha_prime) = 0;
 
-    virtual float Pdf(const glm::vec3& wo, const glm::vec3& wi) = 0;
+    virtual float Pdf(const glm::vec3& wo, const glm::vec3& wi, bool use_alpha_prime) = 0;
 
     virtual ~BxDF() {}
 
-    BSDFFlags flags;
+    uint8_t flags;
 
 protected:
     BxDF() {}
+
+    float alpha = 0.f;
+    float alpha0 = 0.f;
+    float alpha_prime = 0.f;
 };
 
 class BSDF
@@ -58,18 +61,18 @@ public:
     }
 
     // Sum BxDFs
-    glm::vec3 f(const glm::vec3& wo, const glm::vec3& wi)
+    glm::vec3 f(const glm::vec3& wo, const glm::vec3& wi, bool use_alpha_prime)
     {
         glm::vec3 f = glm::vec3(0.f);
         for (uint8_t i = 0; i < numBxDFs; ++i)
         {
-            f += bxdfs[i]->f(wo, wi);
+            f += bxdfs[i]->f(wo, wi, use_alpha_prime);
         }
         return f;
     }
 
     // Sample and sum BRDFs
-    glm::vec3 Sample_f(glm::vec3 wo, glm::vec3* wi, glm::vec2 sample, float* pdf, BSDFFlags* flags)
+    glm::vec3 Sample_f(glm::vec3 wo, glm::vec3* wi, glm::vec2 sample, float* pdf, uint8_t* flags, bool use_alpha_prime, float* alpha_i = nullptr)
     {
         // Choose a BxDF
         uint8_t bxdfIndex = static_cast<uint8_t>(sample.x * static_cast<float>(numBxDFs));
@@ -77,7 +80,7 @@ public:
         // Remap sample to remove bias
         sample.x = glm::fract(sample.x * static_cast<float>(numBxDFs));
 
-        glm::vec3 f = bxdfs[bxdfIndex]->Sample_f(wo, wi, sample, pdf, flags);
+        glm::vec3 f = bxdfs[bxdfIndex]->Sample_f(wo, wi, sample, pdf, flags, alpha_i, use_alpha_prime);
 
         float numEvaluated = 1.f;
 
@@ -87,11 +90,11 @@ public:
             {
                 if (i != bxdfIndex && !(bxdfs[i]->flags & SPECULAR))
                 {
-                    float bxdfPdf = bxdfs[i]->Pdf(wo, *wi);
+                    float bxdfPdf = bxdfs[i]->Pdf(wo, *wi, use_alpha_prime);
                     if (bxdfPdf > 0.f)
                     {
-                        *pdf += bxdfs[i]->Pdf(wo, *wi);
-                        f += bxdfs[i]->f(wo, *wi);
+                        *pdf += bxdfs[i]->Pdf(wo, *wi, use_alpha_prime);
+                        f += bxdfs[i]->f(wo, *wi, use_alpha_prime);
                         numEvaluated += 1.f;
                     }
                 }
@@ -103,13 +106,13 @@ public:
     }
 
     // Average pdfs
-    float Pdf(const glm::vec3& wo, const glm::vec3& wi)
+    float Pdf(const glm::vec3& wo, const glm::vec3& wi, bool use_alpha_prime)
     {
         float pdf = 0.f;
 
         for (uint8_t i = 0; i < numBxDFs; ++i)
         {
-            pdf += bxdfs[i]->Pdf(wo, wi);
+            pdf += bxdfs[i]->Pdf(wo, wi, use_alpha_prime);
         }
 
         return pdf / static_cast<float>(numBxDFs);
@@ -119,6 +122,7 @@ protected:
     // Coord sys in worldspace
     glm::vec3 nt, nb, n;
     uint8_t numBxDFs = 0;
+    // TODO: Look into raw const pointers?
     std::vector<std::shared_ptr<BxDF>> bxdfs;
 };
 
@@ -128,21 +132,27 @@ public:
     LambertBRDF(glm::vec3 rho) : rho(rho)
     {
         flags = DIFFUSE;
+        alpha = 1.f;
+        alpha0 = 1.f;
+        alpha_prime = 1.f;
     }
 
-    glm::vec3 f(const glm::vec3& wo, const glm::vec3& wi)
+    // Note: alpha should never exceed 1.0, don't need to adjust
+    glm::vec3 f(const glm::vec3& wo, const glm::vec3& wi, bool use_alpha_prime)
     {
         return rho * glm::one_over_pi<float>();
     }
 
-    glm::vec3 Sample_f(glm::vec3 wo, glm::vec3* wi, glm::vec2 sample, float* pdf, BSDFFlags* flags)
+    glm::vec3 Sample_f(glm::vec3 wo, glm::vec3* wi, glm::vec2 sample, float* pdf, uint8_t* flags, float* alpha_i, bool use_alpha_prime)
     {
+        if (alpha_i != nullptr) *alpha_i = alpha;
+        
         *flags = DIFFUSE;
         *wi = CosineSampleHemisphere(sample, pdf);
-        return f(wo, *wi);
+        return f(wo, *wi, use_alpha_prime);
     }
 
-    float Pdf(const glm::vec3& wo, const glm::vec3& wi)
+    float Pdf(const glm::vec3& wo, const glm::vec3& wi, bool use_alpha_prime)
     {
         return wi.z * glm::one_over_pi<float>();
     }
@@ -160,14 +170,16 @@ public:
         flags = SPECULAR;
     }
 
-    glm::vec3 f(const glm::vec3& wo, const glm::vec3& wi)
+    // Note: We should never be in a situation where alpha_prime > 0 and we are using a specular BRDF
+    glm::vec3 f(const glm::vec3& wo, const glm::vec3& wi, bool use_alpha_prime)
     {
         // Probability of randomly sampling a delta function == 0
         return glm::vec3(0.f);
     }
 
-    glm::vec3 Sample_f(glm::vec3 wo, glm::vec3* wi, glm::vec2 sample, float* pdf, BSDFFlags* flags)
+    glm::vec3 Sample_f(glm::vec3 wo, glm::vec3* wi, glm::vec2 sample, float* pdf, uint8_t* flags, float* alpha_i, bool use_alpha_prime)
     {
+        if (alpha_i != nullptr) *alpha_i = 0.f;
         *flags = SPECULAR;
 
         *wi = glm::vec3(-wo.x, -wo.y, wo.z);
@@ -180,7 +192,7 @@ public:
         return (R * Fresnel(1.f, eta, wi->z)) / glm::abs(wi->z);
     }
 
-    float Pdf(const glm::vec3& wo, const glm::vec3& wi)
+    float Pdf(const glm::vec3& wo, const glm::vec3& wi, bool use_alpha_prime)
     {
         return 0.f;
     }
@@ -188,6 +200,90 @@ public:
 private:
     // Reflectance
     glm::vec3 R;
+    // IOR
+    float eta;
+};
+
+class SpecularDielectricBRDF : public BxDF
+{
+public:
+    SpecularDielectricBRDF(glm::vec3 rho, float eta) : rho(rho), eta(eta)
+    {
+        flags = SPECULAR;
+    }
+
+    // Note: We should never be in a situation where alpha_prime > 0 and we are using a specular BRDF
+    glm::vec3 f(const glm::vec3& wo, const glm::vec3& wi, bool use_alpha_prime)
+    {
+        // Probability of randomly sampling a delta function == 0
+        return glm::vec3(0.f);
+    }
+
+    glm::vec3 Sample_f(glm::vec3 wo, glm::vec3* wi, glm::vec2 sample, float* pdf, uint8_t* flags, float* alpha_i, bool use_alpha_prime)
+    {
+        if (alpha_i != nullptr) *alpha_i = 0.f;
+        *flags = SPECULAR;
+
+        // Check if inside or outside of medium
+        float eta_o = 1.f;
+        float eta_i = eta;
+
+        float Fr = Fresnel(eta_o, eta_i, wo.z);
+
+        if (wo.z < 0.f) std::swap(eta_o, eta_i);
+
+        if (sample.x < Fr)
+        {
+            // Delta distribution, so PDF == 1 at this one sample point
+            *pdf = Fr;
+
+            // Reflect
+            *wi = glm::vec3(-wo.x, -wo.y, wo.z);
+
+            // Mirror-reflection at grazing angles
+            if (wi->z == 0.f) return glm::vec3(1.f);
+
+            // Check hemisphere with gn
+            return glm::vec3(Fr / glm::abs(wi->z));
+        }
+
+        else
+        {
+            // Delta distribution, so PDF == 1 at this one sample point
+            *pdf = 1.f - Fr;
+
+            // Refract
+            float sinTheta_o = glm::sqrt(1.f - (wo.z * wo.z));
+            glm::vec3 a(wo.x, wo.y, 0.f);
+            float sinTheta_i = ((eta_o / eta_i) * sinTheta_o);
+            
+            // TIR
+            if (sinTheta_i >= 1.f) return glm::vec3(1.f);
+
+            *flags |= TRANSMISSIVE;
+
+            glm::vec3 c = -a * (eta_o / eta_i);
+            glm::vec3 d(0.f, 0.f, -glm::sqrt(1.f - (sinTheta_i * sinTheta_i)));
+            if (wo.z < 0.f) d = -d;
+            *wi = glm::normalize(c + d);
+
+            // Check hemisphere with gn
+            glm::vec3 f = glm::vec3(((eta_o / eta_i) * (eta_o / eta_i) * (1.f - Fr)) / glm::abs(wi->z));
+
+            return f;
+        }
+
+        
+    }
+
+    float Pdf(const glm::vec3& wo, const glm::vec3& wi, bool use_alpha_prime)
+    {
+        return 0.f;
+    }
+
+private:
+    // Colour
+    glm::vec3 rho;
     // IOR
     float eta;
 };
@@ -200,8 +296,11 @@ inline glm::vec3 Reflect(const glm::vec3& w1, const glm::vec3& w2)
 class TorranceSparrowBRDF : public BxDF
 {
 public:
-    TorranceSparrowBRDF(glm::vec3 R, float eta, float alpha) : R(R), eta(eta), alpha(alpha)
+    TorranceSparrowBRDF(glm::vec3 R, float eta, float _alpha0, float _alpha_prime) : R(R), eta(eta)
     {
+        alpha = _alpha0;
+        alpha0 = _alpha0;
+        alpha_prime = _alpha_prime;
         flags = GLOSSY;
     }
 
@@ -210,12 +309,7 @@ public:
     {
         float sinTheta = glm::sqrt(1.f - (w.z * w.z));
         float tanTheta = (sinTheta / w.z);
-#if BECKMANN
-        float a = 1.f / (alpha * tanTheta);
-        return (std::erf(a) - 1.f + (glm::exp(-a * a) / (a * glm::sqrt(glm::pi<float>())))) * 0.5f;
-#else
         return (-1.f + glm::sqrt(1.f + (alpha * alpha * tanTheta * tanTheta))) * 0.5f;
-#endif
     }
 
     float G(const glm::vec3& wo, const glm::vec3& wi)
@@ -237,15 +331,14 @@ public:
         float theta = glm::asin(sinTheta);
         // I think I read somewhere that (x * x) * (x * x) is faster than
         // x * x * x * x
-#if BECKMANN
-        return (glm::exp(-tan2Theta / (alpha * alpha))) / (glm::pi<float>() * alpha * alpha * ((wh.z * wh.z) * (wh.z * wh.z)));
-#else
         return 1.f / ((glm::pi<float>() * alpha * alpha * ((wh.z * wh.z) * (wh.z * wh.z))) * (1.f + (tan2Theta / (alpha * alpha))) * (1.f + (tan2Theta / (alpha * alpha))));
-#endif
     }
 
-    glm::vec3 f(const glm::vec3& wo, const glm::vec3& wi)
+    glm::vec3 f(const glm::vec3& wo, const glm::vec3& wi, bool use_alpha_prime)
     {
+        if (use_alpha_prime) alpha = alpha_prime;
+        else alpha = alpha0;
+
         if (wo.z < 0.f || wi.z < 0.f) return glm::vec3(0.f);
 
         glm::vec3 wh = wo + wi;
@@ -261,56 +354,65 @@ public:
         // return (R  * D(wh)) / (4.f * wo.z * wi.z);
     }
 
-    glm::vec3 Sample_f(glm::vec3 wo, glm::vec3* wi, glm::vec2 sample, float* pdf, BSDFFlags* flags)
+    glm::vec3 Sample_f(glm::vec3 wo, glm::vec3* wi, glm::vec2 sample, float* pdf, uint8_t* flags, float* alpha_i, bool use_alpha_prime)
     {
+        if (use_alpha_prime) alpha = alpha_prime;
+        else alpha = alpha0;
+
+        if (alpha_i != nullptr) *alpha_i = alpha;
         *flags = SPECULAR;
         if (alpha > 0.001f) *flags = GLOSSY;
         // TODO: PBRT uses 1.62142f as roughness == 1
         // Where does that come from??
         if (alpha >= 1.0f) *flags = DIFFUSE;
 
-#if BECKMANN
-        // Sample Beckmann distribution to get wh
-        float tanTheta = glm::sqrt(-alpha * alpha * glm::log(1.f - sample.x));
-#else
-        float tanTheta = glm::sqrt((sample.x * alpha * alpha) / (1.f - sample.x));
-#endif
-        float phi = 2.f * glm::pi<float>() * sample.y;
+        // Transform wi from ellipsoid to hemisphere
+        glm::vec3 wo_h = glm::vec3(wo.x * alpha, wo.y * alpha, wo.z);
+        wo_h = glm::normalize(wo_h);
 
-        // TODO: There is definitely a better way to do this...
-        float theta = glm::atan(tanTheta);
-        float x = glm::cos(phi) * glm::sin(theta);
-        float y = glm::sin(phi) * glm::sin(theta);
-        float z = glm::cos(theta);
+        // Sample projection of hemisphere in wo
+        // Build coord sys
+        glm::vec3 T1 = glm::vec3(wo_h.y, -wo_h.x, 0.f); // cross(wo, z)
+        T1 = glm::normalize(T1);
+        glm::vec3 T2 = glm::cross(T1, wo_h);
+        T2 = glm::normalize(T2);
 
-        if (z < 0.f)
-        {
-            *pdf = 0.f;
-            return glm::vec3(0.f);
-        }
+        // Sample disk
+        glm::vec2 visibleHSample = UniformSampleDisk(sample);
+        // Convert to visible hemisphere coords
+        float s = (1.f + wo_h.z) * 0.5f;
+        visibleHSample.y = (s * visibleHSample.y) + ((1.f - s) * glm::sqrt(1.f - (visibleHSample.x * visibleHSample.x)));
+        // Project onto hemisphere
+        glm::vec3 wh = glm::vec3(glm::sqrt(1.f - (visibleHSample.x * visibleHSample.x) - (visibleHSample.y * visibleHSample.y)), visibleHSample.x, visibleHSample.y);
+        // Convert to local coords
+        wh = wh.x * wo_h + wh.y * T1 + wh.z * T2;
 
-        glm::vec3 wh(x, y, z);
+        // Transform wh to ellipsoid (Inverse transpose)
+        wh = glm::vec3(wh.x * alpha, wh.y * alpha, wh.z);
+        wh = glm::normalize(wh);
 
         *wi = Reflect(wo, wh);
 
         *wi = glm::normalize(*wi);
 
-        *pdf = Pdf(wo, *wi);
+        *pdf = Pdf(wo, *wi, use_alpha_prime);
 
-        return f(wo, *wi);
+        return f(wo, *wi, use_alpha_prime);
     }
 
-    float Pdf(const glm::vec3& wo, const glm::vec3& wi)
+    float Pdf(const glm::vec3& wo, const glm::vec3& wi, bool use_alpha_prime)
     {
+        if (use_alpha_prime) alpha = alpha_prime;
+        else alpha = alpha0;
+
         glm::vec3 wh = wo + wi;
         wh = glm::normalize(wh);
 
         if (wh.z < 0.f) return 0.f;
 
-        // Need to convert 1/dwh to 1/dwi
-        float cosThetaH = glm::min(glm::dot(wh, wi), 1.f);
-        float d = D(wh);
-        return (wh.z * d) / (4.f * cosThetaH);
+        float cosThetaH = glm::min(glm::dot(wo, wh), 1.f);
+        float pdf = (D(wh) * glm::min(glm::dot(wo, wh), 1.f) * G1(wo)) / wo.z;
+        return glm::max(0.f, pdf / (4.f * cosThetaH));
     }
 
 private:
@@ -318,7 +420,5 @@ private:
     glm::vec3 R;
     // IOR
     float eta;
-    // Roughness
-    float alpha;
 };
 

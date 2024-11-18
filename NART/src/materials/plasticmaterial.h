@@ -7,7 +7,7 @@ class PlasticMaterial : public Material
 public:
     PlasticMaterial(glm::vec3 rho, glm::vec3 R, float eta, float alpha);
 
-    BSDF CreateBSDF(glm::vec3 n, float roughnessOffset);
+    BSDF CreateBSDF(glm::vec3 n, float alphaTweak);
 
 private:
     glm::vec3 rho;

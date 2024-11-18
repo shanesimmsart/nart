@@ -1,5 +1,15 @@
 #include "scene.h"
 
+Scene::Scene(const Camera* camera, std::vector<const Light*> lights, const BVH* bvh) : camera(camera), lights(lights), bvh(bvh)
+{}
+
+bool Scene::Intersect(const Ray& ray, Intersection* isect) const
+{
+    return bvh->Intersect(ray, isect);
+}
+
+
+
 std::shared_ptr<TriMesh> LoadMeshFromFile(std::string filePath, glm::mat4& objectToWorld, std::shared_ptr<Material> material)
 {
     std::ifstream file;
@@ -182,39 +192,143 @@ std::shared_ptr<TriMesh> LoadMeshFromFile(std::string filePath, glm::mat4& objec
     return mesh;
 }
 
-
-
-Scene::Scene(std::shared_ptr<Camera> camera, std::vector<const Light*> lights, std::shared_ptr<BVH> bvh) : camera(camera), lights(lights), bvh(bvh)
-{}
-
-bool Scene::Intersect(const Ray& ray, Intersection* isect) const
+glm::mat4 SceneMatrixFromVector(std::vector<float> vector)
 {
-    return bvh->Intersect(ray, isect);
+    glm::mat4 matrix(1.f);
+
+    uint8_t j = 0;
+    for (uint8_t i = 0; i < 4; ++i)
+    {
+        matrix[i] = glm::vec4(vector[j], vector[j + 1], vector[j + 2], vector[j + 3]);
+        j += 4;
+    }
+
+    return matrix;
 }
 
-Scene LoadScene(std::string scenePath)
+std::vector<std::shared_ptr<TriMesh>> LoadMeshes(const nlohmann::json json)
 {
-    nlohmann::json json;
-    std::ifstream ifs;
-    ifs.open(scenePath);
+    std::vector<std::string> meshFilePaths;
+    std::vector<std::shared_ptr<Material>> meshMaterials;
+    std::vector<glm::mat4> meshTransforms;
+    if (!json["meshes"].is_null()) {
+        uint8_t numMeshes = json["meshes"].size();
 
-    if (!ifs)
-    {
-        std::cerr << "Error: Scene file could not be opened.\n";
+        meshFilePaths.reserve(numMeshes);
+        meshMaterials.reserve(numMeshes);
+        meshTransforms.reserve(numMeshes);
+
+        for (auto& elem : json["meshes"])
+        {
+            std::string filePath = "";
+            try
+            {
+                meshFilePaths.push_back(elem["filePath"].get<std::string>());
+            }
+            catch (nlohmann::json::exception& e)
+            {
+                std::cerr << "Error in mesh file path: " << e.what() << "\n";
+            }
+
+            for (auto& mat : elem["material"])
+            {
+                std::shared_ptr<Material> material;
+                try
+                {
+                    std::string type = mat["type"].get<std::string>();
+
+                    if (type == "lambert")
+                    {
+                        std::vector<float> rhoGet = mat["rho"].get<std::vector<float>>();
+                        glm::vec3 rho = glm::vec3(rhoGet[0], rhoGet[1], rhoGet[2]);
+                        meshMaterials.push_back(std::make_shared<DiffuseMaterial>(rho));
+                    }
+
+                    else if (type == "specular")
+                    {
+                        std::vector<float> RGet = mat["R"].get<std::vector<float>>();
+                        glm::vec3 R = glm::vec3(glm::min(RGet[0], 1.f - glm::epsilon<float>()), glm::min(RGet[1], 1.f - glm::epsilon<float>()), glm::min(RGet[2], 1.f - glm::epsilon<float>()));
+                        float eta = mat["eta"].get<float>();
+                        meshMaterials.push_back(std::make_shared<SpecularMaterial>(R, eta));
+                    }
+
+                    else if (type == "glass")
+                    {
+                        std::vector<float> rhoGet = mat["rho"].get<std::vector<float>>();
+                        glm::vec3 rho = glm::vec3(glm::min(rhoGet[0], 1.f - glm::epsilon<float>()), glm::min(rhoGet[1], 1.f - glm::epsilon<float>()), glm::min(rhoGet[2], 1.f - glm::epsilon<float>()));
+                        float eta = mat["eta"].get<float>();
+                        meshMaterials.push_back(std::make_shared<SpecularDielectricMaterial>(rho, eta));
+                    }
+
+                    else if (type == "glossy")
+                    {
+                        std::vector<float> RGet = mat["R"].get<std::vector<float>>();
+                        glm::vec3 R = glm::vec3(glm::min(RGet[0], 1.f - glm::epsilon<float>()), glm::min(RGet[1], 1.f - glm::epsilon<float>()), glm::min(RGet[2], 1.f - glm::epsilon<float>()));
+                        float eta = mat["eta"].get<float>();
+                        float roughness = mat["roughness"].get<float>();
+                        float alpha = roughness * roughness;
+                        meshMaterials.push_back(std::make_shared<GlossyDielectricMaterial>(R, eta, alpha));
+                    }
+
+                    else if (type == "plastic")
+                    {
+                        std::vector<float> rhoGet = mat["rho"].get<std::vector<float>>();
+                        glm::vec3 rho = glm::vec3(rhoGet[0], rhoGet[1], rhoGet[2]);
+                        std::vector<float> RGet = mat["R"].get<std::vector<float>>();
+                        glm::vec3 R = glm::vec3(glm::min(RGet[0], 1.f - glm::epsilon<float>()), glm::min(RGet[1], 1.f - glm::epsilon<float>()), glm::min(RGet[2], 1.f - glm::epsilon<float>()));
+                        float eta = mat["eta"].get<float>();
+                        float roughness = mat["roughness"].get<float>();
+                        float alpha = roughness * roughness;
+                        meshMaterials.push_back(std::make_shared<PlasticMaterial>(rho, R, eta, alpha));
+                    }
+
+                    else
+                    {
+                        std::cerr << "Error: '" << type << "' is not a material type.\nAborting.\n";
+                        std::abort();
+                    }
+                }
+                catch (nlohmann::json::exception& e)
+                {
+                    std::cerr << "Error in mesh material type: " << e.what() << "\n";
+                }
+            }
+        }
+
+        for (auto& elem : json["meshes"])
+        {
+            std::vector<float> meshTransform = { 1.f, 0.f, 0.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f };
+            try
+            {
+                meshTransform = elem["transform"].get<std::vector<float>>();
+            }
+            catch (nlohmann::json::exception& e)
+            {
+                std::cerr << "Error in mesh transform: " << e.what() << "\n";
+            }
+
+            glm::mat4 objectToWorld = SceneMatrixFromVector(meshTransform);
+            meshTransforms.push_back(objectToWorld);
+        }
     }
 
-    try
+    else
     {
-        ifs >> json;
+        std::cerr << "Error: No meshes found.\n";
     }
 
-    catch (nlohmann::json::exception& e)
-    {
-        std::cerr << "Error parsing scene: " << e.what() << "\nAborting.\n";
-        std::abort();
+    std::vector<std::shared_ptr<TriMesh>> meshes;
+    meshes.reserve(meshFilePaths.size());
+
+    for (uint32_t i = 0; i < meshFilePaths.size(); ++i) {
+        meshes.push_back(LoadMeshFromFile(meshFilePaths[i], meshTransforms[i], meshMaterials[i]));
     }
 
-    // Default values if not found in json
+    return meshes;
+}
+
+const Camera* LoadCamera(const nlohmann::json json)
+{
     glm::mat4 cameraToWorld(1.f);
     float fov = 1.f;
     std::vector<float> camTransform = { 1.f, 0.f, 0.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f };
@@ -229,132 +343,20 @@ Scene LoadScene(std::string scenePath)
         std::cerr << "Error in camera: " << e.what() << "\n";
     }
 
-    uint8_t j = 0;
-    for (uint8_t i = 0; i < 4; ++i)
-    {
-        cameraToWorld[i] = glm::vec4(camTransform[j], camTransform[j + 1], camTransform[j + 2], camTransform[j + 3]);
-        j += 4;
-    }
+    cameraToWorld = SceneMatrixFromVector(camTransform);
 
-    std::shared_ptr<Camera> camera = std::make_shared<PinholeCamera>(fov, cameraToWorld);
+    return new PinholeCamera(fov, cameraToWorld);
+}
 
-    std::vector<std::string> mesh_filePaths;
-    std::vector<std::shared_ptr<Material>> mesh_materials;
-    if (!json["meshes"].is_null()) {
-        for (auto& elem : json["meshes"])
-        {
-            std::string filePath = "";
-            try
-            {
-                filePath = elem["filePath"].get<std::string>();
-            }
-            catch (nlohmann::json::exception& e)
-            {
-                std::cerr << "Error in mesh file path: " << e.what() << "\n";
-            }
-            mesh_filePaths.push_back(filePath);
-
-            for (auto& mat : elem["material"])
-            {
-                std::shared_ptr<Material> material;
-                try
-                {
-                    std::string type = mat["type"].get<std::string>();
-
-                    if (type == "lambert")
-                    {
-                        std::vector<float> rhoGet = mat["rho"].get<std::vector<float>>();
-                        glm::vec3 rho = glm::vec3(rhoGet[0], rhoGet[1], rhoGet[2]);
-                        material = std::make_shared<DiffuseMaterial>(rho);
-                    }
-
-                    else if (type == "specular")
-                    {
-                        std::vector<float> RGet = mat["R"].get<std::vector<float>>();
-                        glm::vec3 R = glm::vec3(glm::min(RGet[0], 1.f - glm::epsilon<float>()), glm::min(RGet[1], 1.f - glm::epsilon<float>()), glm::min(RGet[2], 1.f - glm::epsilon<float>()));
-                        float eta = mat["eta"].get<float>();
-                        material = std::make_shared<SpecularMaterial>(R, eta);
-                    }
-
-                    else if (type == "glossy")
-                    {
-                        std::vector<float> RGet = mat["R"].get<std::vector<float>>();
-                        glm::vec3 R = glm::vec3(glm::min(RGet[0], 1.f - glm::epsilon<float>()), glm::min(RGet[1], 1.f - glm::epsilon<float>()), glm::min(RGet[2], 1.f - glm::epsilon<float>()));
-                        float eta = mat["eta"].get<float>();
-                        float roughness = mat["roughness"].get<float>();
-                        float alpha = roughness * roughness;
-                        material = std::make_shared<GlossyDielectricMaterial>(R, eta, alpha);
-                    }
-
-                    else if (type == "plastic")
-                    {
-                        std::vector<float> rhoGet = mat["rho"].get<std::vector<float>>();
-                        glm::vec3 rho = glm::vec3(rhoGet[0], rhoGet[1], rhoGet[2]);
-                        std::vector<float> RGet = mat["R"].get<std::vector<float>>();
-                        glm::vec3 R = glm::vec3(glm::min(RGet[0], 1.f - glm::epsilon<float>()), glm::min(RGet[1], 1.f - glm::epsilon<float>()), glm::min(RGet[2], 1.f - glm::epsilon<float>()));
-                        float eta = mat["eta"].get<float>();
-                        float roughness = mat["roughness"].get<float>();
-                        float alpha = roughness * roughness;
-                        material = std::make_shared<PlasticMaterial>(rho, R, eta, alpha);
-                    }
-
-                    else
-                    {
-                        std::cerr << "Error: '" << type << "' is not a material type.\nAborting.\n";
-                        std::abort();
-                    }
-                }
-                catch (nlohmann::json::exception& e)
-                {
-                    std::cerr << "Error in mesh material type: " << e.what() << "\n";
-                }
-                mesh_materials.push_back(material);
-            }
-        }
-    }
-
-    else
-    {
-        std::cerr << "Error: No meshes found.\n";
-    }
-
-    std::vector<glm::mat4> meshTransforms;
-    if (!json["meshes"].is_null()) {
-        for (auto& elem : json["meshes"])
-        {
-            std::vector<float> meshTransform = { 1.f, 0.f, 0.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f };
-            try
-            {
-                meshTransform = elem["transform"].get<std::vector<float>>();
-            }
-            catch (nlohmann::json::exception& e)
-            {
-                std::cerr << "Error in mesh transform: " << e.what() << "\n";
-            }
-
-            glm::mat4 objectToWorld(1.f);
-            uint8_t j = 0;
-            for (uint8_t i = 0; i < 4; ++i)
-            {
-                objectToWorld[i] = glm::vec4(meshTransform[j], meshTransform[j + 1], meshTransform[j + 2], meshTransform[j + 3]);
-                j += 4;
-            }
-            meshTransforms.push_back(objectToWorld);
-        }
-    }
-
-    std::vector<std::shared_ptr<TriMesh>> meshes;
-
-    for (uint32_t i = 0; i < mesh_filePaths.size(); ++i) {
-        meshes.push_back(LoadMeshFromFile(mesh_filePaths[i], meshTransforms[i], mesh_materials[i]));
-    }
-
-    std::cout << "Building BVH...\n";
-    std::shared_ptr<BVH> bvh = std::make_shared<BVH>(BVH(meshes));
-
+std::vector<const Light*> LoadLights(const nlohmann::json json)
+{
     std::vector<const Light*> lights;
 
     if (!json["lights"].is_null()) {
+
+        uint8_t numLights = json["lights"].size();
+        lights.reserve(numLights);
+
         for (auto& elem : json["lights"])
         {
             std::vector<float> lightTransform = { 1.f, 0.f, 0.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f };
@@ -367,13 +369,7 @@ Scene LoadScene(std::string scenePath)
                 std::cerr << "Error in light transform: " << e.what() << "\n";
             }
 
-            glm::mat4 lightToWorld(1.f);
-            uint8_t j = 0;
-            for (uint8_t i = 0; i < 4; ++i)
-            {
-                lightToWorld[i] = glm::vec4(lightTransform[j], lightTransform[j + 1], lightTransform[j + 2], lightTransform[j + 3]);
-                j += 4;
-            }
+            glm::mat4 lightToWorld = SceneMatrixFromVector(lightTransform);
 
             try
             {
@@ -416,6 +412,39 @@ Scene LoadScene(std::string scenePath)
             }
         }
     }
+
+    return lights;
+}
+
+Scene LoadScene(std::string scenePath)
+{
+    nlohmann::json json;
+    std::ifstream ifs;
+    ifs.open(scenePath);
+
+    if (!ifs)
+    {
+        std::cerr << "Error: Scene file could not be opened.\n";
+    }
+
+    try
+    {
+        ifs >> json;
+    }
+
+    catch (nlohmann::json::exception& e)
+    {
+        std::cerr << "Error parsing scene: " << e.what() << "\nAborting.\n";
+        std::abort();
+    }
+
+    const Camera* camera = LoadCamera(json);
+
+    std::vector<std::shared_ptr<TriMesh>> meshes = LoadMeshes(json);
+
+    const BVH* bvh = new BVH(meshes);
+
+    std::vector<const Light*> lights = LoadLights(json);
 
     return Scene(camera, lights, bvh);
 }

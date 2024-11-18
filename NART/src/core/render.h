@@ -33,6 +33,8 @@ public:
 
     std::vector<Pixel> RenderTile(const float* filterTable, uint32_t x0, uint32_t x1, uint32_t y0, uint32_t y1);
 
+    glm::vec3 EstimateDirect(const glm::vec3 wo, BSDF& bsdf, const Intersection& isect, float* alphaTweak, const Ray& ray, RNG& rng, uint8_t* flags);
+
     std::vector<Pixel> Render();
 
     void WriteImageToEXR(const std::vector<Pixel>& pixels, const char* filePath);
@@ -53,8 +55,10 @@ private:
     // Total image dimensions, including border added to include filter width
     uint32_t totalWidth;
     uint32_t totalHeight;
+    
+    const float shadowBias = 0.01f;
 };
 
-std::vector<std::shared_ptr<RenderSession>> LoadSessions(std::string scenePath, const Scene& scene);
+std::vector<std::unique_ptr<RenderSession>> LoadSessions(std::string scenePath, const Scene& scene);
 
 
