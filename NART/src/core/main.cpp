@@ -25,7 +25,7 @@ int main(int argc, char* argv[])
         oss << argv[2] << std::to_string(n++) << ".exr";
         std::string filePath = oss.str();
 
-        std::cout << "\nWriting to " << filePath.c_str() << "...\n";
+        std::cout << "Writing to " << filePath.c_str() << "...\n";
         session->WriteImageToEXR(image, filePath.c_str());
 
         auto end = std::chrono::high_resolution_clock::now();
