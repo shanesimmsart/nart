@@ -5,7 +5,7 @@ Everything is written without referring to existing code or ray tracing resource
 
 You can follow my progress [here](https://twitter.com/shaneasimms/status/1728665955797217295).
 
-![progres 40](https://github.com/shanesimmsart/nart/assets/9335280/73c2d403-7943-4572-8ac5-ea2031828160)
+![glass](https://github.com/user-attachments/assets/8cbb833f-176d-4527-ba49-d5751709814e)
 ![progres 41](https://github.com/shanesimmsart/nart/assets/9335280/9f8b50ad-87e1-4efb-a1b8-a5a86f2ffd9a)
 
 ## Features so far:
