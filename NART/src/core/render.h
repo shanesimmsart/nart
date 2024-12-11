@@ -27,7 +27,7 @@ inline float Gaussian(float width, float x)
 class RenderSession
 {
 public:
-    RenderSession(const Scene& scene, uint32_t imageWidth, uint32_t imageHeight, uint32_t bucketSize, uint32_t spp, float filterWidth);
+    RenderSession(const Scene& scene, uint32_t imageWidth, uint32_t imageHeight, uint32_t bucketSize, uint32_t spp, float filterWidth, float rougheningFactor);
 
     void AddSample(const float* filterTable, glm::vec2 sampleCoords, glm::vec4 L, std::vector<Pixel>& pixels);
 
@@ -56,6 +56,7 @@ private:
     uint32_t totalWidth;
     uint32_t totalHeight;
     
+    float rougheningFactor = 0.f;
     const float shadowBias = 0.01f;
 };
 

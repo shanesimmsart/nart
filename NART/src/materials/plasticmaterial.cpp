@@ -9,13 +9,13 @@ BSDF PlasticMaterial::CreateBSDF(glm::vec3 n, float alphaTweak)
 
     float alpha_prime = 1.f - ((1.f - alpha) * alphaTweak);
 
-    bsdf.AddBxDF(std::make_shared<LambertBRDF>(rho));
+    bsdf.AddBxDF(std::make_unique<LambertBRDF>(rho));
 
     if (alpha_prime > 0.001f) {
-        bsdf.AddBxDF(std::make_shared<TorranceSparrowBRDF>(R, eta, glm::max(0.0001f, alpha), alpha_prime));
+        bsdf.AddBxDF(std::make_unique<TorranceSparrowBRDF>(R, eta, glm::max(0.0001f, alpha), alpha_prime));
     }
 
-    else bsdf.AddBxDF(std::make_shared<SpecularBRDF>(R, eta));
+    else bsdf.AddBxDF(std::make_unique<SpecularBRDF>(R, eta));
 
     return bsdf;
 }

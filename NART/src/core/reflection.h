@@ -7,7 +7,14 @@
 
 #include "sampling.h"
 
-float Fresnel(float etaI, float etaT, float cosTheta);
+inline glm::vec3 rho_seflect(const glm::vec3& w1, const glm::vec3& w2)
+{
+    return (2.f * glm::dot(w1, w2) * w2) - w1;
+}
+
+// Dielectric Fresnel function
+// Note: cosTheta is expected to be unsigned
+float Fresnel(float eta_o, float eta_i, float cosTheta);
 
 enum BSDFFlags
 {
@@ -24,7 +31,7 @@ public:
     virtual glm::vec3 f(const glm::vec3& wo, const glm::vec3& wi, bool use_alpha_prime) = 0;
 
     // Sample BRDF, setting wi and pdf
-    virtual glm::vec3 Sample_f(glm::vec3 wo, glm::vec3* wi, glm::vec2 sample, float* pdf, uint8_t* flags, float* alpha_i, bool use_alpha_prime) = 0;
+    virtual glm::vec3 Sample_f(const glm::vec3& wo, glm::vec3* wi, float sample1D, glm::vec2 sample, float* pdf, uint8_t* flags, float* alpha_i, bool use_alpha_prime) = 0;
 
     virtual float Pdf(const glm::vec3& wo, const glm::vec3& wi, bool use_alpha_prime) = 0;
 
@@ -35,171 +42,83 @@ public:
 protected:
     BxDF() {}
 
+    // alpha used when calculating BRDF
     float alpha = 0.f;
-    float alpha0 = 0.f;
+    // unadjusted alpha
+    float alpha_0 = 0.f;
+    // alpha adjusted via roughening over paths
     float alpha_prime = 0.f;
 };
+
+using BxDFPtr = std::unique_ptr<BxDF>;
 
 class BSDF
 {
 public:
     BSDF(glm::vec3 n, uint8_t numBxDFs);
 
-    glm::vec3 ToLocal(glm::vec3 v)
+    inline glm::vec3 ToLocal(const glm::vec3& v)
     {
-        return glm::normalize(glm::vec3(glm::dot(v, nt), glm::dot(v, nb), glm::dot(v, n)));
+        return glm::normalize(glm::vec3(glm::dot(v, n_t), glm::dot(v, n_b), glm::dot(v, n)));
     }
 
-    glm::vec3 ToWorld(glm::vec3 v)
+    inline glm::vec3 ToWorld(const glm::vec3& v)
     {
-        return glm::normalize(v.x * nt + v.y * nb + v.z * n);
+        return glm::normalize(v.x * n_t + v.y * n_b + v.z * n);
     }
 
-    void AddBxDF(std::shared_ptr<BxDF> bxdf)
+    inline void AddBxDF(BxDFPtr&& bxdf)
     {
-        bxdfs.emplace_back(bxdf);
+        bxdfs.push_back(std::move(bxdf));
     }
 
     // Sum BxDFs
-    glm::vec3 f(const glm::vec3& wo, const glm::vec3& wi, bool use_alpha_prime)
-    {
-        glm::vec3 f = glm::vec3(0.f);
-        for (uint8_t i = 0; i < numBxDFs; ++i)
-        {
-            f += bxdfs[i]->f(wo, wi, use_alpha_prime);
-        }
-        return f;
-    }
+    glm::vec3 f(const glm::vec3& wo, const glm::vec3& wi, bool use_alpha_prime);
 
     // Sample and sum BRDFs
-    glm::vec3 Sample_f(glm::vec3 wo, glm::vec3* wi, glm::vec2 sample, float* pdf, uint8_t* flags, bool use_alpha_prime, float* alpha_i = nullptr)
-    {
-        // Choose a BxDF
-        uint8_t bxdfIndex = static_cast<uint8_t>(sample.x * static_cast<float>(numBxDFs));
-
-        // Remap sample to remove bias
-        sample.x = glm::fract(sample.x * static_cast<float>(numBxDFs));
-
-        glm::vec3 f = bxdfs[bxdfIndex]->Sample_f(wo, wi, sample, pdf, flags, alpha_i, use_alpha_prime);
-
-        float numEvaluated = 1.f;
-
-        if (!(*flags & SPECULAR))
-        {
-            for (uint8_t i = 0; i < numBxDFs; ++i)
-            {
-                if (i != bxdfIndex && !(bxdfs[i]->flags & SPECULAR))
-                {
-                    float bxdfPdf = bxdfs[i]->Pdf(wo, *wi, use_alpha_prime);
-                    if (bxdfPdf > 0.f)
-                    {
-                        *pdf += bxdfs[i]->Pdf(wo, *wi, use_alpha_prime);
-                        f += bxdfs[i]->f(wo, *wi, use_alpha_prime);
-                        numEvaluated += 1.f;
-                    }
-                }
-            }
-            *pdf /= static_cast<float>(numBxDFs); //numEvaluated;
-        }
-
-        return f;
-    }
+    glm::vec3 Sample_f(const glm::vec3& wo, glm::vec3* wi, float sample1D, glm::vec2 sample, float* pdf, uint8_t* flags, bool use_alpha_prime, float* alpha_i = nullptr);
 
     // Average pdfs
-    float Pdf(const glm::vec3& wo, const glm::vec3& wi, bool use_alpha_prime)
-    {
-        float pdf = 0.f;
-
-        for (uint8_t i = 0; i < numBxDFs; ++i)
-        {
-            pdf += bxdfs[i]->Pdf(wo, wi, use_alpha_prime);
-        }
-
-        return pdf / static_cast<float>(numBxDFs);
-    }
+    float Pdf(const glm::vec3& wo, const glm::vec3& wi, bool use_alpha_prime);
 
 protected:
     // Coord sys in worldspace
-    glm::vec3 nt, nb, n;
+    glm::vec3 n_t, n_b, n;
     uint8_t numBxDFs = 0;
-    // TODO: Look into raw const pointers?
-    std::vector<std::shared_ptr<BxDF>> bxdfs;
+    std::vector<BxDFPtr> bxdfs;
 };
 
 class LambertBRDF : public BxDF
 {
 public:
-    LambertBRDF(glm::vec3 rho) : rho(rho)
-    {
-        flags = DIFFUSE;
-        alpha = 1.f;
-        alpha0 = 1.f;
-        alpha_prime = 1.f;
-    }
+    LambertBRDF(glm::vec3 rho_d);
 
-    // Note: alpha should never exceed 1.0, don't need to adjust
-    glm::vec3 f(const glm::vec3& wo, const glm::vec3& wi, bool use_alpha_prime)
-    {
-        return rho * glm::one_over_pi<float>();
-    }
+    glm::vec3 f(const glm::vec3& wo, const glm::vec3& wi, bool use_alpha_prime);
 
-    glm::vec3 Sample_f(glm::vec3 wo, glm::vec3* wi, glm::vec2 sample, float* pdf, uint8_t* flags, float* alpha_i, bool use_alpha_prime)
-    {
-        if (alpha_i != nullptr) *alpha_i = alpha;
-        
-        *flags = DIFFUSE;
-        *wi = CosineSampleHemisphere(sample, pdf);
-        return f(wo, *wi, use_alpha_prime);
-    }
+    glm::vec3 Sample_f(const glm::vec3& wo, glm::vec3* wi, float sample1D, glm::vec2 sample, float* pdf, uint8_t* flags, float* alpha_i, bool use_alpha_prime);
 
-    float Pdf(const glm::vec3& wo, const glm::vec3& wi, bool use_alpha_prime)
-    {
-        return wi.z * glm::one_over_pi<float>();
-    }
+    float Pdf(const glm::vec3& wo, const glm::vec3& wi, bool use_alpha_prime);
 
 private:
-    // Albedo
-    glm::vec3 rho;
+    // Diffuse
+    glm::vec3 rho_d;
 };
 
 class SpecularBRDF : public BxDF
 {
 public:
-    SpecularBRDF(glm::vec3 R, float eta) : R(R), eta(eta)
-    {
-        flags = SPECULAR;
-    }
+    SpecularBRDF(glm::vec3 rho_s, float eta);
 
     // Note: We should never be in a situation where alpha_prime > 0 and we are using a specular BRDF
-    glm::vec3 f(const glm::vec3& wo, const glm::vec3& wi, bool use_alpha_prime)
-    {
-        // Probability of randomly sampling a delta function == 0
-        return glm::vec3(0.f);
-    }
+    glm::vec3 f(const glm::vec3& wo, const glm::vec3& wi, bool use_alpha_prime);
 
-    glm::vec3 Sample_f(glm::vec3 wo, glm::vec3* wi, glm::vec2 sample, float* pdf, uint8_t* flags, float* alpha_i, bool use_alpha_prime)
-    {
-        if (alpha_i != nullptr) *alpha_i = 0.f;
-        *flags = SPECULAR;
+    glm::vec3 Sample_f(const glm::vec3& wo, glm::vec3* wi, float sample1D, glm::vec2 sample, float* pdf, uint8_t* flags, float* alpha_i, bool use_alpha_prime);
 
-        *wi = glm::vec3(-wo.x, -wo.y, wo.z);
-        // Delta distribution, so PDF == 1 at this one sample point
-        *pdf = 1.f;
-
-        // Mirror-reflection at grazing angles
-        if (wi->z == 0.f) return glm::vec3(1.f);
-
-        return (R * Fresnel(1.f, eta, wi->z)) / glm::abs(wi->z);
-    }
-
-    float Pdf(const glm::vec3& wo, const glm::vec3& wi, bool use_alpha_prime)
-    {
-        return 0.f;
-    }
+    float Pdf(const glm::vec3& wo, const glm::vec3& wi, bool use_alpha_prime);
 
 private:
     // Reflectance
-    glm::vec3 R;
+    glm::vec3 rho_s;
     // IOR
     float eta;
 };
@@ -207,218 +126,88 @@ private:
 class SpecularDielectricBRDF : public BxDF
 {
 public:
-    SpecularDielectricBRDF(glm::vec3 rho, float eta) : rho(rho), eta(eta)
-    {
-        flags = SPECULAR;
-    }
+    SpecularDielectricBRDF(glm::vec3 rho_d, float eta);
 
     // Note: We should never be in a situation where alpha_prime > 0 and we are using a specular BRDF
-    glm::vec3 f(const glm::vec3& wo, const glm::vec3& wi, bool use_alpha_prime)
-    {
-        // Probability of randomly sampling a delta function == 0
-        return glm::vec3(0.f);
-    }
+    glm::vec3 f(const glm::vec3& wo, const glm::vec3& wi, bool use_alpha_prime);
 
-    glm::vec3 Sample_f(glm::vec3 wo, glm::vec3* wi, glm::vec2 sample, float* pdf, uint8_t* flags, float* alpha_i, bool use_alpha_prime)
-    {
-        if (alpha_i != nullptr) *alpha_i = 0.f;
-        *flags = SPECULAR;
+    glm::vec3 Sample_f(const glm::vec3& wo, glm::vec3* wi, float sample1D, glm::vec2 sample, float* pdf, uint8_t* flags, float* alpha_i, bool use_alpha_prime);
 
-        // Check if inside or outside of medium
-        float eta_o = 1.f;
-        float eta_i = eta;
-
-        float Fr = Fresnel(eta_o, eta_i, wo.z);
-
-        if (wo.z < 0.f) std::swap(eta_o, eta_i);
-
-        if (sample.x < Fr)
-        {
-            // Delta distribution, so PDF == 1 at this one sample point
-            *pdf = Fr;
-
-            // Reflect
-            *wi = glm::vec3(-wo.x, -wo.y, wo.z);
-
-            // Mirror-reflection at grazing angles
-            if (wi->z == 0.f) return glm::vec3(1.f);
-
-            // Check hemisphere with gn
-            return glm::vec3(Fr / glm::abs(wi->z));
-        }
-
-        else
-        {
-            // Delta distribution, so PDF == 1 at this one sample point
-            *pdf = 1.f - Fr;
-
-            // Refract
-            float sinTheta_o = glm::sqrt(1.f - (wo.z * wo.z));
-            glm::vec3 a(wo.x, wo.y, 0.f);
-            float sinTheta_i = ((eta_o / eta_i) * sinTheta_o);
-            
-            // TIR
-            if (sinTheta_i >= 1.f) return glm::vec3(1.f);
-
-            *flags |= TRANSMISSIVE;
-
-            glm::vec3 c = -a * (eta_o / eta_i);
-            glm::vec3 d(0.f, 0.f, -glm::sqrt(1.f - (sinTheta_i * sinTheta_i)));
-            if (wo.z < 0.f) d = -d;
-            *wi = glm::normalize(c + d);
-
-            // Check hemisphere with gn
-            glm::vec3 f = glm::vec3(((eta_o / eta_i) * (eta_o / eta_i) * (1.f - Fr)) / glm::abs(wi->z));
-
-            return f;
-        }
-
-        
-    }
-
-    float Pdf(const glm::vec3& wo, const glm::vec3& wi, bool use_alpha_prime)
-    {
-        return 0.f;
-    }
+    float Pdf(const glm::vec3& wo, const glm::vec3& wi, bool use_alpha_prime);
 
 private:
-    // Colour
-    glm::vec3 rho;
+    // Diffuse
+    glm::vec3 rho_d;
     // IOR
     float eta;
 };
-
-inline glm::vec3 Reflect(const glm::vec3& w1, const glm::vec3& w2)
-{
-    return (2.f * glm::dot(w1, w2) * w2) - w1;
-}
 
 class TorranceSparrowBRDF : public BxDF
 {
 public:
-    TorranceSparrowBRDF(glm::vec3 R, float eta, float _alpha0, float _alpha_prime) : R(R), eta(eta)
-    {
-        alpha = _alpha0;
-        alpha0 = _alpha0;
-        alpha_prime = _alpha_prime;
-        flags = GLOSSY;
-    }
+    TorranceSparrowBRDF(glm::vec3 rho_s, float eta, float _alpha_0, float _alpha_prime);
 
     // Masking-shadowing Function (Smith) (Beckmann / GGX)
-    float Lambda(const glm::vec3& w)
-    {
-        float sinTheta = glm::sqrt(1.f - (w.z * w.z));
-        float tanTheta = (sinTheta / w.z);
-        return (-1.f + glm::sqrt(1.f + (alpha * alpha * tanTheta * tanTheta))) * 0.5f;
-    }
+    float Lambda(const glm::vec3& w);
 
-    float G(const glm::vec3& wo, const glm::vec3& wi)
+    inline float G(const glm::vec3& wo, const glm::vec3& wi)
     {
         return 1.f / (1.f + Lambda(wo) + Lambda(wi));
     }
 
-    float G1(const glm::vec3& w)
+    inline float G1(const glm::vec3& w)
     {
         return 1.f / (1.f + Lambda(w));
     }
 
-    // Normal Distribution Function (Beckmann / GGX)
-    float D(const glm::vec3 wh)
-    {
-        float sinTheta = glm::sqrt(1.f - (wh.z * wh.z));
-        float tanTheta = (sinTheta / wh.z);
-        float tan2Theta = tanTheta * tanTheta;
-        float theta = glm::asin(sinTheta);
-        // I think I read somewhere that (x * x) * (x * x) is faster than
-        // x * x * x * x
-        return 1.f / ((glm::pi<float>() * alpha * alpha * ((wh.z * wh.z) * (wh.z * wh.z))) * (1.f + (tan2Theta / (alpha * alpha))) * (1.f + (tan2Theta / (alpha * alpha))));
-    }
+    // Normal Distribution Function (Trowbridge-Reitz)
+    float D(const glm::vec3 wh);
 
-    glm::vec3 f(const glm::vec3& wo, const glm::vec3& wi, bool use_alpha_prime)
-    {
-        if (use_alpha_prime) alpha = alpha_prime;
-        else alpha = alpha0;
+    glm::vec3 f(const glm::vec3& wo, const glm::vec3& wi, bool use_alpha_prime);
 
-        if (wo.z < 0.f || wi.z < 0.f) return glm::vec3(0.f);
+    glm::vec3 Sample_f(const glm::vec3& wo, glm::vec3* wi, float sample1D, glm::vec2 sample, float* pdf, uint8_t* flags, float* alpha_i, bool use_alpha_prime);
 
-        glm::vec3 wh = wo + wi;
-        wh = glm::normalize(wh);
-
-        float g = G(wo, wi);
-        float d = D(wh);
-        float fr = Fresnel(1.f, eta, glm::dot(wh, wi));
-
-        if (wo.z * wi.z == 0.f) return glm::vec3(0.f);
-
-        return (R * g * d * fr) / (4.f * wo.z * wi.z);
-        // return (R  * D(wh)) / (4.f * wo.z * wi.z);
-    }
-
-    glm::vec3 Sample_f(glm::vec3 wo, glm::vec3* wi, glm::vec2 sample, float* pdf, uint8_t* flags, float* alpha_i, bool use_alpha_prime)
-    {
-        if (use_alpha_prime) alpha = alpha_prime;
-        else alpha = alpha0;
-
-        if (alpha_i != nullptr) *alpha_i = alpha;
-        *flags = SPECULAR;
-        if (alpha > 0.001f) *flags = GLOSSY;
-        // TODO: PBRT uses 1.62142f as roughness == 1
-        // Where does that come from??
-        if (alpha >= 1.0f) *flags = DIFFUSE;
-
-        // Transform wi from ellipsoid to hemisphere
-        glm::vec3 wo_h = glm::vec3(wo.x * alpha, wo.y * alpha, wo.z);
-        wo_h = glm::normalize(wo_h);
-
-        // Sample projection of hemisphere in wo
-        // Build coord sys
-        glm::vec3 T1 = glm::vec3(wo_h.y, -wo_h.x, 0.f); // cross(wo, z)
-        T1 = glm::normalize(T1);
-        glm::vec3 T2 = glm::cross(T1, wo_h);
-        T2 = glm::normalize(T2);
-
-        // Sample disk
-        glm::vec2 visibleHSample = UniformSampleDisk(sample);
-        // Convert to visible hemisphere coords
-        float s = (1.f + wo_h.z) * 0.5f;
-        visibleHSample.y = (s * visibleHSample.y) + ((1.f - s) * glm::sqrt(1.f - (visibleHSample.x * visibleHSample.x)));
-        // Project onto hemisphere
-        glm::vec3 wh = glm::vec3(glm::sqrt(1.f - (visibleHSample.x * visibleHSample.x) - (visibleHSample.y * visibleHSample.y)), visibleHSample.x, visibleHSample.y);
-        // Convert to local coords
-        wh = wh.x * wo_h + wh.y * T1 + wh.z * T2;
-
-        // Transform wh to ellipsoid (Inverse transpose)
-        wh = glm::vec3(wh.x * alpha, wh.y * alpha, wh.z);
-        wh = glm::normalize(wh);
-
-        *wi = Reflect(wo, wh);
-
-        *wi = glm::normalize(*wi);
-
-        *pdf = Pdf(wo, *wi, use_alpha_prime);
-
-        return f(wo, *wi, use_alpha_prime);
-    }
-
-    float Pdf(const glm::vec3& wo, const glm::vec3& wi, bool use_alpha_prime)
-    {
-        if (use_alpha_prime) alpha = alpha_prime;
-        else alpha = alpha0;
-
-        glm::vec3 wh = wo + wi;
-        wh = glm::normalize(wh);
-
-        if (wh.z < 0.f) return 0.f;
-
-        float cosThetaH = glm::min(glm::dot(wo, wh), 1.f);
-        float pdf = (D(wh) * glm::min(glm::dot(wo, wh), 1.f) * G1(wo)) / wo.z;
-        return glm::max(0.f, pdf / (4.f * cosThetaH));
-    }
+    float Pdf(const glm::vec3& wo, const glm::vec3& wi, bool use_alpha_prime);
 
 private:
     // Reflectance
-    glm::vec3 R;
+    glm::vec3 rho_s;
     // IOR
     float eta;
 };
+
+class DielectricBRDF : public BxDF
+{
+public:
+    DielectricBRDF(glm::vec3 rho_s, float eta, float _alpha_0, float _alpha_prime);
+
+    // Masking-shadowing Function (Smith) (Beckmann / GGX)
+    float Lambda(const glm::vec3& w);
+
+    inline float G(const glm::vec3& wo, const glm::vec3& wi)
+    {
+        return 1.f / (1.f + Lambda(wo) + Lambda(wi));
+    }
+
+    inline float G1(const glm::vec3& w)
+    {
+        return 1.f / (1.f + Lambda(w));
+    }
+
+    // Normal Distribution Function (Trowbridge-Reitz)
+    float D(const glm::vec3 wh);
+
+    glm::vec3 f(const glm::vec3& wo, const glm::vec3& wi, bool use_alpha_prime);
+
+    glm::vec3 Sample_f(const glm::vec3& wo, glm::vec3* wi, float sample1D, glm::vec2 sample, float* pdf, uint8_t* flags, float* alpha_i, bool use_alpha_prime);
+
+    float Pdf(const glm::vec3& wo, const glm::vec3& wi, bool use_alpha_prime);
+
+private:
+    // Reflectance
+    glm::vec3 rho_s;
+    // IOR
+    float eta;
+};
+
 

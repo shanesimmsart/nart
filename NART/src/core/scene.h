@@ -19,32 +19,32 @@
 class Scene
 {
 public:
-    Scene(const Camera* camera, std::vector<const Light*> lights, const BVH* bvh);
-
-    ~Scene()
-    {
-        delete camera;
-
-        for (const Light* light : lights)
-        {
-            delete light;
-        }
-
-        lights.clear();
-
-        delete bvh;
-    }
+    Scene(std::string scenePath);
 
     bool Intersect(const Ray& ray, Intersection* isect) const;
 
-    const Camera* camera;
-    std::vector<const Light*> lights;
-    const BVH* bvh;
-};
+    const Light& GetLight(uint8_t index) const;
 
-Scene LoadScene(std::string scenePath);
-glm::mat4 SceneMatrixFromVector(std::vector<float> vector);
-std::shared_ptr<TriMesh> LoadMeshFromFile(std::string filePath, glm::mat4& objectToWorld, std::shared_ptr<Material> material);
-std::vector<std::shared_ptr<TriMesh>> LoadMeshes(const nlohmann::json json);
+    uint8_t GetNumLights() const;
+
+    const Camera& GetCamera() const;
+
+    const BVH& GetBVH() const;
+
+private:
+    glm::mat4 MatrixFromVector(std::vector<float> vector);
+
+    TriMeshPtr LoadMeshFromFile(std::string filePath, glm::mat4& objectToWorld, std::shared_ptr<Material> material);
+
+    void LoadMeshes(const nlohmann::json json);
+    
+    void LoadCamera(const nlohmann::json json);
+
+    void LoadLights(const nlohmann::json json);
+
+    std::vector<LightPtr> lights;
+    CameraPtr camera;
+    BVHPtr bvh;
+};
 
 

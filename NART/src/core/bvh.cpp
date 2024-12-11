@@ -1,9 +1,8 @@
 #include "bvh.h"
 
-BoundingVolume::BoundingVolume()
+BVH::BoundingVolume::BoundingVolume()
 {
     // Bounding volumes are defined by slabs along the cardinal direction vectors
-    // and diagonally oriented vectors
     normals[0] = glm::vec3(1, 0, 0);
     normals[1] = glm::vec3(0, 1, 0);
     normals[2] = glm::vec3(0, 0, 1);
@@ -15,7 +14,7 @@ BoundingVolume::BoundingVolume()
     }
 }
 
-void BoundingVolume::ExtendBy(const BoundingVolume& bv)
+void BVH::BoundingVolume::ExtendBy(const BoundingVolume& bv)
 {
     for (uint8_t i = 0; i < 3; ++i)
     {
@@ -24,7 +23,7 @@ void BoundingVolume::ExtendBy(const BoundingVolume& bv)
     }
 }
 
-bool BoundingVolume::Intersect(const Ray& ray, Intersection* isect)
+bool BVH::BoundingVolume::Intersect(const Ray& ray, Intersection* isect)
 {
     float tMin = -Infinity;
     float tMax = Infinity;
@@ -68,26 +67,26 @@ bool BoundingVolume::Intersect(const Ray& ray, Intersection* isect)
 
 
 
-void Chunk::Insert(std::shared_ptr<TriMesh> mesh, const uint32_t& index)
+void BVH::Chunk::Insert(const TriMesh& mesh, const uint32_t& index)
 {
     triangleIndices.push_back(TriangleIndex(mesh, index));
 }
 
-bool Chunk::Intersect(const Ray& ray, Intersection* isect) const
+bool BVH::Chunk::Intersect(const Ray& ray, Intersection* isect) const
 {
     bool hit = false;
     for (uint32_t i = 0; i < triangleIndices.size(); ++i)
     {
-        if (triangleIndices[i].mesh->triangles[triangleIndices[i].index].Intersect(ray, isect))
+        if (triangleIndices[i].mesh.triangles[triangleIndices[i].index].Intersect(ray, isect))
         {
             hit = true;
-            isect->material = triangleIndices[i].mesh->material;
+            isect->material = triangleIndices[i].mesh.material;
         }
     }
     return hit;
 }
 
-void Chunk::CalculateBounds()
+void BVH::Chunk::CalculateBounds()
 {
     glm::vec3 normals[3];
     normals[0] = glm::vec3(1, 0, 0);
@@ -96,7 +95,7 @@ void Chunk::CalculateBounds()
 
     for (TriangleIndex triIndex : triangleIndices)
     {
-        Triangle triangle = triIndex.mesh->triangles[triIndex.index];
+        Triangle triangle = triIndex.mesh.triangles[triIndex.index];
 
         bboxMin = glm::min(bboxMin, triangle.v0);
         bboxMax = glm::max(bboxMax, triangle.v0);
@@ -126,25 +125,25 @@ void Chunk::CalculateBounds()
 
 
 
-Octree::OctreeNode::OctreeNode(glm::vec3 nodeMin, glm::vec3 nodeMax) : nodeMin(nodeMin), nodeMax(nodeMax) {}
+BVH::Octree::OctreeNode::OctreeNode(glm::vec3 nodeMin, glm::vec3 nodeMax) : nodeMin(nodeMin), nodeMax(nodeMax) {}
 
-Octree::Octree(glm::vec3 sceneMin, glm::vec3 sceneMax) : sceneMin(sceneMin), sceneMax(sceneMax)
+BVH::Octree::Octree(glm::vec3 sceneMin, glm::vec3 sceneMax) : sceneMin(sceneMin), sceneMax(sceneMax)
 {
-    root = std::make_shared<OctreeNode>(sceneMin, sceneMax);
+    root = std::shared_ptr<OctreeNode>(new OctreeNode(sceneMin, sceneMax));
 }
 
-void Octree::Insert(std::shared_ptr<Chunk> chunk)
+void BVH::Octree::Insert(ChunkPtr chunk)
 {
     chunk->CalculateBounds();
-    InsertChunkIntoNode(chunk, root);
+    InsertChunkIntoNode(std::move(chunk), root);
 }
 
-void Octree::Build()
+void BVH::Octree::Build()
 {
     BuildBoundingVolumes(root);
 }
 
-bool Octree::Intersect(const Ray& ray, Intersection* isect)
+bool BVH::Octree::Intersect(const Ray& ray, Intersection* isect)
 {
     // Using priority queue to keep track of closest node intersection
     std::priority_queue<std::pair<float, std::shared_ptr<OctreeNode>>, std::vector<std::pair<float, std::shared_ptr<OctreeNode>>>, std::greater<std::pair<float, std::shared_ptr<OctreeNode>>>> queue;
@@ -188,13 +187,13 @@ bool Octree::Intersect(const Ray& ray, Intersection* isect)
     return hit;
 }
 
-void Octree::InsertChunkIntoNode(std::shared_ptr<Chunk> chunk, std::shared_ptr<OctreeNode> node, uint8_t depth)
+void BVH::Octree::InsertChunkIntoNode(ChunkPtr chunk, std::shared_ptr<OctreeNode> node, uint8_t depth)
 {
     if (node->isLeaf)
     {
         if (node->chunks.empty() || depth >= maxDepth)
         {
-            node->chunks.push_back(chunk);
+            node->chunks.push_back(std::move(chunk));
         }
 
         else
@@ -203,11 +202,11 @@ void Octree::InsertChunkIntoNode(std::shared_ptr<Chunk> chunk, std::shared_ptr<O
 
             for (uint32_t i = 0; i < node->chunks.size(); ++i)
             {
-                InsertChunkIntoNode(node->chunks.back(), node, depth++);
+                InsertChunkIntoNode(std::move(node->chunks.back()), node, depth++);
                 node->chunks.pop_back();
             }
 
-            InsertChunkIntoNode(chunk, node, depth++);
+            InsertChunkIntoNode(std::move(chunk), node, depth++);
         }
     }
 
@@ -237,14 +236,14 @@ void Octree::InsertChunkIntoNode(std::shared_ptr<Chunk> chunk, std::shared_ptr<O
             if (nodeIndex & 4) childNodeMax.z += childNodeSize.z;
             else childNodeMin.z -= childNodeSize.z;
 
-            node->children[nodeIndex] = std::make_shared<OctreeNode>(childNodeMin, childNodeMax);
+            node->children[nodeIndex] = std::shared_ptr<OctreeNode>(new OctreeNode(childNodeMin, childNodeMax));
         }
 
-        InsertChunkIntoNode(chunk, node->children[nodeIndex], depth++);
+        InsertChunkIntoNode(std::move(chunk), node->children[nodeIndex], depth++);
     }
 }
 
-void Octree::BuildBoundingVolumes(std::shared_ptr<OctreeNode> node)
+void BVH::Octree::BuildBoundingVolumes(std::shared_ptr<OctreeNode> node)
 {
     if (node->isLeaf)
     {
@@ -269,16 +268,17 @@ void Octree::BuildBoundingVolumes(std::shared_ptr<OctreeNode> node)
 
 
 
-BVH::BVH(std::vector<std::shared_ptr<TriMesh>> meshes) : meshes(meshes)
+BVH::BVH(std::vector<TriMeshPtr>&& _meshes) : meshes(std::move(_meshes))
 {
     // Calculate scene extents and number of triangles
     uint32_t numTriangles = 0;
     glm::vec3 sceneMax(-Infinity);
     glm::vec3 sceneMin(Infinity);
-    for (std::shared_ptr<TriMesh> mesh : meshes)
+    for (uint32_t i = 0; i < meshes.size(); ++i)
     {
-        numTriangles += mesh->triangles.size();
-        for (Triangle triangle : mesh->triangles)
+        const TriMesh& mesh = *(meshes[i]);
+        numTriangles += mesh.triangles.size();
+        for (Triangle triangle : mesh.triangles)
         {
             sceneMax = glm::max(triangle.v0, sceneMax);
             sceneMin = glm::min(triangle.v0, sceneMin);
@@ -304,7 +304,7 @@ BVH::BVH(std::vector<std::shared_ptr<TriMesh>> meshes) : meshes(meshes)
 
     resolution = glm::clamp(resolution, glm::vec3(1.f), glm::vec3(128.f));
     uint32_t numChunks = static_cast<uint32_t>(resolution.x * resolution.y * resolution.z);
-    chunks = std::vector<std::shared_ptr<Chunk>>(numChunks + 1);
+    std::vector<ChunkPtr> chunks(numChunks + 1);
 
     // Add triangles to chunks
     for (uint32_t j = 0; j < meshes.size(); ++j)
@@ -318,21 +318,21 @@ BVH::BVH(std::vector<std::shared_ptr<TriMesh>> meshes) : meshes(meshes)
             chunkIndex = glm::min(chunkIndex, numChunks);
             if (!chunks[chunkIndex])
             {
-                std::shared_ptr<Chunk> chunk = std::make_shared<Chunk>();
-                chunks[chunkIndex] = chunk;
+                // std::shared_ptr<Chunk> chunk = std::shared_ptr<Chunk>(new Chunk);
+                chunks[chunkIndex] = std::unique_ptr<Chunk>(new Chunk);
             }
-            chunks[chunkIndex]->Insert(meshes[j], i);
+            chunks[chunkIndex]->Insert(*(meshes[j]), i);
         }
     }
 
     // Create octree structure from chunks
-    octree = std::make_unique<Octree>(sceneMin, sceneMax);
+    octree = std::unique_ptr<Octree>(new Octree(sceneMin, sceneMax));
 
     for (uint32_t i = 0; i < chunks.size(); ++i)
     {
         if (chunks[i])
         {
-            octree->Insert(chunks[i]);
+            octree->Insert(std::move(chunks[i]));
         }
     }
 

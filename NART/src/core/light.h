@@ -30,4 +30,6 @@ protected:
     glm::mat4 LightToWorld;
 };
 
+using LightPtr = std::unique_ptr<Light>;
+
 

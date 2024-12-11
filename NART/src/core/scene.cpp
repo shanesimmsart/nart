@@ -1,16 +1,89 @@
 #include "scene.h"
 
-Scene::Scene(const Camera* camera, std::vector<const Light*> lights, const BVH* bvh) : camera(camera), lights(lights), bvh(bvh)
-{}
+Scene::Scene(std::string scenePath)
+{
+    nlohmann::json json;
+    std::ifstream ifs;
+    ifs.open(scenePath);
+
+    if (!ifs)
+    {
+        std::cerr << "Error: Scene file could not be opened.\n";
+    }
+
+    try
+    {
+        ifs >> json;
+    }
+
+    catch (nlohmann::json::exception& e)
+    {
+        std::cerr << "Error parsing scene: " << e.what() << "\nAborting.\n";
+        std::abort();
+    }
+
+    LoadCamera(json);
+
+    LoadMeshes(json);
+
+    LoadLights(json);
+}
 
 bool Scene::Intersect(const Ray& ray, Intersection* isect) const
 {
     return bvh->Intersect(ray, isect);
 }
 
+const Light& Scene::GetLight(uint8_t index) const
+{
+    if (!(lights[index]))
+    {
+        throw std::runtime_error("Light is null");
+    }
 
+    return *(lights[index]);
+}
 
-std::shared_ptr<TriMesh> LoadMeshFromFile(std::string filePath, glm::mat4& objectToWorld, std::shared_ptr<Material> material)
+uint8_t Scene::GetNumLights() const
+{
+    return lights.size();
+}
+
+const Camera& Scene::GetCamera() const
+{
+    if (!camera)
+    {
+        throw std::runtime_error("Camera is null");
+    }
+
+    return *(camera);
+}
+
+const BVH& Scene::GetBVH() const
+{
+    if (!bvh)
+    {
+        throw std::runtime_error("BVH is null");
+    }
+
+    return *(bvh);
+}
+
+glm::mat4 Scene::MatrixFromVector(std::vector<float> vector)
+{
+    glm::mat4 matrix(1.f);
+
+    uint8_t j = 0;
+    for (uint8_t i = 0; i < 4; ++i)
+    {
+        matrix[i] = glm::vec4(vector[j], vector[j + 1], vector[j + 2], vector[j + 3]);
+        j += 4;
+    }
+
+    return matrix;
+}
+
+TriMeshPtr Scene::LoadMeshFromFile(std::string filePath, glm::mat4& objectToWorld, std::shared_ptr<Material> material)
 {
     std::ifstream file;
     uint32_t numFaces;
@@ -176,7 +249,7 @@ std::shared_ptr<TriMesh> LoadMeshFromFile(std::string filePath, glm::mat4& objec
         l += faces[i];
     }
 
-    std::shared_ptr<TriMesh> mesh = std::make_unique<TriMesh>(material);
+    TriMeshPtr mesh = std::make_unique<TriMesh>(material);
     mesh->triangles.reserve(numTris);
 
     // Now we can finally build our triangles
@@ -192,21 +265,7 @@ std::shared_ptr<TriMesh> LoadMeshFromFile(std::string filePath, glm::mat4& objec
     return mesh;
 }
 
-glm::mat4 SceneMatrixFromVector(std::vector<float> vector)
-{
-    glm::mat4 matrix(1.f);
-
-    uint8_t j = 0;
-    for (uint8_t i = 0; i < 4; ++i)
-    {
-        matrix[i] = glm::vec4(vector[j], vector[j + 1], vector[j + 2], vector[j + 3]);
-        j += 4;
-    }
-
-    return matrix;
-}
-
-std::vector<std::shared_ptr<TriMesh>> LoadMeshes(const nlohmann::json json)
+void Scene::LoadMeshes(const nlohmann::json json)
 {
     std::vector<std::string> meshFilePaths;
     std::vector<std::shared_ptr<Material>> meshMaterials;
@@ -239,47 +298,49 @@ std::vector<std::shared_ptr<TriMesh>> LoadMeshes(const nlohmann::json json)
 
                     if (type == "lambert")
                     {
-                        std::vector<float> rhoGet = mat["rho"].get<std::vector<float>>();
-                        glm::vec3 rho = glm::vec3(rhoGet[0], rhoGet[1], rhoGet[2]);
-                        meshMaterials.push_back(std::make_shared<DiffuseMaterial>(rho));
+                        std::vector<float> rho_dGet = mat["rho_d"].get<std::vector<float>>();
+                        glm::vec3 rho_d = glm::vec3(rho_dGet[0], rho_dGet[1], rho_dGet[2]);
+                        meshMaterials.push_back(std::make_shared<DiffuseMaterial>(rho_d));
                     }
 
                     else if (type == "specular")
                     {
-                        std::vector<float> RGet = mat["R"].get<std::vector<float>>();
-                        glm::vec3 R = glm::vec3(glm::min(RGet[0], 1.f - glm::epsilon<float>()), glm::min(RGet[1], 1.f - glm::epsilon<float>()), glm::min(RGet[2], 1.f - glm::epsilon<float>()));
+                        std::vector<float> rho_sGet = mat["R"].get<std::vector<float>>();
+                        glm::vec3 rho_s = glm::vec3(glm::min(rho_sGet[0], 1.f - glm::epsilon<float>()), glm::min(rho_sGet[1], 1.f - glm::epsilon<float>()), glm::min(rho_sGet[2], 1.f - glm::epsilon<float>()));
                         float eta = mat["eta"].get<float>();
-                        meshMaterials.push_back(std::make_shared<SpecularMaterial>(R, eta));
+                        meshMaterials.push_back(std::make_shared<SpecularMaterial>(rho_s, eta));
                     }
 
                     else if (type == "glass")
                     {
-                        std::vector<float> rhoGet = mat["rho"].get<std::vector<float>>();
-                        glm::vec3 rho = glm::vec3(glm::min(rhoGet[0], 1.f - glm::epsilon<float>()), glm::min(rhoGet[1], 1.f - glm::epsilon<float>()), glm::min(rhoGet[2], 1.f - glm::epsilon<float>()));
+                        std::vector<float> rho_dGet = mat["rho_d"].get<std::vector<float>>();
+                        glm::vec3 rho_d = glm::vec3(glm::min(rho_dGet[0], 1.f - glm::epsilon<float>()), glm::min(rho_dGet[1], 1.f - glm::epsilon<float>()), glm::min(rho_dGet[2], 1.f - glm::epsilon<float>()));
                         float eta = mat["eta"].get<float>();
-                        meshMaterials.push_back(std::make_shared<SpecularDielectricMaterial>(rho, eta));
+                        float roughness = mat["roughness"].get<float>();
+                        float alpha = roughness * roughness;
+                        meshMaterials.push_back(std::make_shared<SpecularDielectricMaterial>(rho_d, eta, alpha));
                     }
 
                     else if (type == "glossy")
                     {
-                        std::vector<float> RGet = mat["R"].get<std::vector<float>>();
-                        glm::vec3 R = glm::vec3(glm::min(RGet[0], 1.f - glm::epsilon<float>()), glm::min(RGet[1], 1.f - glm::epsilon<float>()), glm::min(RGet[2], 1.f - glm::epsilon<float>()));
+                        std::vector<float> rho_sGet = mat["R"].get<std::vector<float>>();
+                        glm::vec3 rho_s = glm::vec3(glm::min(rho_sGet[0], 1.f - glm::epsilon<float>()), glm::min(rho_sGet[1], 1.f - glm::epsilon<float>()), glm::min(rho_sGet[2], 1.f - glm::epsilon<float>()));
                         float eta = mat["eta"].get<float>();
                         float roughness = mat["roughness"].get<float>();
                         float alpha = roughness * roughness;
-                        meshMaterials.push_back(std::make_shared<GlossyDielectricMaterial>(R, eta, alpha));
+                        meshMaterials.push_back(std::make_shared<GlossyDielectricMaterial>(rho_s, eta, alpha));
                     }
 
                     else if (type == "plastic")
                     {
-                        std::vector<float> rhoGet = mat["rho"].get<std::vector<float>>();
-                        glm::vec3 rho = glm::vec3(rhoGet[0], rhoGet[1], rhoGet[2]);
-                        std::vector<float> RGet = mat["R"].get<std::vector<float>>();
-                        glm::vec3 R = glm::vec3(glm::min(RGet[0], 1.f - glm::epsilon<float>()), glm::min(RGet[1], 1.f - glm::epsilon<float>()), glm::min(RGet[2], 1.f - glm::epsilon<float>()));
+                        std::vector<float> rho_dGet = mat["rho_d"].get<std::vector<float>>();
+                        glm::vec3 rho_d = glm::vec3(rho_dGet[0], rho_dGet[1], rho_dGet[2]);
+                        std::vector<float> rho_sGet = mat["R"].get<std::vector<float>>();
+                        glm::vec3 rho_s = glm::vec3(glm::min(rho_sGet[0], 1.f - glm::epsilon<float>()), glm::min(rho_sGet[1], 1.f - glm::epsilon<float>()), glm::min(rho_sGet[2], 1.f - glm::epsilon<float>()));
                         float eta = mat["eta"].get<float>();
                         float roughness = mat["roughness"].get<float>();
                         float alpha = roughness * roughness;
-                        meshMaterials.push_back(std::make_shared<PlasticMaterial>(rho, R, eta, alpha));
+                        meshMaterials.push_back(std::make_shared<PlasticMaterial>(rho_d, rho_s, eta, alpha));
                     }
 
                     else
@@ -307,7 +368,7 @@ std::vector<std::shared_ptr<TriMesh>> LoadMeshes(const nlohmann::json json)
                 std::cerr << "Error in mesh transform: " << e.what() << "\n";
             }
 
-            glm::mat4 objectToWorld = SceneMatrixFromVector(meshTransform);
+            glm::mat4 objectToWorld = MatrixFromVector(meshTransform);
             meshTransforms.push_back(objectToWorld);
         }
     }
@@ -317,17 +378,17 @@ std::vector<std::shared_ptr<TriMesh>> LoadMeshes(const nlohmann::json json)
         std::cerr << "Error: No meshes found.\n";
     }
 
-    std::vector<std::shared_ptr<TriMesh>> meshes;
+    std::vector<TriMeshPtr> meshes;
     meshes.reserve(meshFilePaths.size());
 
     for (uint32_t i = 0; i < meshFilePaths.size(); ++i) {
         meshes.push_back(LoadMeshFromFile(meshFilePaths[i], meshTransforms[i], meshMaterials[i]));
     }
 
-    return meshes;
+    bvh = std::make_unique<BVH>(std::move(meshes));
 }
 
-const Camera* LoadCamera(const nlohmann::json json)
+void Scene::LoadCamera(const nlohmann::json json)
 {
     glm::mat4 cameraToWorld(1.f);
     float fov = 1.f;
@@ -343,15 +404,13 @@ const Camera* LoadCamera(const nlohmann::json json)
         std::cerr << "Error in camera: " << e.what() << "\n";
     }
 
-    cameraToWorld = SceneMatrixFromVector(camTransform);
+    cameraToWorld = MatrixFromVector(camTransform);
 
-    return new PinholeCamera(fov, cameraToWorld);
+    camera = std::make_unique<PinholeCamera>(fov, cameraToWorld);
 }
 
-std::vector<const Light*> LoadLights(const nlohmann::json json)
+void Scene::LoadLights(const nlohmann::json json)
 {
-    std::vector<const Light*> lights;
-
     if (!json["lights"].is_null()) {
 
         uint8_t numLights = json["lights"].size();
@@ -369,7 +428,7 @@ std::vector<const Light*> LoadLights(const nlohmann::json json)
                 std::cerr << "Error in light transform: " << e.what() << "\n";
             }
 
-            glm::mat4 lightToWorld = SceneMatrixFromVector(lightTransform);
+            glm::mat4 lightToWorld = MatrixFromVector(lightTransform);
 
             try
             {
@@ -380,8 +439,7 @@ std::vector<const Light*> LoadLights(const nlohmann::json json)
                     std::vector<float> LeGet = elem["Le"].get<std::vector<float>>();
                     float intensity = elem["intensity"].get<float>();
                     glm::vec3 Le = glm::vec3(LeGet[0], LeGet[1], LeGet[2]);
-                    const Light* light = new DistantLight(Le, intensity, lightToWorld);
-                    lights.push_back(light);
+                    lights.emplace_back(std::make_unique<DistantLight>(Le, intensity, lightToWorld));
                 }
 
                 if (type == "disk")
@@ -390,8 +448,7 @@ std::vector<const Light*> LoadLights(const nlohmann::json json)
                     std::vector<float> LeGet = elem["Le"].get<std::vector<float>>();
                     float intensity = elem["intensity"].get<float>();
                     glm::vec3 Le = glm::vec3(LeGet[0], LeGet[1], LeGet[2]);
-                    const Light* light = new DiskLight(radius, Le, intensity, lightToWorld);
-                    lights.push_back(light);
+                    lights.emplace_back(std::make_unique<DiskLight>(radius, Le, intensity, lightToWorld));
                 }
 
                 if (type == "ring")
@@ -401,8 +458,7 @@ std::vector<const Light*> LoadLights(const nlohmann::json json)
                     std::vector<float> LeGet = elem["Le"].get<std::vector<float>>();
                     float intensity = elem["intensity"].get<float>();
                     glm::vec3 Le = glm::vec3(LeGet[0], LeGet[1], LeGet[2]);
-                    const Light* light = new RingLight(radius, innerRadius, Le, intensity, lightToWorld);
-                    lights.push_back(light);
+                    lights.emplace_back(std::make_unique<RingLight>(radius, innerRadius, Le, intensity, lightToWorld));
                 }
             }
 
@@ -412,41 +468,6 @@ std::vector<const Light*> LoadLights(const nlohmann::json json)
             }
         }
     }
-
-    return lights;
-}
-
-Scene LoadScene(std::string scenePath)
-{
-    nlohmann::json json;
-    std::ifstream ifs;
-    ifs.open(scenePath);
-
-    if (!ifs)
-    {
-        std::cerr << "Error: Scene file could not be opened.\n";
-    }
-
-    try
-    {
-        ifs >> json;
-    }
-
-    catch (nlohmann::json::exception& e)
-    {
-        std::cerr << "Error parsing scene: " << e.what() << "\nAborting.\n";
-        std::abort();
-    }
-
-    const Camera* camera = LoadCamera(json);
-
-    std::vector<std::shared_ptr<TriMesh>> meshes = LoadMeshes(json);
-
-    const BVH* bvh = new BVH(meshes);
-
-    std::vector<const Light*> lights = LoadLights(json);
-
-    return Scene(camera, lights, bvh);
 }
 
 

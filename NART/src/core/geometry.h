@@ -9,8 +9,6 @@
 
 #define Infinity std::numeric_limits<float>::infinity()
 
-#define WOOT 1
-
 class Ray
 {
 public:
@@ -46,7 +44,7 @@ class Triangle
 public:
     Triangle(const glm::vec3& v0, const glm::vec3& v1, const glm::vec3& v2, const glm::vec3& n0, const glm::vec3& n1, const glm::vec3& n2);
 
-    bool Intersect(const Ray& ray, Intersection* isect);
+    bool Intersect(const Ray& ray, Intersection* isect) const;
 
     const glm::vec3 v0, v1, v2;
     const glm::vec3 n0, n1, n2;
@@ -61,5 +59,7 @@ public:
     std::vector<Triangle> triangles;
     std::shared_ptr<Material> material;
 };
+
+using TriMeshPtr = std::unique_ptr<TriMesh>;
 
 

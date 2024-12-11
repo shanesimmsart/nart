@@ -13,5 +13,7 @@ protected:
     Camera() {};
 };
 
+using CameraPtr = std::unique_ptr<Camera>;
+
 
 

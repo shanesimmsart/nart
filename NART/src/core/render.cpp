@@ -6,15 +6,15 @@
 #define FilterTableResolution 64
 
 #define DEBUG_BUCKET 0
-#define DEBUG_BUCKET_X 30
-#define DEBUG_BUCKET_Y 20
+#define DEBUG_BUCKET_X 36
+#define DEBUG_BUCKET_Y 22
 
 #define BSDF_SAMPLING 1
 #define LIGHT_SAMPLING 1
 #define MAX_BOUNCES 10
 
-RenderSession::RenderSession(const Scene& scene, uint32_t imageWidth, uint32_t imageHeight, uint32_t bucketSize, uint32_t spp, float filterWidth) :
-    scene(scene), imageWidth(imageWidth), imageHeight(imageHeight), bucketSize(bucketSize), spp(spp), filterWidth(filterWidth)
+RenderSession::RenderSession(const Scene& scene, uint32_t imageWidth, uint32_t imageHeight, uint32_t bucketSize, uint32_t spp, float filterWidth, float rougheningFactor) :
+    scene(scene), imageWidth(imageWidth), imageHeight(imageHeight), bucketSize(bucketSize), spp(spp), filterWidth(filterWidth), rougheningFactor(rougheningFactor)
 {
     filterBounds = static_cast<uint32_t>(glm::ceil(filterWidth));
     tileSize = bucketSize + (filterBounds * 2);
@@ -65,33 +65,34 @@ glm::vec3 RenderSession::EstimateDirect(const glm::vec3 wo, BSDF& bsdf, const In
     float scatteringPdf = 0.f;
     float lightingPdf = 0.f;
 
-    float numLights = static_cast<float>(scene.lights.size());
+    float numLights = scene.GetNumLights();
     uint8_t lightIndex = static_cast<uint8_t>(glm::min(rng.UniformFloat(), 1.f - glm::epsilon<float>()) * numLights);
 
-    const Light* light = scene.lights[lightIndex];
+    const Light& light = scene.GetLight(lightIndex);
     glm::vec3 f(0.f);
 
     // Compute direct light
 #if BSDF_SAMPLING
     scatteringPdf = 0.f;
     glm::vec2 scatterSample(rng.UniformFloat(), rng.UniformFloat());
+    float bsdfSample = rng.UniformFloat();
 
-    f = bsdf.Sample_f(wo, &wi, scatterSample, &scatteringPdf, flags, 1);
+    f = bsdf.Sample_f(wo, &wi, bsdfSample, scatterSample, &scatteringPdf, flags, 1);
 
     if (scatteringPdf > 0.f)
     {
         float flip = wi.z > 0.f ? 1.f : -1.f;
         Ray shadowRay(isect.p + (isect.gn * shadowBias * flip), bsdf.ToWorld(wi));
         Intersection lightIsect;
-        Li = light->Li(&lightIsect, isect.p, bsdf.ToWorld(wi));
-        if (!scene.bvh->Intersect(shadowRay, &lightIsect)) // || flags && TRANSMISSIVE)
+        Li = light.Li(&lightIsect, isect.p, bsdf.ToWorld(wi));
+        if (!scene.GetBVH().Intersect(shadowRay, &lightIsect)) // || flags && TRANSMISSIVE)
         {
             float weight = 1.f;
 
             if (!(*flags & SPECULAR))
             {
                 // TODO: I should probably do this inside of one function
-                lightingPdf = light->Pdf(&lightIsect, isect.p, bsdf.ToWorld(wi));
+                lightingPdf = light.Pdf(&lightIsect, isect.p, bsdf.ToWorld(wi));
 #if LIGHT_SAMPLING
                 weight = (scatteringPdf * scatteringPdf) / (scatteringPdf * scatteringPdf + lightingPdf * lightingPdf);
 #endif
@@ -117,14 +118,14 @@ glm::vec3 RenderSession::EstimateDirect(const glm::vec3 wo, BSDF& bsdf, const In
 
     // lightIsect.tMax used for checking shadows
     Intersection lightIsect;
-    Li = light->Sample_Li(&lightIsect, isect.p, &wiWorld, lightSample, &lightingPdf);
+    Li = light.Sample_Li(&lightIsect, isect.p, &wiWorld, lightSample, &lightingPdf);
+    wi = bsdf.ToLocal(wiWorld);
 
     float flip = wi.z > 0.f ? 1.f : -1.f;
     Ray shadowRay(isect.p + (isect.gn * shadowBias * flip), wiWorld);
-    if (!scene.bvh->Intersect(shadowRay, &lightIsect) && lightingPdf > 0.f) // || flags && TRANSMISSIVE)
+    if (!scene.GetBVH().Intersect(shadowRay, &lightIsect) && lightingPdf > 0.f) // || flags && TRANSMISSIVE)
     {
         float weight = 1.f;
-        wi = bsdf.ToLocal(wiWorld);
         scatteringPdf = bsdf.Pdf(wo, wi, 1);
         if (scatteringPdf > 0.f)
         {
@@ -133,6 +134,7 @@ glm::vec3 RenderSession::EstimateDirect(const glm::vec3 wo, BSDF& bsdf, const In
             weight = (lightingPdf * lightingPdf) / (scatteringPdf * scatteringPdf + lightingPdf * lightingPdf);
 #endif
             L += (f * Li * glm::abs(wi.z) * weight) / lightingPdf;
+            L *= numLights;
         }
     }
 #endif
@@ -159,7 +161,8 @@ std::vector<Pixel> RenderSession::RenderTile(const float* filterTable, uint32_t 
             {
                 glm::vec2 imageSample = imageSamples[i];
 
-                Ray ray = scene.camera->CastRay(imageSample, imageWidth, imageHeight, x, y);
+                const Camera& camera = scene.GetCamera();
+                Ray ray = camera.CastRay(imageSample, imageWidth, imageHeight, x, y);
 
                 // Radiance
                 glm::vec3 L(0.f, 0.f, 0.f);
@@ -169,7 +172,7 @@ std::vector<Pixel> RenderSession::RenderTile(const float* filterTable, uint32_t 
                 glm::vec3 beta(1.f);
                 uint8_t flags;
 
-                float gamma = 0.1f;
+                float gamma = rougheningFactor * rougheningFactor;
                 float alphaTweak = 1.f;
 
                 for (uint32_t bounce = 0; bounce < MAX_BOUNCES; ++bounce)
@@ -178,10 +181,11 @@ std::vector<Pixel> RenderSession::RenderTile(const float* filterTable, uint32_t 
                     float lightTMax = isect.tMax;
                     bool lightHit = false;
                     glm::vec3 Le(0.f);
-                    for (const auto& light : scene.lights)
+                    for (uint8_t i = 0; i < scene.GetNumLights(); ++i)
                     {
                         Intersection lightIsect;
-                        glm::vec3 Li = light->Li(&lightIsect, ray.o, ray.d);
+                        const Light& light = scene.GetLight(i);
+                        glm::vec3 Li = light.Li(&lightIsect, ray.o, ray.d);
                         if (lightIsect.tMax < lightTMax)
                         {
                             Le = Li;
@@ -211,11 +215,13 @@ std::vector<Pixel> RenderSession::RenderTile(const float* filterTable, uint32_t 
 
                         // Spawn new ray
                         glm::vec2 scatteringSample(rng.UniformFloat(), rng.UniformFloat());
+                        float bsdfSample = rng.UniformFloat();
+
                         float scatteringPdf = 0.f;
                         // Sample for new alpha
                         float alpha_i;
                         glm::vec3 wi;
-                        glm::vec3 f = bsdf.Sample_f(wo, &wi, scatteringSample, &scatteringPdf, &flags, 0, &alpha_i);
+                        glm::vec3 f = bsdf.Sample_f(wo, &wi, bsdfSample, scatteringSample, &scatteringPdf, &flags, 0, &alpha_i);
                         // Sample for new ray
                         if (scatteringPdf <= 0.f) break;
                         alphaTweak = (1.f - (gamma * alpha_i)) * alphaTweak;
@@ -275,6 +281,7 @@ std::vector<Pixel> RenderSession::Render()
     std::vector<std::vector<Pixel>> tiles(nBuckets, p);
 
     std::atomic<uint32_t> nBucketsComplete = 0;
+#if !DEBUG_BUCKET
     std::thread progressLogger([&nBucketsComplete, nBuckets]
         {
             while (nBucketsComplete < nBuckets)
@@ -284,6 +291,7 @@ std::vector<Pixel> RenderSession::Render()
             }
             std::cout << "\r100%" << std::endl; // Ensure final output is 100%
     });
+#endif
 
     tbb::task_group tg;
 
@@ -313,7 +321,9 @@ std::vector<Pixel> RenderSession::Render()
     }
 
     tg.wait();
+#if !DEBUG_BUCKET
     progressLogger.join();
+#endif
 
     // Combine tiles into image
       for (uint32_t j = 0; j < nBucketsY; ++j)
@@ -403,22 +413,16 @@ std::vector<std::unique_ptr<RenderSession>> LoadSessions(std::string scenePath, 
             uint32_t bucketSize = 32;
             uint32_t spp = 1;
             float filterWidth = 1.f;
+            float rougheningFactor = 0.f;
 
-            try
-            {
-                imageWidth = elem["imageWidth"].get<uint32_t>();
-                imageHeight = elem["imageHeight"].get<uint32_t>();
-                bucketSize = elem["bucketSize"].get<uint32_t>();
-                spp = elem["spp"].get<uint32_t>();
-                filterWidth = elem["filterWidth"].get<float>();
-            }
+            if (!elem["imageWidth"].is_null()) imageWidth = elem["imageWidth"].get<uint32_t>();
+            if (!elem["imageHeight"].is_null()) imageHeight = elem["imageHeight"].get<uint32_t>();
+            if (!elem["bucketSize"].is_null()) bucketSize = elem["bucketSize"].get<uint32_t>();
+            if (!elem["spp"].is_null()) spp = elem["spp"].get<uint32_t>();
+            if (!elem["filterWidth"].is_null()) filterWidth = elem["filterWidth"].get<float>();
+            if (!elem["rougheningFactor"].is_null()) rougheningFactor = glm::min(glm::max(elem["rougheningFactor"].get<float>(), 0.f), 1.f);
 
-            catch (nlohmann::json::exception& e)
-            {
-                std::cerr << "Error in renderInfo: " << e.what() << "\n";
-            }
-
-            sessions.push_back(std::make_unique<RenderSession>(scene, imageWidth, imageHeight, bucketSize, spp, filterWidth));
+            sessions.push_back(std::make_unique<RenderSession>(scene, imageWidth, imageHeight, bucketSize, spp, filterWidth, rougheningFactor));
         }
     }
 
