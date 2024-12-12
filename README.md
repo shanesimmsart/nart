@@ -6,7 +6,7 @@ Everything is written without referring to existing code or ray tracing resource
 You can follow my progress [here](https://twitter.com/shaneasimms/status/1728665955797217295).
 
 ![glass](https://github.com/user-attachments/assets/8cbb833f-176d-4527-ba49-d5751709814e)
-![progres 41](https://github.com/shanesimmsart/nart/assets/9335280/9f8b50ad-87e1-4efb-a1b8-a5a86f2ffd9a)
+![veach](https://github.com/user-attachments/assets/34fafd04-04a3-483d-85e6-2a1732a8b190)
 
 ## Features so far:
   - JSON scene file description
