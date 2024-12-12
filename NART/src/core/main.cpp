@@ -16,7 +16,7 @@ int main(int argc, char* argv[])
         std::vector<RenderSessionPtr> sessions = LoadSessions(argv[1], scene);
 
         uint8_t n = 0;
-        for (auto& session : sessions)
+        for (RenderSessionPtr& session : sessions)
         {
             auto start = std::chrono::high_resolution_clock::now();
 
