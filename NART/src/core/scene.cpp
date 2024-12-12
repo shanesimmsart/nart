@@ -305,7 +305,7 @@ void Scene::LoadMeshes(const nlohmann::json json)
 
                     else if (type == "specular")
                     {
-                        std::vector<float> rho_sGet = mat["R"].get<std::vector<float>>();
+                        std::vector<float> rho_sGet = mat["rho_s"].get<std::vector<float>>();
                         glm::vec3 rho_s = glm::vec3(glm::min(rho_sGet[0], 1.f - glm::epsilon<float>()), glm::min(rho_sGet[1], 1.f - glm::epsilon<float>()), glm::min(rho_sGet[2], 1.f - glm::epsilon<float>()));
                         float eta = mat["eta"].get<float>();
                         meshMaterials.push_back(std::make_shared<SpecularMaterial>(rho_s, eta));
@@ -323,7 +323,7 @@ void Scene::LoadMeshes(const nlohmann::json json)
 
                     else if (type == "glossy")
                     {
-                        std::vector<float> rho_sGet = mat["R"].get<std::vector<float>>();
+                        std::vector<float> rho_sGet = mat["rho_s"].get<std::vector<float>>();
                         glm::vec3 rho_s = glm::vec3(glm::min(rho_sGet[0], 1.f - glm::epsilon<float>()), glm::min(rho_sGet[1], 1.f - glm::epsilon<float>()), glm::min(rho_sGet[2], 1.f - glm::epsilon<float>()));
                         float eta = mat["eta"].get<float>();
                         float roughness = mat["roughness"].get<float>();
@@ -335,7 +335,7 @@ void Scene::LoadMeshes(const nlohmann::json json)
                     {
                         std::vector<float> rho_dGet = mat["rho_d"].get<std::vector<float>>();
                         glm::vec3 rho_d = glm::vec3(rho_dGet[0], rho_dGet[1], rho_dGet[2]);
-                        std::vector<float> rho_sGet = mat["R"].get<std::vector<float>>();
+                        std::vector<float> rho_sGet = mat["rho_s"].get<std::vector<float>>();
                         glm::vec3 rho_s = glm::vec3(glm::min(rho_sGet[0], 1.f - glm::epsilon<float>()), glm::min(rho_sGet[1], 1.f - glm::epsilon<float>()), glm::min(rho_sGet[2], 1.f - glm::epsilon<float>()));
                         float eta = mat["eta"].get<float>();
                         float roughness = mat["roughness"].get<float>();
