@@ -36,12 +36,17 @@ bool Scene::Intersect(const Ray& ray, Intersection* isect) const
 
 const Light& Scene::GetLight(uint8_t index) const
 {
+    if (index >= lights.size())
+    {
+        throw std::out_of_range("Light index is out of range");
+    }
+
     if (!(lights[index]))
     {
         throw std::runtime_error("Light is null");
     }
 
-    return *(lights[index]);
+    return *lights[index];
 }
 
 uint8_t Scene::GetNumLights() const
@@ -56,7 +61,7 @@ const Camera& Scene::GetCamera() const
         throw std::runtime_error("Camera is null");
     }
 
-    return *(camera);
+    return *camera;
 }
 
 const BVH& Scene::GetBVH() const
@@ -66,7 +71,7 @@ const BVH& Scene::GetBVH() const
         throw std::runtime_error("BVH is null");
     }
 
-    return *(bvh);
+    return *bvh;
 }
 
 // JSON library returns array of floats as std::vector,

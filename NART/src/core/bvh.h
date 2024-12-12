@@ -18,7 +18,7 @@ private:
         // Extend bounding volume by another to ensure it is fully contained
         void ExtendBy(const BoundingVolume& bv);
 
-        bool Intersect(const Ray& ray, Intersection* isect);
+        bool Intersect(const Ray& ray, Intersection* isect) const;
 
         glm::vec3 normals[3];
         float boundsMin[3];
@@ -76,7 +76,7 @@ private:
         {
         public:
             std::vector<ChunkPtr> chunks;
-            std::shared_ptr<OctreeNode> children[8] = { nullptr };
+            std::unique_ptr<OctreeNode> children[8] = { nullptr };
             bool isLeaf = true;
 
             const glm::vec3 nodeMin;
@@ -84,11 +84,19 @@ private:
 
             BoundingVolume bv = BoundingVolume();
 
+            void InsertChunk(ChunkPtr chunk, uint8_t depth = 0);
+
+            void BuildBoundingVolumes();
+
         private:
+            const uint8_t maxDepth = 5;
+
             OctreeNode(glm::vec3 nodeMin, glm::vec3 nodeMax);
 
             friend class Octree;
         };
+
+        using OctreeNodePtr = std::unique_ptr<OctreeNode>;
 
     public:
         void Insert(ChunkPtr chunk);
@@ -102,12 +110,7 @@ private:
 
         friend class BVH;
 
-        void InsertChunkIntoNode(ChunkPtr chunk, std::shared_ptr<OctreeNode> node, uint8_t depth = 0);
-
-        void BuildBoundingVolumes(std::shared_ptr<OctreeNode> node);
-
-        const uint8_t maxDepth = 5;
-        std::shared_ptr<OctreeNode> root;
+        OctreeNodePtr root;
         const glm::vec3 sceneMin;
         const glm::vec3 sceneMax;
     };
