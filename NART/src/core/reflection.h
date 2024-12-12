@@ -126,7 +126,7 @@ private:
 class SpecularDielectricBRDF : public BxDF
 {
 public:
-    SpecularDielectricBRDF(glm::vec3 rho_d, float eta);
+    SpecularDielectricBRDF(glm::vec3 rho_s, glm::vec3 tau, float eta);
 
     // Note: We should never be in a situation where alpha_prime > 0 and we are using a specular BRDF
     glm::vec3 f(const glm::vec3& wo, const glm::vec3& wi, bool use_alpha_prime);
@@ -136,8 +136,10 @@ public:
     float Pdf(const glm::vec3& wo, const glm::vec3& wi, bool use_alpha_prime);
 
 private:
-    // Diffuse
-    glm::vec3 rho_d;
+    // Reflectance
+    glm::vec3 rho_s;
+    // Transmittance
+    glm::vec3 tau;
     // IOR
     float eta;
 };
@@ -179,7 +181,7 @@ private:
 class DielectricBRDF : public BxDF
 {
 public:
-    DielectricBRDF(glm::vec3 rho_s, float eta, float _alpha_0, float _alpha_prime);
+    DielectricBRDF(glm::vec3 rho_s, glm::vec3 tau, float eta, float _alpha_0, float _alpha_prime);
 
     // Masking-shadowing Function (Smith) (Beckmann / GGX)
     float Lambda(const glm::vec3& w);
@@ -206,6 +208,8 @@ public:
 private:
     // Reflectance
     glm::vec3 rho_s;
+    // Transmittance
+    glm::vec3 tau;
     // IOR
     float eta;
 };

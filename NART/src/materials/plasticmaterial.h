@@ -5,13 +5,13 @@
 class PlasticMaterial : public Material
 {
 public:
-    PlasticMaterial(glm::vec3 rho, glm::vec3 R, float eta, float alpha);
+    PlasticMaterial(glm::vec3 rho_d, glm::vec3 rho_s, float eta, float alpha);
 
     BSDF CreateBSDF(glm::vec3 n, float alphaTweak);
 
 private:
-    glm::vec3 rho;
+    glm::vec3 rho_d;
     float alpha;
-    glm::vec3 R;
+    glm::vec3 rho_s;
     float eta;
 };

@@ -313,12 +313,14 @@ void Scene::LoadMeshes(const nlohmann::json json)
 
                     else if (type == "glass")
                     {
-                        std::vector<float> rho_dGet = mat["rho_d"].get<std::vector<float>>();
-                        glm::vec3 rho_d = glm::vec3(glm::min(rho_dGet[0], 1.f - glm::epsilon<float>()), glm::min(rho_dGet[1], 1.f - glm::epsilon<float>()), glm::min(rho_dGet[2], 1.f - glm::epsilon<float>()));
+                        std::vector<float> rho_sGet = mat["rho_s"].get<std::vector<float>>();
+                        glm::vec3 rho_s = glm::vec3(glm::min(rho_sGet[0], 1.f - glm::epsilon<float>()), glm::min(rho_sGet[1], 1.f - glm::epsilon<float>()), glm::min(rho_sGet[2], 1.f - glm::epsilon<float>()));
+                        std::vector<float> tauGet = mat["tau"].get<std::vector<float>>();
+                        glm::vec3 tau = glm::vec3(glm::min(tauGet[0], 1.f - glm::epsilon<float>()), glm::min(tauGet[1], 1.f - glm::epsilon<float>()), glm::min(tauGet[2], 1.f - glm::epsilon<float>()));
                         float eta = mat["eta"].get<float>();
                         float roughness = mat["roughness"].get<float>();
                         float alpha = roughness * roughness;
-                        meshMaterials.push_back(std::make_shared<SpecularDielectricMaterial>(rho_d, eta, alpha));
+                        meshMaterials.push_back(std::make_shared<GlassMaterial>(rho_s, tau, eta, alpha));
                     }
 
                     else if (type == "glossy")

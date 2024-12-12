@@ -9,7 +9,7 @@
 #include "../materials/glossydielectricmaterial.h"
 #include "../materials/plasticmaterial.h"
 #include "../materials/specularmaterial.h"
-#include "../materials/speculardielectricmaterial.h"
+#include "../materials/glassmaterial.h"
 #include "geometry.h"
 #include "../lights/distantlight.h"
 #include "../lights/disklight.h"

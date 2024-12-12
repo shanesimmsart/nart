@@ -1,6 +1,6 @@
 #include "specularmaterial.h"
 
-SpecularMaterial::SpecularMaterial(glm::vec3 R, float eta) : R(R), eta(eta)
+SpecularMaterial::SpecularMaterial(glm::vec3 rho_s, float eta) : rho_s(rho_s), eta(eta)
 {}
 
 BSDF SpecularMaterial::CreateBSDF(glm::vec3 n, float alphaTweak)
@@ -11,10 +11,10 @@ BSDF SpecularMaterial::CreateBSDF(glm::vec3 n, float alphaTweak)
     float alpha_prime = 1.f - ((1.f - alpha) * alphaTweak);
 
     if (alpha_prime > 0.0001f) {
-        bsdf.AddBxDF(std::make_unique<TorranceSparrowBRDF>(R, eta, glm::max(0.0001f, alpha), alpha_prime));
+        bsdf.AddBxDF(std::make_unique<TorranceSparrowBRDF>(rho_s, eta, glm::max(0.0001f, alpha), alpha_prime));
     }
 
-    else bsdf.AddBxDF(std::make_unique<SpecularBRDF>(R, eta));
+    else bsdf.AddBxDF(std::make_unique<SpecularBRDF>(rho_s, eta));
 
     return bsdf;
 }

@@ -22,6 +22,7 @@
             "type": "glass",
             "rho_d": [1, 1, 1],
             "rho_s": [1, 1, 1],
+            "tau": [1, 1, 1],
             "eta": 1.5,
             "roughness": 0.05
             }

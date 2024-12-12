@@ -155,7 +155,7 @@ float SpecularBRDF::Pdf(const glm::vec3& wo, const glm::vec3& wi, bool use_alpha
 
 
 
-SpecularDielectricBRDF::SpecularDielectricBRDF(glm::vec3 rho_d, float eta) : rho_d(rho_d), eta(eta)
+SpecularDielectricBRDF::SpecularDielectricBRDF(glm::vec3 rho_s, glm::vec3 tau, float eta) : rho_s(rho_s), tau(tau), eta(eta)
 {
     flags = SPECULAR;
 }
@@ -192,7 +192,7 @@ glm::vec3 SpecularDielectricBRDF::Sample_f(const glm::vec3& wo, glm::vec3* wi, f
         if (wi->z == 0.f) return glm::vec3(1.f);
 
         // Check hemisphere with gn
-        return glm::vec3(Fr / glm::abs(wi->z));
+        return glm::vec3(Fr / glm::abs(wi->z)) * rho_s;
     }
 
     else
@@ -345,7 +345,7 @@ float TorranceSparrowBRDF::Pdf(const glm::vec3& wo, const glm::vec3& wi, bool us
 
 
 
-DielectricBRDF::DielectricBRDF(glm::vec3 rho_s, float eta, float _alpha_0, float _alpha_prime) : rho_s(rho_s), eta(eta)
+DielectricBRDF::DielectricBRDF(glm::vec3 rho_s, glm::vec3 tau, float eta, float _alpha_0, float _alpha_prime) : rho_s(rho_s), tau(tau), eta(eta)
 {
     alpha = _alpha_0;
     alpha_0 = _alpha_0;
@@ -386,7 +386,7 @@ glm::vec3 DielectricBRDF::f(const glm::vec3& wo, const glm::vec3& wi, bool use_a
     {
         // return glm::vec3(0.f);
 
-        // rho_seflect
+        // Reflect
         glm::vec3 wh = wo + wi;
         wh = glm::normalize(wh);
         if (wh.z < 0.f) wh *= -1.f;
@@ -397,7 +397,7 @@ glm::vec3 DielectricBRDF::f(const glm::vec3& wo, const glm::vec3& wi, bool use_a
 
         if (wo.z * wi.z == 0.f) return glm::vec3(0.f);
 
-        return (rho_s * g * d * Fr) / (4.f * wo.z * wi.z);
+        return ((rho_s * g * d * Fr) / (4.f * wo.z * wi.z)) * rho_s;
     }
 
     else
@@ -420,7 +420,7 @@ glm::vec3 DielectricBRDF::f(const glm::vec3& wo, const glm::vec3& wi, bool use_a
         float num = g * d * (1.f - Fr) * eta_o * eta_o * glm::abs(wiDotWh) * glm::abs(woDotWh);
         // abs?
         float denom = ((eta_i * wiDotWh) + (eta_o * woDotWh)) * ((eta_i * wiDotWh) + (eta_o * woDotWh)) * glm::abs(wo.z * wi.z);
-        return glm::vec3(num / denom);
+        return (glm::vec3(num / denom)) * tau;
     }
 }
 

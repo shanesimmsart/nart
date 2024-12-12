@@ -185,9 +185,9 @@
     <ClCompile Include="src\lights\distantlight.cpp" />
     <ClCompile Include="src\lights\ringlight.cpp" />
     <ClCompile Include="src\materials\diffusematerial.cpp" />
+    <ClCompile Include="src\materials\glassmaterial.cpp" />
     <ClCompile Include="src\materials\glossydielectricmaterial.cpp" />
     <ClCompile Include="src\materials\plasticmaterial.cpp" />
-    <ClCompile Include="src\materials\speculardielectricmaterial.cpp" />
     <ClCompile Include="src\materials\specularmaterial.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -207,9 +207,9 @@
     <ClInclude Include="src\lights\distantlight.h" />
     <ClInclude Include="src\lights\ringlight.h" />
     <ClInclude Include="src\materials\diffusematerial.h" />
+    <ClInclude Include="src\materials\glassmaterial.h" />
     <ClInclude Include="src\materials\glossydielectricmaterial.h" />
     <ClInclude Include="src\materials\plasticmaterial.h" />
-    <ClInclude Include="src\materials\speculardielectricmaterial.h" />
     <ClInclude Include="src\materials\specularmaterial.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
