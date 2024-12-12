@@ -13,7 +13,7 @@ int main(int argc, char* argv[])
     {
         std::cout << "Loading " << argv[1] << "...\n";
         Scene scene(argv[1]);
-        std::vector<std::unique_ptr<RenderSession>> sessions = LoadSessions(argv[1], scene);
+        std::vector<RenderSessionPtr> sessions = LoadSessions(argv[1], scene);
 
         uint8_t n = 0;
         for (auto& session : sessions)

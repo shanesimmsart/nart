@@ -5,9 +5,15 @@ RingLight::RingLight(float radius, float innerRadius, glm::vec3 Le, float intens
     isDelta = false;
 }
 
-glm::vec3 RingLight::Li(Intersection* lightIsect, const glm::vec3& p, const glm::vec3& wi) const
+glm::vec3 RingLight::Li(Intersection* lightIsect, const glm::vec3& p, const glm::vec3& wi, float* pdf) const
 {
-    if (Pdf(lightIsect, p, wi) > 0.f) return Le * intensity;
+    float LiPdf = Pdf(lightIsect, p, wi);
+
+    if (LiPdf > 0.f)
+    {
+        if (pdf) *pdf = LiPdf;
+        return Le * intensity;
+    }
 
     else return glm::vec3(0.f);
 }

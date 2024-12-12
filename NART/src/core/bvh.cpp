@@ -314,11 +314,9 @@ BVH::BVH(std::vector<TriMeshPtr>&& _meshes) : meshes(std::move(_meshes))
             glm::vec3 triangleMin = glm::min(glm::min(meshes[j]->triangles[i].v0, meshes[j]->triangles[i].v1), meshes[j]->triangles[i].v2) - sceneMin;
             glm::vec3 chunkCoords = glm::floor((triangleMin / sceneSize) * resolution);
             uint32_t chunkIndex = static_cast<uint32_t>(glm::floor(chunkCoords.x * resolution.y * resolution.z + chunkCoords.y * resolution.z + chunkCoords.x));
-            // TODO: Find source of overshoots
             chunkIndex = glm::min(chunkIndex, numChunks);
             if (!chunks[chunkIndex])
             {
-                // std::shared_ptr<Chunk> chunk = std::shared_ptr<Chunk>(new Chunk);
                 chunks[chunkIndex] = std::unique_ptr<Chunk>(new Chunk);
             }
             chunks[chunkIndex]->Insert(*(meshes[j]), i);

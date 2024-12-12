@@ -84,29 +84,25 @@ glm::vec3 RenderSession::EstimateDirect(const glm::vec3 wo, BSDF& bsdf, const In
         float flip = wi.z > 0.f ? 1.f : -1.f;
         Ray shadowRay(isect.p + (isect.gn * shadowBias * flip), bsdf.ToWorld(wi));
         Intersection lightIsect;
-        Li = light.Li(&lightIsect, isect.p, bsdf.ToWorld(wi));
-        if (!scene.GetBVH().Intersect(shadowRay, &lightIsect)) // || flags && TRANSMISSIVE)
+        Li = light.Li(&lightIsect, isect.p, bsdf.ToWorld(wi), &lightingPdf);
+        if (!scene.GetBVH().Intersect(shadowRay, &lightIsect))
         {
             float weight = 1.f;
 
             if (!(*flags & SPECULAR))
             {
-                // TODO: I should probably do this inside of one function
-                lightingPdf = light.Pdf(&lightIsect, isect.p, bsdf.ToWorld(wi));
 #if LIGHT_SAMPLING
                 weight = (scatteringPdf * scatteringPdf) / (scatteringPdf * scatteringPdf + lightingPdf * lightingPdf);
 #endif
                 if (lightingPdf > 0.f)
                 {
                     L += (f * Li * glm::abs(wi.z) * weight) / scatteringPdf;
-                    L *= numLights;
                 }
             }
 
             else
             {
                 L += (f * Li * glm::abs(wi.z) * weight) / scatteringPdf;
-                L *= numLights;
             }
         }
     }
@@ -134,12 +130,11 @@ glm::vec3 RenderSession::EstimateDirect(const glm::vec3 wo, BSDF& bsdf, const In
             weight = (lightingPdf * lightingPdf) / (scatteringPdf * scatteringPdf + lightingPdf * lightingPdf);
 #endif
             L += (f * Li * glm::abs(wi.z) * weight) / lightingPdf;
-            L *= numLights;
         }
     }
 #endif
 
-    return L;
+    return L * numLights;
 }
 
 std::vector<Pixel> RenderSession::RenderTile(const float* filterTable, uint32_t x0, uint32_t x1, uint32_t y0, uint32_t y1)
@@ -192,6 +187,7 @@ std::vector<Pixel> RenderSession::RenderTile(const float* filterTable, uint32_t 
                             lightTMax = lightIsect.tMax;
                             isect.tMax = lightIsect.tMax;
                             lightHit = true;
+                            alpha = 1.f;
                         }
                     }
 
@@ -286,7 +282,7 @@ std::vector<Pixel> RenderSession::Render()
         {
             while (nBucketsComplete < nBuckets)
             {
-                std::cout << "\r" << (int)glm::floor(((float)nBucketsComplete / (float)nBuckets) * 100.f) << "%" << std::flush;
+                std::cout << "\r" << static_cast<int>(glm::floor((static_cast<float>(nBucketsComplete) / static_cast<float>(nBuckets)) * 100.f)) << "%" << std::flush;
                 std::this_thread::sleep_for(std::chrono::milliseconds(100));
             }
             std::cout << "\r100%" << std::endl; // Ensure final output is 100%
@@ -326,7 +322,7 @@ std::vector<Pixel> RenderSession::Render()
 #endif
 
     // Combine tiles into image
-      for (uint32_t j = 0; j < nBucketsY; ++j)
+    for (uint32_t j = 0; j < nBucketsY; ++j)
     {
         for (uint32_t i = 0; i < nBucketsX; ++i)
         {
@@ -337,6 +333,7 @@ std::vector<Pixel> RenderSession::Render()
                     std::vector<Pixel> v = tiles[j * nBucketsX + i];
                     uint32_t pX = x + (i * bucketSize);
                     uint32_t pY = y + (j * bucketSize);
+
                     // Ignore tile pixels beyond image bounds
                     if (pX < (imageWidth + filterBounds) && pY < (imageHeight + filterBounds))
                     {
@@ -400,14 +397,12 @@ std::vector<std::unique_ptr<RenderSession>> LoadSessions(std::string scenePath, 
         std::abort();
     }
 
-    // nlohmann::json jsonInfo = json["renderSessions"];
-
     std::vector<std::unique_ptr<RenderSession>> sessions;
 
     if (!json["renderSessions"].is_null()) {
         for (auto& elem : json["renderSessions"])
         {
-            // Default values if not found in json
+            // Default values if not found in JSON
             uint32_t imageWidth = 64;
             uint32_t imageHeight = 64;
             uint32_t bucketSize = 32;

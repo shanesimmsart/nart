@@ -69,6 +69,8 @@ const BVH& Scene::GetBVH() const
     return *(bvh);
 }
 
+// JSON library returns array of floats as std::vector,
+// this function just reformats that as glm::mat4
 glm::mat4 Scene::MatrixFromVector(std::vector<float> vector)
 {
     glm::mat4 matrix(1.f);
@@ -270,6 +272,7 @@ void Scene::LoadMeshes(const nlohmann::json json)
     std::vector<std::string> meshFilePaths;
     std::vector<std::shared_ptr<Material>> meshMaterials;
     std::vector<glm::mat4> meshTransforms;
+
     if (!json["meshes"].is_null()) {
         uint8_t numMeshes = json["meshes"].size();
 

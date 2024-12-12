@@ -6,7 +6,7 @@
             "bucketSize": 16,
             "spp": 4,
             "filterWidth": 2,
-            "rougheningFactor": 0.0
+            "rougheningFactor": 0.2
         }
     ],
 
@@ -21,8 +21,8 @@
         "material": [
             {
             "type": "glass",
-            "rho_d": [1, 1, 1],
             "rho_s": [1, 1, 1],
+            "tau": [1, 1, 1],
             "eta": 1.5,
             "roughness": 0
             }

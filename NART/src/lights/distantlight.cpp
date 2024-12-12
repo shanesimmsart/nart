@@ -7,8 +7,9 @@ DistantLight::DistantLight(glm::vec3 Le, float intensity, glm::mat4 LightToWorld
     direction = glm::vec4(0.f, 0.f, -1.f, 0.f) * LightToWorld;
 }
 
-glm::vec3 DistantLight::Li(Intersection* lightIsect, const glm::vec3& p, const glm::vec3& wi) const
+glm::vec3 DistantLight::Li(Intersection* lightIsect, const glm::vec3& p, const glm::vec3& wi, float* pdf) const
 {
+    if (pdf) *pdf = 0.f;
     return glm::vec3(0.f);
 }
 

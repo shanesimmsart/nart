@@ -50,15 +50,17 @@ private:
 
     // Discrete bounds of filter
     uint32_t filterBounds;
-    // Size of each tile, including border added to include filter width
+    // Size of each tile, including filter width border
     uint32_t tileSize;
-    // Total image dimensions, including border added to include filter width
+    // Total image dimensions, including filter width border
     uint32_t totalWidth;
     uint32_t totalHeight;
     
     float rougheningFactor = 0.f;
     const float shadowBias = 0.01f;
 };
+
+using RenderSessionPtr = std::unique_ptr<RenderSession>;
 
 std::vector<std::unique_ptr<RenderSession>> LoadSessions(std::string scenePath, const Scene& scene);
 

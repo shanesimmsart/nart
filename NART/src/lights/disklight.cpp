@@ -5,9 +5,15 @@ DiskLight::DiskLight(float radius, glm::vec3 Le, float intensity, glm::mat4 Ligh
     isDelta = false;
 }
 
-glm::vec3 DiskLight::Li(Intersection* lightIsect, const glm::vec3& p, const glm::vec3& wi) const
+glm::vec3 DiskLight::Li(Intersection* lightIsect, const glm::vec3& p, const glm::vec3& wi, float* pdf) const
 {
-    if (Pdf(lightIsect, p, wi) > 0.f) return Le * intensity;
+    float LiPdf = Pdf(lightIsect, p, wi);
+
+    if (LiPdf > 0.f)
+    {
+        if (pdf) *pdf = LiPdf;
+        return Le * intensity;
+    }
 
     else return glm::vec3(0.f);
 }
@@ -70,8 +76,9 @@ float DiskLight::Pdf(Intersection* lightIsect, const glm::vec3& p, const glm::ve
     float pdf = 1.f / (glm::pi<float>() * radius * radius);
     pdf = pdf * ((t * t) / glm::dot(-wi, n));
 
-    // TODO: Figure out why this is negative??
     lightIsect->tMax = t;
 
     return pdf;
 }
+
+

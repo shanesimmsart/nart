@@ -290,8 +290,6 @@ glm::vec3 TorranceSparrowBRDF::Sample_f(const glm::vec3& wo, glm::vec3* wi, floa
     if (alpha_i != nullptr) *alpha_i = alpha;
     *flags = SPECULAR;
     if (alpha > 0.001f) *flags = GLOSSY;
-    // TODO: PBRT uses 1.62142f as roughness == 1
-    // Where does that come from??
     if (alpha >= 1.0f) *flags = DIFFUSE;
 
     // Transform wo from ellipsoid to hemisphere
