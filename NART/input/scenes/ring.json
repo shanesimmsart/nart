@@ -4,8 +4,24 @@
             "imageWidth": 1280,
             "imageHeight": 720,
             "bucketSize": 16,
-            "spp": 4,
+            "spp": 16,
             "filterWidth": 2
+        },
+        {
+            "imageWidth": 1280,
+            "imageHeight": 720,
+            "bucketSize": 16,
+            "spp": 16,
+            "filterWidth": 2,
+            "rougheningFactor": 0.2
+        },
+        {
+            "imageWidth": 1280,
+            "imageHeight": 720,
+            "bucketSize": 16,
+            "spp": 16,
+            "filterWidth": 2,
+            "rougheningFactor": 0.3
         }
     ],
 
@@ -44,14 +60,14 @@
             "type": "disk",
             "radius": 2.5,
             "Le": [1, 1, 1],
-            "intensity": 5220,
+            "intensity": 1723,
             "transform":  [0.310129, -0.893007, -0.326126, -9.589715, 0.443268, 0.439296, -0.781366, -22.834635, 0.841031, 0.097763, 0.532080, 16.133554, 0.000000, 0.000000, 0.000000, 1.000000]
         },
         {
             "type": "disk",
             "radius": 250,
             "Le": [1, 1, 1],
-            "intensity": 1,
+            "intensity": 0.33,
             "transform":  [1.000000, 0.000000, 0.000000, 0.000000, 0.000000, 1.000000, 0.000000, 0.000000, 0.000000, 0.000000, 1.000000, 24.406971, 0.000000, 0.000000, 0.000000, 1.000000]
         }
     ]

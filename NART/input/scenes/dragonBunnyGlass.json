@@ -5,7 +5,8 @@
             "imageHeight": 720,
             "bucketSize": 16,
             "spp": 4,
-            "filterWidth": 2
+            "filterWidth": 2,
+            "rougheningFactor": 0.1
         }
     ],
 

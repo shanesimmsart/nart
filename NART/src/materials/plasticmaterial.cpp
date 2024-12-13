@@ -1,6 +1,6 @@
 #include "plasticmaterial.h"
 
-PlasticMaterial::PlasticMaterial(glm::vec3 rho_d, glm::vec3 R, float eta, float alpha) : rho_d(rho_d), rho_s(rho_s), eta(eta), alpha(alpha)
+PlasticMaterial::PlasticMaterial(glm::vec3 rho_d, glm::vec3 rho_s, float eta, float alpha) : rho_d(rho_d), rho_s(rho_s), eta(eta), alpha(alpha)
 {}
 
 BSDF PlasticMaterial::CreateBSDF(glm::vec3 n, float alphaTweak)
