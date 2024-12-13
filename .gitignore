@@ -418,3 +418,5 @@ FodyWeavers.xsd
 /NART/output/sphereGlassM.exr
 /NART/output/sphereGlassM0.exr
 /NART/input/meshes/backdrop.mtl
+/NART/input/scenes/dragonTest.json
+/NART/input/scenes/bunnies.json
