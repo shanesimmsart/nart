@@ -1,4 +1,4 @@
-#include "specularmaterial.h"
+#include "../../include/nart/materials/specularmaterial.h"
 
 SpecularMaterial::SpecularMaterial(glm::vec3 rho_s, float eta) : rho_s(rho_s), eta(eta)
 {}

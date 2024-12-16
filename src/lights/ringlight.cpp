@@ -1,4 +1,4 @@
-#include "ringlight.h"
+#include "../../include/nart/lights/ringlight.h"
 
 RingLight::RingLight(float radius, float innerRadius, glm::vec3 Le, float intensity, glm::mat4 LightToWorld) : Light(Le, intensity, LightToWorld), radius(radius), innerRadius(innerRadius)
 {

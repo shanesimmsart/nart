@@ -1,4 +1,4 @@
-#include "glassmaterial.h"
+#include "../../include/nart/materials/glassmaterial.h"
 
 GlassMaterial::GlassMaterial(glm::vec3 rho_s, glm::vec3 tau, float eta, float alpha) : rho_s(rho_s), tau(tau), eta(eta), alpha(alpha)
 {}

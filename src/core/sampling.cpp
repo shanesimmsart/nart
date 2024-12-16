@@ -1,5 +1,5 @@
-#include "sampling.h"
-#include "rng.h"
+#include "../../include/nart/core/sampling.h"
+#include "../../include/nart/core/rng.h"
 
 glm::vec2 UniformSampleDisk(glm::vec2 sample)
 {

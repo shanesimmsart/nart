@@ -1,4 +1,4 @@
-#include "distantlight.h"
+#include "../../include/nart/lights/distantlight.h"
 
 DistantLight::DistantLight(glm::vec3 Le, float intensity, glm::mat4 LightToWorld) : Light(Le, intensity, LightToWorld)
 {

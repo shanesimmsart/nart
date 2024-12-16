@@ -1,4 +1,4 @@
-#include "geometry.h"
+#include "../../include/nart/core/geometry.h"
 
 Ray::Ray(glm::vec3 o, glm::vec3 d) : o(o), d(d)
 {

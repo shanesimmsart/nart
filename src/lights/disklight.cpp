@@ -1,4 +1,4 @@
-#include "disklight.h"
+#include "../../include/nart/lights/disklight.h"
 
 DiskLight::DiskLight(float radius, glm::vec3 Le, float intensity, glm::mat4 LightToWorld) : Light(Le, intensity, LightToWorld), radius(radius)
 {

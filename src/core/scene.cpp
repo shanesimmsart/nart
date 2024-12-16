@@ -1,4 +1,4 @@
-#include "scene.h"
+#include "../../include/nart/core/scene.h"
 
 Scene::Scene(std::string scenePath)
 {

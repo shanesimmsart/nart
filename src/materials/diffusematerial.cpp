@@ -1,4 +1,4 @@
-#include "diffusematerial.h"
+#include "../../include/nart/materials/diffusematerial.h"
 
 DiffuseMaterial::DiffuseMaterial(glm::vec3 rho) : rho(rho) // your boat...
 {}

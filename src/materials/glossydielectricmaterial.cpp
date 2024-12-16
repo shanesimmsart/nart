@@ -1,4 +1,4 @@
-#include "glossydielectricmaterial.h"
+#include "../../include/nart/materials/glossydielectricmaterial.h"
 
 GlossyDielectricMaterial::GlossyDielectricMaterial(glm::vec3 rho_s, float eta, float alpha) : rho_s(rho_s), eta(eta), alpha(alpha)
 {}

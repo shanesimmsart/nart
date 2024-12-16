@@ -1,4 +1,4 @@
-#include "pinholecamera.h"
+#include "../../include/nart/cameras/pinholecamera.h"
 
 PinholeCamera::PinholeCamera(float fov, glm::mat4 cameraToWorld) : fov(fov), cameraToWorld(cameraToWorld) {}
 

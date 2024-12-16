@@ -1,4 +1,4 @@
-#include "plasticmaterial.h"
+#include "../../include/nart/materials/plasticmaterial.h"
 
 PlasticMaterial::PlasticMaterial(glm::vec3 rho_d, glm::vec3 rho_s, float eta, float alpha) : rho_d(rho_d), rho_s(rho_s), eta(eta), alpha(alpha)
 {}

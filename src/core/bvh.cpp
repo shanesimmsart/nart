@@ -1,4 +1,4 @@
-#include "bvh.h"
+#include "../../include/nart/core/bvh.h"
 
 BVH::BoundingVolume::BoundingVolume()
 {

@@ -1,7 +1,7 @@
 #include <atomic>
 #include <thread>
 
-#include "render.h"
+#include "../../include/nart/core/render.h"
 
 #define FilterTableResolution 64
 

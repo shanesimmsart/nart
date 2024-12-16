@@ -1,6 +1,6 @@
 #include <chrono>
 
-#include "nart.h"
+#include "../../include/nart/core/nart.h"
 
 int main(int argc, char* argv[])
 { 
