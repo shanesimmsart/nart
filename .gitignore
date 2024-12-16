@@ -421,3 +421,8 @@ FodyWeavers.xsd
 /NART/input/scenes/dragonTest.json
 /NART/input/scenes/bunnies.json
 /build
+*.mtl
+/NART.sln
+/NART.vcxproj
+/NART.vcxproj.filters
+/NART.vcxproj.user.bak
