@@ -276,7 +276,7 @@ std::vector<Pixel> RenderSession::Render()
     std::vector<Pixel> p(tileSize * tileSize);
     std::vector<std::vector<Pixel>> tiles(nBuckets, p);
 
-    std::atomic<uint32_t> nBucketsComplete = 0;
+    std::atomic<uint32_t> nBucketsComplete(0);
 #if !DEBUG_BUCKET
     std::thread progressLogger([&nBucketsComplete, nBuckets]
         {
