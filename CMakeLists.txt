@@ -117,22 +117,22 @@ set(TBB_BUILD_TBBMALLOC OFF CACHE BOOL "Do not build TBB allocator" FORCE)
 FetchContent_MakeAvailable(tbb)
 
 set(SOURCES
-    NART/src/core/main.cpp
-    NART/src/core/bvh.cpp
-    NART/src/core/geometry.cpp
-    NART/src/core/reflection.cpp
-    NART/src/core/render.cpp
-    NART/src/core/sampling.cpp
-    NART/src/core/scene.cpp
-    NART/src/cameras/pinholecamera.cpp
-    NART/src/lights/disklight.cpp
-    NART/src/lights/distantlight.cpp
-    NART/src/lights/ringlight.cpp
-    NART/src/materials/diffusematerial.cpp
-    NART/src/materials/glassmaterial.cpp
-    NART/src/materials/glossydielectricmaterial.cpp
-    NART/src/materials/plasticmaterial.cpp
-    NART/src/materials/specularmaterial.cpp
+    src/core/main.cpp
+    src/core/bvh.cpp
+    src/core/geometry.cpp
+    src/core/reflection.cpp
+    src/core/render.cpp
+    src/core/sampling.cpp
+    src/core/scene.cpp
+    src/cameras/pinholecamera.cpp
+    src/lights/disklight.cpp
+    src/lights/distantlight.cpp
+    src/lights/ringlight.cpp
+    src/materials/diffusematerial.cpp
+    src/materials/glassmaterial.cpp
+    src/materials/glossydielectricmaterial.cpp
+    src/materials/plasticmaterial.cpp
+    src/materials/specularmaterial.cpp
 )
 
 add_executable(${PROJECT_NAME} ${SOURCES})

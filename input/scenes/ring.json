@@ -32,7 +32,7 @@
 
     "meshes": [
         {
-        "filePath": "input\\meshes\\ring.geo",
+        "filePath": "input//meshes//ring.geo",
         "material": [
             {
             "type": "glossy",
@@ -44,7 +44,7 @@
         "transform": [ 1.000000, 0.000000, 0.000000, 0.000000, 0.000000, 1.000000, 0.000000, 0.000000, 0.000000, 0.000000, 0.164988, 0.160000, 0.000000, 0.000000, 0.000000, 1.000000 ]
         },
         {
-        "filePath": "input\\meshes\\plane.geo",
+        "filePath": "input//meshes//plane.geo",
         "material": [
             {
             "type": "lambert",

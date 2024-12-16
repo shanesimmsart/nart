@@ -17,7 +17,7 @@
 
     "meshes": [
         {
-        "filePath": "input\\meshes\\sphere.geo",
+        "filePath": "input//meshes//sphere.geo",
         "material": [
             {
             "type": "glass",
@@ -30,7 +30,7 @@
         "transform": [ 0.500000, 0.000000, 0.000000, -0.758663, 0.000000, 0.500000, 0.000000, -3.285489, 0.000000, 0.000000, 0.500000, 0.500000, 0.000000, 0.000000, 0.000000, 1.000000 ]
         },
         {
-        "filePath": "input\\meshes\\backdrop.geo",
+        "filePath": "input//meshes//backdrop.geo",
         "material": [
             {
             "type": "lambert",
