@@ -6,7 +6,7 @@ int main(int argc, char* argv[])
 { 
     if (argc < 3)
     {
-        std::cerr << "Too few arguments given.\nUsage example: " << argv[0] << " <scene file> <output path>";
+        std::cerr << "Too few arguments given.\nUsage example: " << argv[0] << " <scene file> <output path>\n";
     }
 
     else
