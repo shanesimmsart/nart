@@ -7,13 +7,27 @@ int main(int argc, char* argv[])
     if (argc < 3)
     {
         std::cerr << "Too few arguments given.\nUsage example: " << argv[0] << " <scene file> <output path>\n";
+        return EXIT_FAILURE;
     }
 
     else
     {
+        // Default render parameters
+        // (Overridden by scene file if left at default)
+        RenderParams params;
+        if (!ParseRenderParamArguments(argc, argv, &params))
+        {
+            return EXIT_FAILURE;
+        }
+
         std::cout << "Loading " << argv[1] << "...\n";
         Scene scene(argv[1]);
-        std::vector<RenderSessionPtr> sessions = LoadSessions(argv[1], scene);
+        std::vector<RenderSessionPtr> sessions = LoadSessions(argv[1], scene, params);
+
+        if (sessions.empty()) {
+            std::cerr << "Failed to load sessions from " << argv[1] << "\n";
+            return EXIT_FAILURE;
+        }
 
         uint8_t n = 0;
         for (RenderSessionPtr& session : sessions)

@@ -8,6 +8,18 @@
 #include "geometry.h"
 #include "light.h"
 
+struct RenderParams
+{
+    // Default render parameters
+    // (Overridden by scene file if left at default)
+    uint32_t imageWidth = 0;
+    uint32_t imageHeight = 0;
+    uint32_t bucketSize = 0;
+    uint32_t spp = 0;
+    float filterWidth = -1.f;
+    float rougheningFactor = -1.f;
+};
+
 struct Pixel
 {
     glm::vec4 contribution = glm::vec4(0.f);
@@ -27,7 +39,7 @@ inline float Gaussian(float width, float x)
 class RenderSession
 {
 public:
-    RenderSession(const Scene& scene, uint32_t imageWidth, uint32_t imageHeight, uint32_t bucketSize, uint32_t spp, float filterWidth, float rougheningFactor);
+    RenderSession(const Scene& scene, RenderParams params);
 
     void AddSample(const float* filterTable, glm::vec2 sampleCoords, glm::vec4 L, std::vector<Pixel>& pixels);
 
@@ -42,11 +54,7 @@ public:
 private:
     const Scene& scene;
 
-    const uint32_t imageWidth;
-    const uint32_t imageHeight;
-    const uint32_t bucketSize;
-    const uint32_t spp;
-    const float filterWidth;
+    const RenderParams params;
 
     // Discrete bounds of filter
     uint32_t filterBounds;
@@ -62,6 +70,9 @@ private:
 
 using RenderSessionPtr = std::unique_ptr<RenderSession>;
 
-std::vector<std::unique_ptr<RenderSession>> LoadSessions(std::string scenePath, const Scene& scene);
+// Parses render parameter arguments, returns true if successful
+bool ParseRenderParamArguments(int argc, char* argv[], RenderParams* params);
+
+std::vector<std::unique_ptr<RenderSession>> LoadSessions(std::string scenePath, const Scene& scene, RenderParams params);
 
 
