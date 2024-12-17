@@ -38,7 +38,8 @@ int main(int argc, char* argv[])
             std::vector<Pixel> image = session->Render();
 
             std::ostringstream oss;
-            oss << argv[2] << "_" << std::to_string(n++) << ".exr";
+            if (sessions.size() == 1) oss << argv[2] << ".exr";
+            else  oss << argv[2] << "_" << std::to_string(n++) << ".exr";
             std::string filePath = oss.str();
 
             std::cout << "Writing to " << filePath.c_str() << "...\n";
