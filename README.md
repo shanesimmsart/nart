@@ -15,7 +15,7 @@ For example on Linux; running:
 
 `$ ./build/nart input/scenes/glassSphere.json output/glassSphere`
 
-will render the included glass sphere JSON scene and render it as `output/glassSphere_0.exr` (if there are multiple render sessions given in the scene file, each one will be suffixed 0, 1, 2, etc.).
+will render the included glass sphere JSON scene and write the result to `output/glassSphere_0.exr` (if there are multiple render sessions given in the scene file, each one will be suffixed 0, 1, 2, etc.).
 
 There are also optional flags that can be used to override the various rendering parameters:
 ```
