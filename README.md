@@ -1,5 +1,5 @@
 # nart
-Not Another Ray Tracer is yet another one of my ray tracing projects.
+This project is where I put things I have learned about path tracing / rendering in general in to practice.
 
 Everything is written without referring to existing code or ray tracing resources, just what I can remember from what I've learned and have been able to derive by myself.
 
