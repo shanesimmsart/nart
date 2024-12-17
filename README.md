@@ -8,7 +8,7 @@ You can follow my progress [here](https://twitter.com/shaneasimms/status/1728665
 ![glass](https://github.com/user-attachments/assets/8cbb833f-176d-4527-ba49-d5751709814e)
 ![veach](https://github.com/user-attachments/assets/34fafd04-04a3-483d-85e6-2a1732a8b190)
 
-## Features so far:
+## Features:
   - JSON scene file description
   - Tiled, multi-threaded rendering
   - BVH acceleration structure
@@ -20,7 +20,17 @@ You can follow my progress [here](https://twitter.com/shaneasimms/status/1728665
   - Russian roulette
   - Roughening over paths to improve sampling of caustics
 
+## Requirements:
+Supported operating systems:
+  - Linux
+  - Windows
+
+Tested compilers:
+  - Clang 14
+  - MSVC 19
+
 ## Dependencies:
+  - C++ 14
   - [OpenEXR](https://openexr.com/en/latest/install.html#install)
   - [GLM](https://github.com/g-truc/glm)
   - [Intel TBB](https://www.intel.com/content/www/us/en/developer/articles/tool/oneapi-standalone-components.html#onetbb)
