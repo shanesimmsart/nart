@@ -60,7 +60,6 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(imath)
 
-# Configure OpenEXR to use system zlib
 set(OPENEXR_USE_SYSTEM_ZLIB ON CACHE BOOL "Use system zlib" FORCE)
 set(OPENEXR_INSTALL OFF CACHE BOOL "Disable OpenEXR installation" FORCE)
 set(OPENEXR_BUILD_UTILS ON CACHE BOOL "Enable OpenEXR utilities" FORCE)
@@ -120,14 +119,19 @@ set(SOURCES
     src/core/main.cpp
     src/core/bvh.cpp
     src/core/geometry.cpp
-    src/core/reflection.cpp
     src/core/render.cpp
     src/core/sampling.cpp
     src/core/scene.cpp
+    src/core/bxdf.cpp
     src/cameras/pinholecamera.cpp
     src/lights/disklight.cpp
     src/lights/distantlight.cpp
     src/lights/ringlight.cpp
+    src/bxdfs/dielectricbrdf.cpp
+    src/bxdfs/lambertbrdf.cpp
+    src/bxdfs/specularbrdf.cpp
+    src/bxdfs/speculardielectricbrdf.cpp
+    src/bxdfs/torrancesparrowbrdf.cpp
     src/materials/diffusematerial.cpp
     src/materials/glassmaterial.cpp
     src/materials/glossydielectricmaterial.cpp

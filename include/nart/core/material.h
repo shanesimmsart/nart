@@ -1,6 +1,10 @@
 #pragma once
 
-#include "reflection.h"
+#include "../bxdfs/dielectricbrdf.h"
+#include "../bxdfs/lambertbrdf.h"
+#include "../bxdfs/specularbrdf.h"
+#include "../bxdfs/speculardielectricbrdf.h"
+#include "../bxdfs/torrancesparrowbrdf.h"
 
 class Material
 {
