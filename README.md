@@ -9,7 +9,7 @@ You can follow my progress [here](https://twitter.com/shaneasimms/status/1728665
 ![veach](https://github.com/user-attachments/assets/34fafd04-04a3-483d-85e6-2a1732a8b190)
 
 ## Usage:
-*nart* takes a JSON scene file and an output file name as input, and renders the given scene as an EXR image.
+**nart** takes a JSON scene file and an output file name as input, and renders the given scene as an EXR image.
 
 For example on Linux; running:
 
