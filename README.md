@@ -8,6 +8,26 @@ You can follow my progress [here](https://twitter.com/shaneasimms/status/1728665
 ![glass](https://github.com/user-attachments/assets/8cbb833f-176d-4527-ba49-d5751709814e)
 ![veach](https://github.com/user-attachments/assets/34fafd04-04a3-483d-85e6-2a1732a8b190)
 
+## Usage:
+nart takes a JSON scene file and an output file name as input, and renders the given scene as an EXR image.
+
+For example on Linux; running:
+`$ ./build/nart input/scenes/glassSphere.json output/glassSphere`
+will render the included glass sphere JSON scene and render it as `output/glassSphere_0.exr` (if there are multiple render sessions given in the scene file, each one will be suffixed 0, 1, 2, etc.).
+
+There are also optional flags that can be used to override the various rendering parameters:
+```-imageWidth / -i
+-imageHeight / -i
+-bucketSize / -b
+-spp / -s
+-filterWidth / -f
+-rougheningFactor / -r
+```
+
+For example, running:
+`$ ./build/nart input/scenes/glassSphere.json output/glassSphere -s 64`
+will override the spp set in the JSON scene file to 64.
+
 ## Features:
   - JSON scene file description
   - Tiled, multi-threaded rendering
