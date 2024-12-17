@@ -18,8 +18,9 @@ For example on Linux; running:
 will render the included glass sphere JSON scene and render it as `output/glassSphere_0.exr` (if there are multiple render sessions given in the scene file, each one will be suffixed 0, 1, 2, etc.).
 
 There are also optional flags that can be used to override the various rendering parameters:
-```-imageWidth / -i
--imageHeight / -i
+```
+-imageWidth / -w
+-imageHeight / -h
 -bucketSize / -b
 -spp / -s
 -filterWidth / -f
