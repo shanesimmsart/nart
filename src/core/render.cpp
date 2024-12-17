@@ -166,7 +166,7 @@ std::vector<Pixel> RenderSession::RenderTile(const float* filterTable, uint32_t 
                 glm::vec3 beta(1.f);
                 uint8_t flags;
 
-                float gamma = rougheningFactor * rougheningFactor;
+                float gamma = params.rougheningFactor * params.rougheningFactor;
                 float alphaTweak = 1.f;
 
                 for (uint32_t bounce = 0; bounce < MAX_BOUNCES; ++bounce)
@@ -474,7 +474,7 @@ bool ParseRenderParamArguments(int argc, char* argv[], RenderParams* params)
     return true;
 }
 
-std::vector<std::unique_ptr<RenderSession>> LoadSessions(std::string scenePath, const Scene& scene, RenderParams params)
+std::vector<std::unique_ptr<RenderSession>> LoadSessions(std::string scenePath, const Scene& scene, RenderParams _params)
 {
     nlohmann::json json;
     std::ifstream ifs;
@@ -501,6 +501,8 @@ std::vector<std::unique_ptr<RenderSession>> LoadSessions(std::string scenePath, 
     if (!json["renderSessions"].is_null()) {
         for (auto& elem : json["renderSessions"])
         {
+            RenderParams params = _params;
+
             // Read scene file values (unless overridden)
             if (!elem["imageWidth"].is_null() && params.imageWidth == 0) params.imageWidth = elem["imageWidth"].get<uint32_t>();
             if (!elem["imageHeight"].is_null() && params.imageHeight == 0) params.imageHeight = elem["imageHeight"].get<uint32_t>();

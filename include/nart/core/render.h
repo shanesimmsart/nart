@@ -63,8 +63,7 @@ private:
     // Total image dimensions, including filter width border
     uint32_t totalWidth;
     uint32_t totalHeight;
-    
-    float rougheningFactor = 0.f;
+ 
     const float shadowBias = 0.01f;
 };
 
@@ -73,6 +72,6 @@ using RenderSessionPtr = std::unique_ptr<RenderSession>;
 // Parses render parameter arguments, returns true if successful
 bool ParseRenderParamArguments(int argc, char* argv[], RenderParams* params);
 
-std::vector<std::unique_ptr<RenderSession>> LoadSessions(std::string scenePath, const Scene& scene, RenderParams params);
+std::vector<std::unique_ptr<RenderSession>> LoadSessions(std::string scenePath, const Scene& scene, RenderParams _params);
 
 
