@@ -1,5 +1,5 @@
 # nart
-Not Another Ray Tracer is yet another one of my ray tracing projects.
+This project is where I put things I have learned about path tracing / rendering in general into practice.
 
 Everything is written without referring to existing code or ray tracing resources, just what I can remember from what I've learned and have been able to derive by myself.
 
@@ -7,6 +7,31 @@ You can follow my progress [here](https://twitter.com/shaneasimms/status/1728665
 
 ![glass](https://github.com/user-attachments/assets/8cbb833f-176d-4527-ba49-d5751709814e)
 ![veach](https://github.com/user-attachments/assets/34fafd04-04a3-483d-85e6-2a1732a8b190)
+
+## Usage:
+**nart** takes a JSON scene file and an output file name as input, and renders the given scene as an EXR image.
+
+For example on Linux; running:
+
+`$ ./build/nart input/scenes/glassSphere.json output/glassSphere`
+
+will render the included glass sphere JSON scene and write the result to `output/glassSphere.exr`.
+
+There are also optional flags that can be used to override the various rendering parameters:
+```
+-imageWidth / -w
+-imageHeight / -h
+-bucketSize / -b
+-spp / -s
+-filterWidth / -f
+-rougheningFactor / -r
+```
+
+For example, running:
+
+`$ ./build/nart input/scenes/glassSphere.json output/glassSphere -s 64`
+
+will override the spp set in the JSON scene file to 64.
 
 ## Features:
   - JSON scene file description
