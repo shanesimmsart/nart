@@ -1,6 +1,6 @@
 #include "../../include/nart/bxdfs/torrancesparrowbrdf.h"
 
-TorranceSparrowBRDF::TorranceSparrowBRDF(glm::vec3 rho_s, float eta, float _alpha_0, float _alpha_prime) : rho_s(rho_s), eta(eta)
+TorranceSparrowBRDF::TorranceSparrowBRDF(const glm::vec3& rho_s, float eta, float _alpha_0, float _alpha_prime) : rho_s(rho_s), eta(eta)
 {
     alpha = _alpha_0;
     alpha_0 = _alpha_0;
@@ -8,14 +8,14 @@ TorranceSparrowBRDF::TorranceSparrowBRDF(glm::vec3 rho_s, float eta, float _alph
     flags = GLOSSY;
 }
 
-float TorranceSparrowBRDF::Lambda(const glm::vec3& w)
+float TorranceSparrowBRDF::Lambda(const glm::vec3& w) const
 {
     float sinTheta = glm::sqrt(1.f - (w.z * w.z));
     float tanTheta = (sinTheta / w.z);
     return (-1.f + glm::sqrt(1.f + (alpha * alpha * tanTheta * tanTheta))) * 0.5f;
 }
 
-float TorranceSparrowBRDF::D(const glm::vec3 wh)
+float TorranceSparrowBRDF::D(const glm::vec3 wh) const
 {
     float sinTheta = glm::sqrt(1.f - (wh.z * wh.z));
     float tanTheta = (sinTheta / wh.z);

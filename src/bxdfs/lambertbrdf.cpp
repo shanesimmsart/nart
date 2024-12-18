@@ -1,6 +1,6 @@
 #include "../../include/nart/bxdfs/lambertbrdf.h"
 
-LambertBRDF::LambertBRDF(glm::vec3 rho_d) : rho_d(rho_d)
+LambertBRDF::LambertBRDF(const glm::vec3& rho_d) : rho_d(rho_d)
 {
     flags = DIFFUSE;
     alpha = 1.f;

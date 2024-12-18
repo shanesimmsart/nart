@@ -32,15 +32,15 @@ public:
     const BVH& GetBVH() const;
 
 private:
-    glm::mat4 MatrixFromVector(std::vector<float> vector);
+    glm::mat4 MatrixFromVector(const std::vector<float>& vector) const;
 
-    TriMeshPtr LoadMeshFromFile(std::string filePath, glm::mat4& objectToWorld, std::shared_ptr<Material> material);
+    TriMeshPtr LoadMeshFromFile(const std::string& filePath, glm::mat4& objectToWorld, std::unique_ptr<Material>&& material) const;
 
-    void LoadMeshes(const nlohmann::json json);
+    void LoadMeshes(const nlohmann::json& json);
     
-    void LoadCamera(const nlohmann::json json);
+    void LoadCamera(const nlohmann::json& json);
 
-    void LoadLights(const nlohmann::json json);
+    void LoadLights(const nlohmann::json& json);
 
     std::vector<LightPtr> lights;
     CameraPtr camera;

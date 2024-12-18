@@ -6,7 +6,7 @@
 class SpecularDielectricBRDF : public BxDF
 {
 public:
-    SpecularDielectricBRDF(glm::vec3 rho_s, glm::vec3 tau, float eta);
+    SpecularDielectricBRDF(const glm::vec3& rho_s, const glm::vec3& tau, float eta);
 
     // Note: We should never be in a situation where alpha_prime > 0 and we are using a specular BRDF
     glm::vec3 f(const glm::vec3& wo, const glm::vec3& wi, bool use_alpha_prime);
@@ -17,9 +17,9 @@ public:
 
 private:
     // Reflectance
-    glm::vec3 rho_s;
+    const glm::vec3 rho_s;
     // Transmittance
-    glm::vec3 tau;
+    const glm::vec3 tau;
     // IOR
     float eta;
 };

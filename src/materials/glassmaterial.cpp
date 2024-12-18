@@ -1,9 +1,9 @@
 #include "../../include/nart/materials/glassmaterial.h"
 
-GlassMaterial::GlassMaterial(glm::vec3 rho_s, glm::vec3 tau, float eta, float alpha) : rho_s(rho_s), tau(tau), eta(eta), alpha(alpha)
+GlassMaterial::GlassMaterial(const glm::vec3& rho_s, const glm::vec3& tau, float eta, float alpha) : rho_s(rho_s), tau(tau), eta(eta), alpha(alpha)
 {}
 
-BSDF GlassMaterial::CreateBSDF(glm::vec3 n, float alphaTweak)
+BSDF GlassMaterial::CreateBSDF(const glm::vec3& n, float alphaTweak)
 {
     BSDF bsdf(n, 1);
 

@@ -5,7 +5,7 @@
 class DiskLight : public Light
 {
 public:
-    DiskLight(float radius, glm::vec3 Le, float intensity, glm::mat4 LightToWorld);
+    DiskLight(float radius, const glm::vec3& Le, float intensity, const glm::mat4& LightToWorld);
 
     glm::vec3 Li(Intersection* lightIsect, const glm::vec3& p, const glm::vec3& wi, float* pdf = nullptr) const;
 
@@ -13,7 +13,8 @@ public:
 
     float Pdf(Intersection* lightIsect, const glm::vec3& p, const glm::vec3& wi) const;
 
-    float radius = 1.f;
+private:
+    const float radius = 1.f;
 };
 
 

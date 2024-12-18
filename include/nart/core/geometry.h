@@ -12,7 +12,7 @@
 class Ray
 {
 public:
-    Ray(glm::vec3 o, glm::vec3 d);
+    Ray(const glm::vec3& o, const glm::vec3& d);
 
     glm::vec3 o = glm::vec3(0.f, 0.f, 0.f);
     glm::vec3 d = glm::vec3(0.f, 0.f, 1.f);
@@ -25,7 +25,7 @@ public:
 
 struct Intersection
 {
-    std::shared_ptr<Material> material;
+    Material* material;
     // Barycentric coords
     float u, v;
     // Point, geometric normal, shading normal
@@ -53,11 +53,15 @@ public:
 class TriMesh
 {
 public:
-    TriMesh(std::shared_ptr<Material> material);
+    TriMesh(MaterialPtr material);
+
+    // Passing as pointer instead of const ref as Intersect needs to hold the pointer
+    // and Material will call CreateBSDF() (non-const)
+    Material* GetMaterial() const;
 
     // Triangles are passed directly, outside of the ctor, to reduce memory allocations
     std::vector<Triangle> triangles;
-    std::shared_ptr<Material> material;
+    MaterialPtr material;
 };
 
 using TriMeshPtr = std::unique_ptr<TriMesh>;

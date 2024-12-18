@@ -2,7 +2,7 @@
 
 PinholeCamera::PinholeCamera(float fov, glm::mat4 cameraToWorld) : fov(fov), cameraToWorld(cameraToWorld) {}
 
-Ray PinholeCamera::CastRay(const glm::vec2& imageSample, const uint32_t& imageWidth, const uint32_t& imageHeight, const uint32_t& imageX, const uint32_t& imageY) const
+Ray PinholeCamera::CastRay(const glm::vec2& imageSample, const uint32_t imageWidth, const uint32_t imageHeight, const uint32_t imageX, const uint32_t imageY) const
 {
     // Create ray in camera-space
     float aspectRatio = static_cast<float>(imageWidth) / static_cast<float>(imageHeight);

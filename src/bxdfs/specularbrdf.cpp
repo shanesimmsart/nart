@@ -1,6 +1,6 @@
 #include "../../include/nart/bxdfs/specularbrdf.h"
 
-SpecularBRDF::SpecularBRDF(glm::vec3 rho_s, float eta) : rho_s(rho_s), eta(eta)
+SpecularBRDF::SpecularBRDF(const glm::vec3& rho_s, float eta) : rho_s(rho_s), eta(eta)
 {
     flags = SPECULAR;
 }

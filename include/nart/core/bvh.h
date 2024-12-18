@@ -91,7 +91,7 @@ private:
         private:
             const uint8_t maxDepth = 5;
 
-            OctreeNode(glm::vec3 nodeMin, glm::vec3 nodeMax);
+            OctreeNode(const glm::vec3& nodeMin, const glm::vec3& nodeMax);
 
             friend class Octree;
         };
@@ -106,7 +106,7 @@ private:
         bool Intersect(const Ray& ray, Intersection* isect);
 
     private:
-        Octree(glm::vec3 sceneMin, glm::vec3 sceneMax);
+        Octree(const glm::vec3& sceneMin, const glm::vec3& sceneMax);
 
         friend class BVH;
 

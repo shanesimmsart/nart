@@ -1,6 +1,6 @@
 #include "../../include/nart/lights/distantlight.h"
 
-DistantLight::DistantLight(glm::vec3 Le, float intensity, glm::mat4 LightToWorld) : Light(Le, intensity, LightToWorld)
+DistantLight::DistantLight(const glm::vec3& Le, float intensity, const glm::mat4& LightToWorld) : Light(Le, intensity, LightToWorld)
 {
     isDelta = true;
     // Pointing down by default

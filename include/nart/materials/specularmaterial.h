@@ -5,13 +5,13 @@
 class SpecularMaterial : public Material
 {
 public:
-    SpecularMaterial(glm::vec3 rho_s, float eta);
+    SpecularMaterial(const glm::vec3& rho_s, float eta);
 
-    BSDF CreateBSDF(glm::vec3 n, float alphaTweak);
+    BSDF CreateBSDF(const glm::vec3& n, float alphaTweak);
 
 private:
-    glm::vec3 rho_s;
-    float eta;
+    const glm::vec3 rho_s;
+    const float eta;
 };
 
 

@@ -6,23 +6,23 @@
 class TorranceSparrowBRDF : public BxDF
 {
 public:
-    TorranceSparrowBRDF(glm::vec3 rho_s, float eta, float _alpha_0, float _alpha_prime);
+    TorranceSparrowBRDF(const glm::vec3& rho_s, float eta, float _alpha_0, float _alpha_prime);
 
     // Masking-shadowing Function (Smith)
-    float Lambda(const glm::vec3& w);
+    float Lambda(const glm::vec3& w) const;
 
-    inline float G(const glm::vec3& wo, const glm::vec3& wi)
+    inline float G(const glm::vec3& wo, const glm::vec3& wi) const
     {
         return 1.f / (1.f + Lambda(wo) + Lambda(wi));
     }
 
-    inline float G1(const glm::vec3& w)
+    inline float G1(const glm::vec3& w) const
     {
         return 1.f / (1.f + Lambda(w));
     }
 
     // Normal Distribution Function (Trowbridge-Reitz)
-    float D(const glm::vec3 wh);
+    float D(const glm::vec3 wh) const;
 
     glm::vec3 f(const glm::vec3& wo, const glm::vec3& wi, bool use_alpha_prime);
 
@@ -32,9 +32,9 @@ public:
 
 private:
     // Reflectance
-    glm::vec3 rho_s;
+    const glm::vec3 rho_s;
     // IOR
-    float eta;
+    const float eta;
 };
 
 

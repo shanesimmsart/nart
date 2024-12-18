@@ -8,7 +8,7 @@
 class Light
 {
 public:
-    Light(glm::vec3 Le, float intensity, glm::mat4 LightToWorld) : Le(Le), intensity(intensity), LightToWorld(LightToWorld) {}
+    Light(const glm::vec3& Le, float intensity, const glm::mat4& LightToWorld) : Le(Le), intensity(intensity), LightToWorld(LightToWorld) {}
 
     // Return incident radiance from light, set wi
     virtual glm::vec3 Li(Intersection* lightIsect, const glm::vec3& p, const glm::vec3& wi, float* pdf = nullptr) const = 0;
@@ -25,9 +25,9 @@ public:
 
 protected:
     // Radiance emitted
-    glm::vec3 Le;
-    float intensity;
-    glm::mat4 LightToWorld;
+    const glm::vec3 Le;
+    const float intensity;
+    const glm::mat4 LightToWorld;
 };
 
 using LightPtr = std::unique_ptr<Light>;

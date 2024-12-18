@@ -1,9 +1,9 @@
 #include "../../include/nart/materials/plasticmaterial.h"
 
-PlasticMaterial::PlasticMaterial(glm::vec3 rho_d, glm::vec3 rho_s, float eta, float alpha) : rho_d(rho_d), rho_s(rho_s), eta(eta), alpha(alpha)
+PlasticMaterial::PlasticMaterial(const glm::vec3& rho_d, const glm::vec3& rho_s, float eta, float alpha) : rho_d(rho_d), rho_s(rho_s), eta(eta), alpha(alpha)
 {}
 
-BSDF PlasticMaterial::CreateBSDF(glm::vec3 n, float alphaTweak)
+BSDF PlasticMaterial::CreateBSDF(const glm::vec3& n, float alphaTweak)
 {
     BSDF bsdf(n, 2);
 

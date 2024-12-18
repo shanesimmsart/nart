@@ -21,7 +21,7 @@ RenderSession::RenderSession(const Scene& scene, RenderParams params) : scene(sc
     totalHeight = params.imageHeight + (filterBounds * 2);
 }
 
-void RenderSession::AddSample(const float* filterTable, glm::vec2 sampleCoords, glm::vec4 L, std::vector<Pixel>& pixels)
+void RenderSession::AddSample(const float* filterTable, const glm::vec2& sampleCoords, const glm::vec4& L, std::vector<Pixel>& pixels) const
 {
     // Calculate discrete x and y bounds of filter
     uint32_t x0 = static_cast<uint32_t>(glm::floor(sampleCoords.x - params.filterWidth));
@@ -55,7 +55,7 @@ void RenderSession::AddSample(const float* filterTable, glm::vec2 sampleCoords, 
     }
 }
 
-glm::vec3 RenderSession::EstimateDirect(const glm::vec3 wo, BSDF& bsdf, const Intersection& isect, float* alphaTweak, const Ray& ray, RNG& rng, uint8_t* flags)
+glm::vec3 RenderSession::EstimateDirect(const glm::vec3 wo, BSDF& bsdf, const Intersection& isect, float* alphaTweak, const Ray& ray, RNG& rng, uint8_t* flags) const
 {
     glm::vec3 L = glm::vec3(0.f);
 
@@ -136,7 +136,7 @@ glm::vec3 RenderSession::EstimateDirect(const glm::vec3 wo, BSDF& bsdf, const In
     return L * numLights;
 }
 
-std::vector<Pixel> RenderSession::RenderTile(const float* filterTable, uint32_t x0, uint32_t x1, uint32_t y0, uint32_t y1)
+std::vector<Pixel> RenderSession::RenderTile(const float* filterTable, uint32_t x0, uint32_t x1, uint32_t y0, uint32_t y1) const
 {
     std::vector<Pixel> pixels((tileSize) * (tileSize));
 
@@ -256,7 +256,7 @@ std::vector<Pixel> RenderSession::RenderTile(const float* filterTable, uint32_t 
     return pixels;
 }
 
-std::vector<Pixel> RenderSession::Render()
+std::vector<Pixel> RenderSession::Render() const
 {
     std::vector<Pixel> pixels(totalHeight * totalWidth);
 
@@ -348,7 +348,7 @@ std::vector<Pixel> RenderSession::Render()
     return pixels;
 }
 
-void RenderSession::WriteImageToEXR(const std::vector<Pixel>& pixels, const char* filePath)
+void RenderSession::WriteImageToEXR(const std::vector<Pixel>& pixels, const char* filePath) const
 {
     // Write image to EXR
     Imf::Array2D<Imf::Rgba> imagePixels(params.imageHeight, params.imageWidth);
@@ -474,7 +474,7 @@ bool ParseRenderParamArguments(int argc, char* argv[], RenderParams* params)
     return true;
 }
 
-std::vector<std::unique_ptr<RenderSession>> LoadSessions(std::string scenePath, const Scene& scene, RenderParams _params)
+std::vector<std::unique_ptr<RenderSession>> LoadSessions(const std::string& scenePath, const Scene& scene, const RenderParams& _params)
 {
     nlohmann::json json;
     std::ifstream ifs;

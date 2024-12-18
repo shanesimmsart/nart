@@ -1,9 +1,9 @@
 #include "../../include/nart/materials/glossydielectricmaterial.h"
 
-GlossyDielectricMaterial::GlossyDielectricMaterial(glm::vec3 rho_s, float eta, float alpha) : rho_s(rho_s), eta(eta), alpha(alpha)
+GlossyDielectricMaterial::GlossyDielectricMaterial(const glm::vec3& rho_s, float eta, float alpha) : rho_s(rho_s), eta(eta), alpha(alpha)
 {}
 
-BSDF GlossyDielectricMaterial::CreateBSDF(glm::vec3 n, float alphaTweak)
+BSDF GlossyDielectricMaterial::CreateBSDF(const glm::vec3& n, float alphaTweak)
 {
     BSDF bsdf(n, 1);
 

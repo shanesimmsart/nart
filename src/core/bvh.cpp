@@ -80,7 +80,8 @@ bool BVH::Chunk::Intersect(const Ray& ray, Intersection* isect) const
         if (triangleIndex.mesh.triangles[triangleIndex.index].Intersect(ray, isect))
         {
             hit = true;
-            isect->material = triangleIndex.mesh.material;
+            isect->material = triangleIndex.mesh.GetMaterial();
+            if (!isect->material) return false;
         }
     }
     return hit;
@@ -125,9 +126,9 @@ void BVH::Chunk::CalculateBounds()
 
 
 
-BVH::Octree::OctreeNode::OctreeNode(glm::vec3 nodeMin, glm::vec3 nodeMax) : nodeMin(nodeMin), nodeMax(nodeMax) {}
+BVH::Octree::OctreeNode::OctreeNode(const glm::vec3& nodeMin, const glm::vec3& nodeMax) : nodeMin(nodeMin), nodeMax(nodeMax) {}
 
-BVH::Octree::Octree(glm::vec3 sceneMin, glm::vec3 sceneMax) : sceneMin(sceneMin), sceneMax(sceneMax)
+BVH::Octree::Octree(const glm::vec3& sceneMin, const glm::vec3& sceneMax) : sceneMin(sceneMin), sceneMax(sceneMax)
 {
     root = OctreeNodePtr(new OctreeNode(sceneMin, sceneMax));
 }

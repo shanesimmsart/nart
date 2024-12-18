@@ -5,7 +5,7 @@
 class DistantLight : public Light
 {
 public:
-    DistantLight(glm::vec3 Le, float intensity, glm::mat4 LightToWorld);
+    DistantLight(const glm::vec3& Le, float intensity, const glm::mat4& LightToWorld);
 
     glm::vec3 Li(Intersection* lightIsect, const glm::vec3& p, const glm::vec3& wi, float* pdf = nullptr) const;
 
@@ -13,6 +13,7 @@ public:
 
     float Pdf(Intersection* lightIsect, const glm::vec3& p, const glm::vec3& wi) const;
 
+private:
     glm::vec3 direction;
 };
 

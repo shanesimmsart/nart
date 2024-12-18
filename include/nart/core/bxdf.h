@@ -57,7 +57,7 @@ using BxDFPtr = std::unique_ptr<BxDF>;
 class BSDF
 {
 public:
-    BSDF(glm::vec3 n, uint8_t numBxDFs);
+    BSDF(const glm::vec3& n, uint8_t numBxDFs);
 
     inline glm::vec3 ToLocal(const glm::vec3& v)
     {
@@ -81,7 +81,7 @@ public:
     glm::vec3 Sample_f(const glm::vec3& wo, glm::vec3* wi, float sample1D, glm::vec2 sample, float* pdf, uint8_t* flags, bool use_alpha_prime, float* alpha_i = nullptr);
 
     // Average pdfs
-    float Pdf(const glm::vec3& wo, const glm::vec3& wi, bool use_alpha_prime);
+    float Pdf(const glm::vec3& wo, const glm::vec3& wi, bool use_alpha_prime) const;
 
 protected:
     // Coord sys in worldspace

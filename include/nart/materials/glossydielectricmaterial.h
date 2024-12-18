@@ -5,14 +5,14 @@
 class GlossyDielectricMaterial : public Material
 {
 public:
-    GlossyDielectricMaterial(glm::vec3 rho_s, float eta, float alpha);
+    GlossyDielectricMaterial(const glm::vec3& rho_s, float eta, float alpha);
 
-    BSDF CreateBSDF(glm::vec3 n, float alphaTweak);
+    BSDF CreateBSDF(const glm::vec3& n, float alphaTweak);
 
 private:
+    const glm::vec3 rho_s;
+    const float eta;
     float alpha;
-    glm::vec3 rho_s;
-    float eta;
 };
 
 

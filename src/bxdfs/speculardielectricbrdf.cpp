@@ -1,6 +1,6 @@
 #include "../../include/nart/bxdfs/speculardielectricbrdf.h"
 
-SpecularDielectricBRDF::SpecularDielectricBRDF(glm::vec3 rho_s, glm::vec3 tau, float eta) : rho_s(rho_s), tau(tau), eta(eta)
+SpecularDielectricBRDF::SpecularDielectricBRDF(const glm::vec3& rho_s, const glm::vec3& tau, float eta) : rho_s(rho_s), tau(tau), eta(eta)
 {
     flags = SPECULAR;
 }

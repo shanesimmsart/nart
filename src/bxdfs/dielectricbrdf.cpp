@@ -1,6 +1,6 @@
 #include "../../include/nart/bxdfs/dielectricbrdf.h"
 
-DielectricBRDF::DielectricBRDF(glm::vec3 rho_s, glm::vec3 tau, float eta, float _alpha_0, float _alpha_prime) : rho_s(rho_s), tau(tau), eta(eta)
+DielectricBRDF::DielectricBRDF(const glm::vec3& rho_s, const glm::vec3& tau, float eta, float _alpha_0, float _alpha_prime) : rho_s(rho_s), tau(tau), eta(eta)
 {
     alpha = _alpha_0;
     alpha_0 = _alpha_0;
@@ -8,14 +8,14 @@ DielectricBRDF::DielectricBRDF(glm::vec3 rho_s, glm::vec3 tau, float eta, float 
     flags = GLOSSY;
 }
 
-float DielectricBRDF::Lambda(const glm::vec3& w)
+float DielectricBRDF::Lambda(const glm::vec3& w) const
 {
     float sinTheta = glm::sqrt(1.f - (w.z * w.z));
     float tanTheta = (sinTheta / w.z);
     return (-1.f + glm::sqrt(1.f + (alpha * alpha * tanTheta * tanTheta))) * 0.5f;
 }
 
-float DielectricBRDF::D(const glm::vec3 wh)
+float DielectricBRDF::D(const glm::vec3 wh) const
 {
     if (wh.z == 0.f) return 0.f;
     float sinTheta = glm::sqrt(1.f - (wh.z * wh.z));

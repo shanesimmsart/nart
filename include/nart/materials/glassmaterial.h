@@ -5,14 +5,14 @@
 class GlassMaterial : public Material
 {
 public:
-    GlassMaterial(glm::vec3 rho_s, glm::vec3 tau, float eta, float alpha);
+    GlassMaterial(const glm::vec3& rho_s, const glm::vec3& tau, float eta, float alpha);
 
-    BSDF CreateBSDF(glm::vec3 n, float alphaTweak);
+    BSDF CreateBSDF(const glm::vec3& n, float alphaTweak);
 
 private:
-    glm::vec3 rho_s;
-    glm::vec3 tau;
-    float eta;
+    const glm::vec3 rho_s;
+    const glm::vec3 tau;
+    const float eta;
     float alpha;
 };
 

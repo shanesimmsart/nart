@@ -1,9 +1,9 @@
 #include "../../include/nart/materials/specularmaterial.h"
 
-SpecularMaterial::SpecularMaterial(glm::vec3 rho_s, float eta) : rho_s(rho_s), eta(eta)
+SpecularMaterial::SpecularMaterial(const glm::vec3& rho_s, float eta) : rho_s(rho_s), eta(eta)
 {}
 
-BSDF SpecularMaterial::CreateBSDF(glm::vec3 n, float alphaTweak)
+BSDF SpecularMaterial::CreateBSDF(const glm::vec3& n, float alphaTweak)
 {
     BSDF bsdf(n, 1);
 

@@ -10,12 +10,14 @@ class Material
 {
 public:
     // Creates BSDF and adds BxDFs
-    virtual BSDF CreateBSDF(glm::vec3 n, float alphaTweak) = 0;
+    virtual BSDF CreateBSDF(const glm::vec3& n, float alphaTweak) = 0;
 
     virtual ~Material() {}
 
 protected:
     Material() {};
 };
+
+using MaterialPtr = std::unique_ptr<Material>;
 
 

@@ -5,7 +5,7 @@
 class LambertBRDF : public BxDF
 {
 public:
-    LambertBRDF(glm::vec3 rho_d);
+    LambertBRDF(const glm::vec3& rho_d);
 
     glm::vec3 f(const glm::vec3& wo, const glm::vec3& wi, bool use_alpha_prime);
 
@@ -15,7 +15,7 @@ public:
 
 private:
     // Diffuse
-    glm::vec3 rho_d;
+    const glm::vec3 rho_d;
 };
 
 

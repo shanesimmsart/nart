@@ -76,7 +76,7 @@ const BVH& Scene::GetBVH() const
 
 // JSON library returns array of floats as std::vector,
 // this function just reformats that as glm::mat4
-glm::mat4 Scene::MatrixFromVector(std::vector<float> vector)
+glm::mat4 Scene::MatrixFromVector(const std::vector<float>& vector) const
 {
     glm::mat4 matrix(1.f);
 
@@ -90,7 +90,7 @@ glm::mat4 Scene::MatrixFromVector(std::vector<float> vector)
     return matrix;
 }
 
-TriMeshPtr Scene::LoadMeshFromFile(std::string filePath, glm::mat4& objectToWorld, std::shared_ptr<Material> material)
+TriMeshPtr Scene::LoadMeshFromFile(const std::string& filePath, glm::mat4& objectToWorld, std::unique_ptr<Material>&& material) const
 {
     std::ifstream file;
     uint32_t numFaces;
@@ -256,7 +256,7 @@ TriMeshPtr Scene::LoadMeshFromFile(std::string filePath, glm::mat4& objectToWorl
         l += faces[i];
     }
 
-    TriMeshPtr mesh = std::make_unique<TriMesh>(material);
+    TriMeshPtr mesh = std::make_unique<TriMesh>(std::move(material));
     mesh->triangles.reserve(numTris);
 
     // Now we can finally build our triangles
@@ -272,10 +272,10 @@ TriMeshPtr Scene::LoadMeshFromFile(std::string filePath, glm::mat4& objectToWorl
     return mesh;
 }
 
-void Scene::LoadMeshes(const nlohmann::json json)
+void Scene::LoadMeshes(const nlohmann::json& json)
 {
     std::vector<std::string> meshFilePaths;
-    std::vector<std::shared_ptr<Material>> meshMaterials;
+    std::vector<std::unique_ptr<Material>> meshMaterials;
     std::vector<glm::mat4> meshTransforms;
 
     if (!json["meshes"].is_null()) {
@@ -308,7 +308,7 @@ void Scene::LoadMeshes(const nlohmann::json json)
                     {
                         std::vector<float> rho_dGet = mat["rho_d"].get<std::vector<float>>();
                         glm::vec3 rho_d = glm::vec3(rho_dGet[0], rho_dGet[1], rho_dGet[2]);
-                        meshMaterials.push_back(std::make_shared<DiffuseMaterial>(rho_d));
+                        meshMaterials.push_back(std::make_unique<DiffuseMaterial>(rho_d));
                     }
 
                     else if (type == "specular")
@@ -316,7 +316,7 @@ void Scene::LoadMeshes(const nlohmann::json json)
                         std::vector<float> rho_sGet = mat["rho_s"].get<std::vector<float>>();
                         glm::vec3 rho_s = glm::vec3(glm::min(rho_sGet[0], 1.f - glm::epsilon<float>()), glm::min(rho_sGet[1], 1.f - glm::epsilon<float>()), glm::min(rho_sGet[2], 1.f - glm::epsilon<float>()));
                         float eta = mat["eta"].get<float>();
-                        meshMaterials.push_back(std::make_shared<SpecularMaterial>(rho_s, eta));
+                        meshMaterials.push_back(std::make_unique<SpecularMaterial>(rho_s, eta));
                     }
 
                     else if (type == "glass")
@@ -328,7 +328,7 @@ void Scene::LoadMeshes(const nlohmann::json json)
                         float eta = mat["eta"].get<float>();
                         float roughness = mat["roughness"].get<float>();
                         float alpha = roughness * roughness;
-                        meshMaterials.push_back(std::make_shared<GlassMaterial>(rho_s, tau, eta, alpha));
+                        meshMaterials.push_back(std::make_unique<GlassMaterial>(rho_s, tau, eta, alpha));
                     }
 
                     else if (type == "glossy")
@@ -338,7 +338,7 @@ void Scene::LoadMeshes(const nlohmann::json json)
                         float eta = mat["eta"].get<float>();
                         float roughness = mat["roughness"].get<float>();
                         float alpha = roughness * roughness;
-                        meshMaterials.push_back(std::make_shared<GlossyDielectricMaterial>(rho_s, eta, alpha));
+                        meshMaterials.push_back(std::make_unique<GlossyDielectricMaterial>(rho_s, eta, alpha));
                     }
 
                     else if (type == "plastic")
@@ -350,7 +350,7 @@ void Scene::LoadMeshes(const nlohmann::json json)
                         float eta = mat["eta"].get<float>();
                         float roughness = mat["roughness"].get<float>();
                         float alpha = roughness * roughness;
-                        meshMaterials.push_back(std::make_shared<PlasticMaterial>(rho_d, rho_s, eta, alpha));
+                        meshMaterials.push_back(std::make_unique<PlasticMaterial>(rho_d, rho_s, eta, alpha));
                     }
 
                     else
@@ -392,13 +392,13 @@ void Scene::LoadMeshes(const nlohmann::json json)
     meshes.reserve(meshFilePaths.size());
 
     for (uint32_t i = 0; i < meshFilePaths.size(); ++i) {
-        meshes.push_back(LoadMeshFromFile(meshFilePaths[i], meshTransforms[i], meshMaterials[i]));
+        meshes.push_back(LoadMeshFromFile(meshFilePaths[i], meshTransforms[i], std::move(meshMaterials[i])));
     }
 
     bvh = std::make_unique<BVH>(std::move(meshes));
 }
 
-void Scene::LoadCamera(const nlohmann::json json)
+void Scene::LoadCamera(const nlohmann::json& json)
 {
     glm::mat4 cameraToWorld(1.f);
     float fov = 1.f;
@@ -419,7 +419,7 @@ void Scene::LoadCamera(const nlohmann::json json)
     camera = std::make_unique<PinholeCamera>(fov, cameraToWorld);
 }
 
-void Scene::LoadLights(const nlohmann::json json)
+void Scene::LoadLights(const nlohmann::json& json)
 {
     if (!json["lights"].is_null()) {
 

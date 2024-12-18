@@ -41,15 +41,15 @@ class RenderSession
 public:
     RenderSession(const Scene& scene, RenderParams params);
 
-    void AddSample(const float* filterTable, glm::vec2 sampleCoords, glm::vec4 L, std::vector<Pixel>& pixels);
+    void AddSample(const float* filterTable, const glm::vec2& sampleCoords, const glm::vec4& L, std::vector<Pixel>& pixels) const;
 
-    std::vector<Pixel> RenderTile(const float* filterTable, uint32_t x0, uint32_t x1, uint32_t y0, uint32_t y1);
+    std::vector<Pixel> RenderTile(const float* filterTable, uint32_t x0, uint32_t x1, uint32_t y0, uint32_t y1) const;
 
-    glm::vec3 EstimateDirect(const glm::vec3 wo, BSDF& bsdf, const Intersection& isect, float* alphaTweak, const Ray& ray, RNG& rng, uint8_t* flags);
+    glm::vec3 EstimateDirect(const glm::vec3 wo, BSDF& bsdf, const Intersection& isect, float* alphaTweak, const Ray& ray, RNG& rng, uint8_t* flags) const;
 
-    std::vector<Pixel> Render();
+    std::vector<Pixel> Render() const;
 
-    void WriteImageToEXR(const std::vector<Pixel>& pixels, const char* filePath);
+    void WriteImageToEXR(const std::vector<Pixel>& pixels, const char* filePath) const;
 
 private:
     const Scene& scene;
@@ -72,6 +72,6 @@ using RenderSessionPtr = std::unique_ptr<RenderSession>;
 // Parses render parameter arguments, returns true if successful
 bool ParseRenderParamArguments(int argc, char* argv[], RenderParams* params);
 
-std::vector<std::unique_ptr<RenderSession>> LoadSessions(std::string scenePath, const Scene& scene, RenderParams _params);
+std::vector<std::unique_ptr<RenderSession>> LoadSessions(const std::string& scenePath, const Scene& scene, const RenderParams& _params);
 
 

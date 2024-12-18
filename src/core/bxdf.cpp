@@ -18,7 +18,7 @@ float Fresnel(float eta_o, float eta_i, float cosTheta)
     return ((fPara * fPara) + (fPerp * fPerp)) * 0.5f;
 }
 
-BSDF::BSDF(glm::vec3 n, uint8_t numBxDFs) : n(n), numBxDFs(numBxDFs)
+BSDF::BSDF(const glm::vec3& n, uint8_t numBxDFs) : n(n), numBxDFs(numBxDFs)
 {
     // Build local coord sys from normal
     if (glm::abs(n.x) > glm::abs(n.y))
@@ -78,7 +78,7 @@ glm::vec3 BSDF::Sample_f(const glm::vec3& wo, glm::vec3* wi, float sample1D, glm
     return f;
 }
 
-float BSDF::Pdf(const glm::vec3& wo, const glm::vec3& wi, bool use_alpha_prime)
+float BSDF::Pdf(const glm::vec3& wo, const glm::vec3& wi, bool use_alpha_prime) const
 {
     float pdf = 0.f;
 
