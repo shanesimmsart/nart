@@ -1,7 +1,5 @@
 # nart
-This project is where I put things I have learned about path tracing / rendering in general into practice.
-
-Everything is written without referring to existing code or ray tracing resources, just what I can remember from what I've learned and have been able to derive by myself.
+This project is where I put things that I have learned about path tracing into practice.
 
 You can follow my progress [here](https://twitter.com/shaneasimms/status/1728665955797217295).
 
