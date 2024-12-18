@@ -299,7 +299,6 @@ void Scene::LoadMeshes(const nlohmann::json& json)
 
             for (auto& mat : elem["material"])
             {
-                std::shared_ptr<Material> material;
                 try
                 {
                     std::string type = mat["type"].get<std::string>();
