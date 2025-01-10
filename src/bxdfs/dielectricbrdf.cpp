@@ -76,15 +76,15 @@ glm::vec3 DielectricBRDF::f(const glm::vec3& wo, const glm::vec3& wi, bool use_a
     }
 }
 
-glm::vec3 DielectricBRDF::Sample_f(const glm::vec3& wo, glm::vec3* wi, float sample1D, glm::vec2 sample, float* pdf, uint8_t* flags, float* alpha_i, bool use_alpha_prime)
+glm::vec3 DielectricBRDF::Sample_f(const glm::vec3& wo, glm::vec3& wi, float sample1D, glm::vec2 sample, float& pdf, uint8_t& flags, float* alpha_i, bool use_alpha_prime)
 {
     if (use_alpha_prime) alpha = alpha_prime;
     else alpha = alpha_0;
 
     if (alpha_i != nullptr) *alpha_i = alpha;
-    *flags = SPECULAR;
-    if (alpha > 0.001f) *flags = GLOSSY;
-    if (alpha >= 1.0f) *flags = DIFFUSE;
+    flags = SPECULAR;
+    if (alpha > 0.001f) flags = GLOSSY;
+    if (alpha >= 1.0f) flags = DIFFUSE;
 
     // Transform wo from ellipsoid to hemisphere
     glm::vec3 wo_h = glm::vec3(wo.x * alpha, wo.y * alpha, wo.z);
@@ -121,12 +121,12 @@ glm::vec3 DielectricBRDF::Sample_f(const glm::vec3& wo, glm::vec3* wi, float sam
     if (sample1D < Fr)
     {
         // Reflect
-        *wi = Reflect(wo, wh);
-        *wi = glm::normalize(*wi);
+        wi = Reflect(wo, wh);
+        wi = glm::normalize(wi);
 
-        *pdf = Pdf(wo, *wi, use_alpha_prime) * Fr;
+        pdf = Pdf(wo, wi, use_alpha_prime) * Fr;
 
-        return f(wo, *wi, use_alpha_prime);
+        return f(wo, wi, use_alpha_prime);
     }
 
     // Refract
@@ -138,26 +138,26 @@ glm::vec3 DielectricBRDF::Sample_f(const glm::vec3& wo, glm::vec3* wi, float sam
     if (sinTheta_i >= 1.f)
     {
         // Reflect
-        *wi = Reflect(wo, wh);
-        *wi = glm::normalize(*wi);
+        wi = Reflect(wo, wh);
+        wi = glm::normalize(wi);
 
-        *pdf = Pdf(wo, *wi, use_alpha_prime) * (1.f - Fr);
+        pdf = Pdf(wo, wi, use_alpha_prime) * (1.f - Fr);
 
-        return f(wo, *wi, use_alpha_prime);
+        return f(wo, wi, use_alpha_prime);
     }
 
-    *flags |= TRANSMISSIVE;
+    flags |= TRANSMISSIVE;
 
     glm::vec3 b = wh * cosTheta_o;
     glm::vec3 a = wo - b;
     glm::vec3 c = -a * (eta_o / eta_i);
     glm::vec3 d = -wh * glm::sqrt(1.f - (sinTheta_i * sinTheta_i));
     if (glm::dot(wo, wh) < 0.f) d *= -1.f;
-    *wi = glm::normalize(c + d);
+    wi = glm::normalize(c + d);
 
-    *pdf = Pdf(wo, *wi, use_alpha_prime) * (1.f - Fr);
+    pdf = Pdf(wo, wi, use_alpha_prime) * (1.f - Fr);
 
-    return f(wo, *wi, use_alpha_prime);
+    return f(wo, wi, use_alpha_prime);
 }
 
 float DielectricBRDF::Pdf(const glm::vec3& wo, const glm::vec3& wi, bool use_alpha_prime)

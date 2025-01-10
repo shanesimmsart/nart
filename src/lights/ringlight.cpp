@@ -5,7 +5,7 @@ RingLight::RingLight(float radius, float innerRadius, const glm::vec3& Le, float
     isDelta = false;
 }
 
-glm::vec3 RingLight::Li(Intersection* lightIsect, const glm::vec3& p, const glm::vec3& wi, float* pdf) const
+glm::vec3 RingLight::Li(Intersection& lightIsect, const glm::vec3& p, const glm::vec3& wi, float* pdf) const
 {
     float LiPdf = Pdf(lightIsect, p, wi);
 
@@ -18,7 +18,7 @@ glm::vec3 RingLight::Li(Intersection* lightIsect, const glm::vec3& p, const glm:
     else return glm::vec3(0.f);
 }
 
-glm::vec3 RingLight::Sample_Li(Intersection* lightIsect, const glm::vec3& p, glm::vec3* wi, glm::vec2 sample, float* pdf) const
+glm::vec3 RingLight::Sample_Li(Intersection& lightIsect, const glm::vec3& p, glm::vec3& wi, glm::vec2 sample, float& pdf) const
 {
     // Sample disk
     glm::vec4 ringSample = glm::vec4(UniformSampleRing(sample, pdf, innerRadius / radius) * radius, 0.f, 1.f);
@@ -28,31 +28,31 @@ glm::vec3 RingLight::Sample_Li(Intersection* lightIsect, const glm::vec3& p, glm
     glm::vec3 n = glm::vec3(glm::vec4(0.f, 0.f, -1.f, 0.f) * LightToWorld);
 
     // Set wi
-    *wi = glm::vec3(ringSample) - p;
-    *wi = glm::vec3(ringSample) - p;
-    float distPToSample = glm::sqrt(wi->x * wi->x + wi->y * wi->y + wi->z * wi->z);
-    *wi = glm::normalize(*wi);
+    wi = glm::vec3(ringSample) - p;
+    wi = glm::vec3(ringSample) - p;
+    float distPToSample = glm::sqrt(wi.x * wi.x + wi.y * wi.y + wi.z * wi.z);
+    wi = glm::normalize(wi);
 
     // Calculate pdf with respect to disk area
-    *pdf /= (glm::pi<float>() * radius * radius);
+    pdf /= (glm::pi<float>() * radius * radius);
 
     // Calculate pdf projected onto hemisphere around p
-    float wiDotN = glm::dot(-*wi, n);
+    float wiDotN = glm::dot(-wi, n);
     if (wiDotN <= 0.f)
     {
-        *pdf = 0.f;
+        pdf = 0.f;
         return glm::vec3(0.f);
     }
     // Calculate pdf projected onto hemisphere around p
-    *pdf = *pdf * ((distPToSample * distPToSample) / wiDotN);
+    pdf = pdf * ((distPToSample * distPToSample) / wiDotN);
 
-    lightIsect->p = ringSample;
-    lightIsect->tMax = distPToSample;
+    lightIsect.p = ringSample;
+    lightIsect.tMax = distPToSample;
 
     return Le * intensity;
 }
 
-float RingLight::Pdf(Intersection* lightIsect, const glm::vec3& p, const glm::vec3& wi) const
+float RingLight::Pdf(Intersection& lightIsect, const glm::vec3& p, const glm::vec3& wi) const
 {
     glm::vec3 ringCenter = glm::vec3(glm::vec4(0.f, 0.f, 0.f, 1.f) * LightToWorld);
     glm::vec3 n = glm::vec3(glm::vec4(0.f, 0.f, -1.f, 0.f) * LightToWorld);
@@ -79,7 +79,7 @@ float RingLight::Pdf(Intersection* lightIsect, const glm::vec3& p, const glm::ve
     float pdf = 1.f / (glm::pi<float>() * (1.f - ((innerRadius * innerRadius) / (radius * radius))) * radius * radius);
     pdf = pdf * ((t * t) / glm::dot(-wi, n));
 
-    lightIsect->tMax = t;
+    lightIsect.tMax = t;
 
     return pdf;
 }

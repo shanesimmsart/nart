@@ -55,7 +55,7 @@ void RenderSession::AddSample(const float* filterTable, const glm::vec2& sampleC
     }
 }
 
-glm::vec3 RenderSession::EstimateDirect(const glm::vec3 wo, BSDF& bsdf, const Intersection& isect, float* alphaTweak, const Ray& ray, RNG& rng, uint8_t* flags) const
+glm::vec3 RenderSession::EstimateDirect(const glm::vec3 wo, BSDF& bsdf, const Intersection& isect, const Ray& ray, RNG& rng, uint8_t& flags) const
 {
     glm::vec3 L = glm::vec3(0.f);
 
@@ -76,19 +76,19 @@ glm::vec3 RenderSession::EstimateDirect(const glm::vec3 wo, BSDF& bsdf, const In
     glm::vec2 scatterSample(rng.UniformFloat(), rng.UniformFloat());
     float bsdfSample = rng.UniformFloat();
 
-    f = bsdf.Sample_f(wo, &wi, bsdfSample, scatterSample, &scatteringPdf, flags, 1);
+    f = bsdf.Sample_f(wo, wi, bsdfSample, scatterSample, scatteringPdf, flags, 1);
 
     if (scatteringPdf > 0.f)
     {
         float flip = wi.z > 0.f ? 1.f : -1.f;
         Ray shadowRay(isect.p + (isect.gn * shadowBias * flip), bsdf.ToWorld(wi));
         Intersection lightIsect;
-        Li = light.Li(&lightIsect, isect.p, bsdf.ToWorld(wi), &lightingPdf);
-        if (!scene.GetBVH().Intersect(shadowRay, &lightIsect))
+        Li = light.Li(lightIsect, isect.p, bsdf.ToWorld(wi), &lightingPdf);
+        if (!scene.GetBVH().Intersect(shadowRay, lightIsect))
         {
             float weight = 1.f;
 
-            if (!(*flags & SPECULAR))
+            if (!(flags & SPECULAR))
             {
 #if LIGHT_SAMPLING
                 weight = (scatteringPdf * scatteringPdf) / (scatteringPdf * scatteringPdf + lightingPdf * lightingPdf);
@@ -113,12 +113,12 @@ glm::vec3 RenderSession::EstimateDirect(const glm::vec3 wo, BSDF& bsdf, const In
 
     // lightIsect.tMax used for checking shadows
     Intersection lightIsect;
-    Li = light.Sample_Li(&lightIsect, isect.p, &wiWorld, lightSample, &lightingPdf);
+    Li = light.Sample_Li(lightIsect, isect.p, wiWorld, lightSample, lightingPdf);
     wi = bsdf.ToLocal(wiWorld);
 
     float flip = wi.z > 0.f ? 1.f : -1.f;
     Ray shadowRay(isect.p + (isect.gn * shadowBias * flip), wiWorld);
-    if (!scene.GetBVH().Intersect(shadowRay, &lightIsect) && lightingPdf > 0.f) // || flags && TRANSMISSIVE)
+    if (!scene.GetBVH().Intersect(shadowRay, lightIsect) && lightingPdf > 0.f) // || flags && TRANSMISSIVE)
     {
         float weight = 1.f;
         scatteringPdf = bsdf.Pdf(wo, wi, 1);
@@ -179,7 +179,7 @@ std::vector<Pixel> RenderSession::RenderTile(const float* filterTable, uint32_t 
                     {
                         Intersection lightIsect;
                         const Light& light = scene.GetLight(i);
-                        glm::vec3 Li = light.Li(&lightIsect, ray.o, ray.d);
+                        glm::vec3 Li = light.Li(lightIsect, ray.o, ray.d);
                         if (lightIsect.tMax < lightTMax)
                         {
                             Le = Li;
@@ -199,14 +199,14 @@ std::vector<Pixel> RenderSession::RenderTile(const float* filterTable, uint32_t 
                         }
                     }
 
-                    if (scene.Intersect(ray, &isect))
+                    if (scene.Intersect(ray, isect))
                     {
                         if (bounce == 0) alpha = 1.f;
 
                         BSDF bsdf = isect.material->CreateBSDF(isect.sn, alphaTweak);
                         glm::vec3 wo = bsdf.ToLocal(-ray.d);
 
-                        L += EstimateDirect(wo, bsdf, isect, &alphaTweak, ray, rng, &flags) * beta;
+                        L += EstimateDirect(wo, bsdf, isect, ray, rng, flags) * beta;
 
                         // Spawn new ray
                         glm::vec2 scatteringSample(rng.UniformFloat(), rng.UniformFloat());
@@ -216,7 +216,7 @@ std::vector<Pixel> RenderSession::RenderTile(const float* filterTable, uint32_t 
                         // Sample for new alpha
                         float alpha_i;
                         glm::vec3 wi;
-                        glm::vec3 f = bsdf.Sample_f(wo, &wi, bsdfSample, scatteringSample, &scatteringPdf, &flags, 0, &alpha_i);
+                        glm::vec3 f = bsdf.Sample_f(wo, wi, bsdfSample, scatteringSample, scatteringPdf, flags, 0, &alpha_i);
                         // Sample for new ray
                         if (scatteringPdf <= 0.f) break;
                         alphaTweak = (1.f - (gamma * alpha_i)) * alphaTweak;
@@ -374,7 +374,7 @@ void RenderSession::WriteImageToEXR(const std::vector<Pixel>& pixels, const char
     file.writePixels(params.imageHeight);
 }
 
-bool ParseRenderParamArguments(int argc, char* argv[], RenderParams* params)
+bool ParseRenderParamArguments(int argc, char* argv[], RenderParams& params)
 {
     for (uint8_t i = 3; i < argc; ++i)
     {
@@ -384,7 +384,7 @@ bool ParseRenderParamArguments(int argc, char* argv[], RenderParams* params)
         {
             try
             {
-                params->imageWidth = std::stoi(argv[++i]);
+                params.imageWidth = std::stoi(argv[++i]);
             }
 
             catch (const std::invalid_argument& e)
@@ -398,7 +398,7 @@ bool ParseRenderParamArguments(int argc, char* argv[], RenderParams* params)
         {
             try
             {
-                params->imageHeight = std::stoi(argv[++i]);
+                params.imageHeight = std::stoi(argv[++i]);
             }
 
             catch (const std::invalid_argument& e)
@@ -412,7 +412,7 @@ bool ParseRenderParamArguments(int argc, char* argv[], RenderParams* params)
         {
             try
             {
-                params->bucketSize = std::stoi(argv[++i]);
+                params.bucketSize = std::stoi(argv[++i]);
             }
 
             catch (const std::invalid_argument& e)
@@ -426,7 +426,7 @@ bool ParseRenderParamArguments(int argc, char* argv[], RenderParams* params)
         {
             try
             {
-                params->spp = std::stoi(argv[++i]);
+                params.spp = std::stoi(argv[++i]);
             }
 
             catch (const std::invalid_argument& e)
@@ -440,7 +440,7 @@ bool ParseRenderParamArguments(int argc, char* argv[], RenderParams* params)
         {
             try
             {
-                params->filterWidth = std::stof(argv[++i]);
+                params.filterWidth = std::stof(argv[++i]);
             }
 
             catch (const std::invalid_argument& e)
@@ -454,7 +454,7 @@ bool ParseRenderParamArguments(int argc, char* argv[], RenderParams* params)
         {
             try
             {
-                params->rougheningFactor = std::stof(argv[++i]);
+                params.rougheningFactor = std::stof(argv[++i]);
             }
 
             catch (const std::invalid_argument& e)

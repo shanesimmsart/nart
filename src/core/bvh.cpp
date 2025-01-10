@@ -23,7 +23,7 @@ void BVH::BoundingVolume::ExtendBy(const BoundingVolume& bv)
     }
 }
 
-bool BVH::BoundingVolume::Intersect(const Ray& ray, Intersection* isect) const
+bool BVH::BoundingVolume::Intersect(const Ray& ray, Intersection& isect) const
 {
     float tMin = -Infinity;
     float tMax = Infinity;
@@ -59,8 +59,8 @@ bool BVH::BoundingVolume::Intersect(const Ray& ray, Intersection* isect) const
         tMax = glm::min(tMax, slabMax);
     }
 
-    isect->tMin = tMin;
-    isect->tMax = tMax;
+    isect.tMin = tMin;
+    isect.tMax = tMax;
 
     return true;
 }
@@ -72,7 +72,7 @@ void BVH::Chunk::Insert(const TriMesh& mesh, const uint32_t& index)
     triangleIndices.push_back(TriangleIndex(mesh, index));
 }
 
-bool BVH::Chunk::Intersect(const Ray& ray, Intersection* isect) const
+bool BVH::Chunk::Intersect(const Ray& ray, Intersection& isect) const
 {
     bool hit = false;
     for (const TriangleIndex& triangleIndex : triangleIndices)
@@ -80,8 +80,8 @@ bool BVH::Chunk::Intersect(const Ray& ray, Intersection* isect) const
         if (triangleIndex.mesh.triangles[triangleIndex.index].Intersect(ray, isect))
         {
             hit = true;
-            isect->material = triangleIndex.mesh.GetMaterial();
-            if (!isect->material) return false;
+            isect.material = triangleIndex.mesh.GetMaterial();
+            if (!isect.material) return false;
         }
     }
     return hit;
@@ -144,7 +144,7 @@ void BVH::Octree::Build()
     root->BuildBoundingVolumes();
 }
 
-bool BVH::Octree::Intersect(const Ray& ray, Intersection* isect)
+bool BVH::Octree::Intersect(const Ray& ray, Intersection& isect)
 {
     using NodeDistancePair = std::pair<float, const OctreeNode*>;
     // Using priority queue to keep track of closest node intersection
@@ -167,7 +167,7 @@ bool BVH::Octree::Intersect(const Ray& ray, Intersection* isect)
             if (!child) continue;
 
             Intersection bvIsect;
-            if (child->bv.Intersect(ray, &bvIsect))
+            if (child->bv.Intersect(ray, bvIsect))
             {
                 queue.push(std::make_pair(bvIsect.tMin, child.get()));
 
@@ -176,11 +176,11 @@ bool BVH::Octree::Intersect(const Ray& ray, Intersection* isect)
                     for (const ChunkPtr& chunk : child->chunks)
                     {
                         Intersection triIsect;
-                        if (chunk->Intersect(ray, &triIsect))
+                        if (chunk->Intersect(ray, triIsect))
                         {
-                            if (triIsect.tMax < isect->tMax)
+                            if (triIsect.tMax < isect.tMax)
                             {
-                                *isect = triIsect;
+                                isect = triIsect;
                                 hit = true;
                             }
                         }
@@ -189,7 +189,7 @@ bool BVH::Octree::Intersect(const Ray& ray, Intersection* isect)
             }
         }
         // If the nearest triangle is closer than the nearest bounding volume in the queue, we don't need to continue
-        if (!queue.empty() && isect->tMax < queue.top().first) break;
+        if (!queue.empty() && isect.tMax < queue.top().first) break;
     }
 
     return hit;
@@ -345,7 +345,7 @@ BVH::BVH(std::vector<TriMeshPtr>&& _meshes) : meshes(std::move(_meshes))
     octree->Build();
 }
 
-bool BVH::Intersect(const Ray& ray, Intersection* isect) const
+bool BVH::Intersect(const Ray& ray, Intersection& isect) const
 {
     return octree->Intersect(ray, isect);
 }

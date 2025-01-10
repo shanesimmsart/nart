@@ -9,6 +9,8 @@
 
 #include "sampling.h"
 
+#define MAX_BXDFS 2
+
 inline glm::vec3 Reflect(const glm::vec3& w1, const glm::vec3& w2)
 {
     return (2.f * glm::dot(w1, w2) * w2) - w1;
@@ -33,7 +35,7 @@ public:
     virtual glm::vec3 f(const glm::vec3& wo, const glm::vec3& wi, bool use_alpha_prime) = 0;
 
     // Sample BRDF, setting wi and pdf
-    virtual glm::vec3 Sample_f(const glm::vec3& wo, glm::vec3* wi, float sample1D, glm::vec2 sample, float* pdf, uint8_t* flags, float* alpha_i, bool use_alpha_prime) = 0;
+    virtual glm::vec3 Sample_f(const glm::vec3& wo, glm::vec3& wi, float sample1D, glm::vec2 sample, float& pdf, uint8_t& flags, float* alpha_i, bool use_alpha_prime) = 0;
 
     virtual float Pdf(const glm::vec3& wo, const glm::vec3& wi, bool use_alpha_prime) = 0;
 
@@ -71,23 +73,30 @@ public:
 
     inline void AddBxDF(BxDFPtr&& bxdf)
     {
-        bxdfs.push_back(std::move(bxdf));
+        if (bxdfIndex < numBxDFs)
+        {
+            bxdfs[bxdfIndex] = std::move(bxdf);
+        }
+
+        ++bxdfIndex;
     }
 
     // Sum BxDFs
     glm::vec3 f(const glm::vec3& wo, const glm::vec3& wi, bool use_alpha_prime);
 
     // Sample and sum BRDFs
-    glm::vec3 Sample_f(const glm::vec3& wo, glm::vec3* wi, float sample1D, glm::vec2 sample, float* pdf, uint8_t* flags, bool use_alpha_prime, float* alpha_i = nullptr);
+    glm::vec3 Sample_f(const glm::vec3& wo, glm::vec3& wi, float sample1D, glm::vec2 sample, float& pdf, uint8_t& flags, bool use_alpha_prime, float* alpha_i = nullptr);
 
     // Average pdfs
     float Pdf(const glm::vec3& wo, const glm::vec3& wi, bool use_alpha_prime) const;
 
-protected:
+private:
     // Coord sys in worldspace
     glm::vec3 n_t, n_b, n;
+
     uint8_t numBxDFs = 0;
-    std::vector<BxDFPtr> bxdfs;
+    uint8_t bxdfIndex = 0;
+    BxDFPtr bxdfs[MAX_BXDFS];
 };
 
 

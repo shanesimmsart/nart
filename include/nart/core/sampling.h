@@ -9,9 +9,9 @@
 
 glm::vec2 UniformSampleDisk(glm::vec2 sample);
 
-glm::vec2 UniformSampleRing(glm::vec2 sample, float* pdf, float innerRadius);
+glm::vec2 UniformSampleRing(glm::vec2 sample, float& pdf, float innerRadius);
 
-glm::vec3 CosineSampleHemisphere(glm::vec2 sample, float* pdf);
+glm::vec3 CosineSampleHemisphere(glm::vec2 sample, float& pdf);
 
 float StratifiedSample1D(RNG& rng, uint32_t n, uint32_t nSamples);
 

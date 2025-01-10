@@ -21,7 +21,7 @@ class Scene
 public:
     Scene(std::string scenePath);
 
-    bool Intersect(const Ray& ray, Intersection* isect) const;
+    bool Intersect(const Ray& ray, Intersection& isect) const;
 
     const Light& GetLight(uint8_t index) const;
 

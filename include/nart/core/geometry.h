@@ -9,9 +9,8 @@
 
 #define Infinity std::numeric_limits<float>::infinity()
 
-class Ray
+struct Ray
 {
-public:
     Ray(const glm::vec3& o, const glm::vec3& d);
 
     glm::vec3 o = glm::vec3(0.f, 0.f, 0.f);
@@ -39,12 +38,11 @@ struct Intersection
     bool isLight = false;
 };
 
-class Triangle
+struct Triangle
 {
-public:
     Triangle(const glm::vec3& v0, const glm::vec3& v1, const glm::vec3& v2, const glm::vec3& n0, const glm::vec3& n1, const glm::vec3& n2);
 
-    bool Intersect(const Ray& ray, Intersection* isect) const;
+    bool Intersect(const Ray& ray, Intersection& isect) const;
 
     const glm::vec3 v0, v1, v2;
     const glm::vec3 n0, n1, n2;

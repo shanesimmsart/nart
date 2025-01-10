@@ -45,15 +45,15 @@ glm::vec3 TorranceSparrowBRDF::f(const glm::vec3& wo, const glm::vec3& wi, bool 
     return (rho_s * g * d * fr) / (4.f * wo.z * wi.z);
 }
 
-glm::vec3 TorranceSparrowBRDF::Sample_f(const glm::vec3& wo, glm::vec3* wi, float sample1D, glm::vec2 sample, float* pdf, uint8_t* flags, float* alpha_i, bool use_alpha_prime)
+glm::vec3 TorranceSparrowBRDF::Sample_f(const glm::vec3& wo, glm::vec3& wi, float sample1D, glm::vec2 sample, float& pdf, uint8_t& flags, float* alpha_i, bool use_alpha_prime)
 {
     if (use_alpha_prime) alpha = alpha_prime;
     else alpha = alpha_0;
 
     if (alpha_i != nullptr) *alpha_i = alpha;
-    *flags = SPECULAR;
-    if (alpha > 0.001f) *flags = GLOSSY;
-    if (alpha >= 1.0f) *flags = DIFFUSE;
+    flags = SPECULAR;
+    if (alpha > 0.001f) flags = GLOSSY;
+    if (alpha >= 1.0f) flags = DIFFUSE;
 
     // Transform wo from ellipsoid to hemisphere
     glm::vec3 wo_h = glm::vec3(wo.x * alpha, wo.y * alpha, wo.z);
@@ -80,13 +80,13 @@ glm::vec3 TorranceSparrowBRDF::Sample_f(const glm::vec3& wo, glm::vec3* wi, floa
     wh = glm::vec3(wh.x * alpha, wh.y * alpha, wh.z);
     wh = glm::normalize(wh);
 
-    *wi = Reflect(wo, wh);
+    wi = Reflect(wo, wh);
 
-    *wi = glm::normalize(*wi);
+    wi = glm::normalize(wi);
 
-    *pdf = Pdf(wo, *wi, use_alpha_prime);
+    pdf = Pdf(wo, wi, use_alpha_prime);
 
-    return f(wo, *wi, use_alpha_prime);
+    return f(wo, wi, use_alpha_prime);
 }
 
 float TorranceSparrowBRDF::Pdf(const glm::vec3& wo, const glm::vec3& wi, bool use_alpha_prime)

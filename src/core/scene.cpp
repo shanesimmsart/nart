@@ -29,7 +29,7 @@ Scene::Scene(std::string scenePath)
     LoadLights(json);
 }
 
-bool Scene::Intersect(const Ray& ray, Intersection* isect) const
+bool Scene::Intersect(const Ray& ray, Intersection& isect) const
 {
     return bvh->Intersect(ray, isect);
 }

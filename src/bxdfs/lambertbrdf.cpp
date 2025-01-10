@@ -14,13 +14,13 @@ glm::vec3 LambertBRDF::f(const glm::vec3& wo, const glm::vec3& wi, bool use_alph
     return rho_d * glm::one_over_pi<float>();
 }
 
-glm::vec3 LambertBRDF::Sample_f(const glm::vec3& wo, glm::vec3* wi, float sample1D, glm::vec2 sample, float* pdf, uint8_t* flags, float* alpha_i, bool use_alpha_prime)
+glm::vec3 LambertBRDF::Sample_f(const glm::vec3& wo, glm::vec3& wi, float sample1D, glm::vec2 sample, float& pdf, uint8_t& flags, float* alpha_i, bool use_alpha_prime)
 {
     if (alpha_i != nullptr) *alpha_i = alpha;
 
-    *flags = DIFFUSE;
-    *wi = CosineSampleHemisphere(sample, pdf);
-    return f(wo, *wi, use_alpha_prime);
+    flags = DIFFUSE;
+    wi = CosineSampleHemisphere(sample, pdf);
+    return f(wo, wi, use_alpha_prime);
 }
 
 float LambertBRDF::Pdf(const glm::vec3& wo, const glm::vec3& wi, bool use_alpha_prime)

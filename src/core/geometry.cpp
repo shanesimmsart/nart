@@ -16,7 +16,7 @@ Ray::Ray(const glm::vec3& o, const glm::vec3& d) : o(o), d(d)
 Triangle::Triangle(const glm::vec3& v0, const glm::vec3& v1, const glm::vec3& v2, const glm::vec3& n0, const glm::vec3& n1, const glm::vec3& n2) :
     v0(v0), v1(v1), v2(v2), n0(n0), n1(n1), n2(n2) {}
 
-bool Triangle::Intersect(const Ray& ray, Intersection* isect) const
+bool Triangle::Intersect(const Ray& ray, Intersection& isect) const
 {
     glm::vec3 n = glm::cross(v1 - v0, v2 - v0);
     // Back-face culling
@@ -24,7 +24,7 @@ bool Triangle::Intersect(const Ray& ray, Intersection* isect) const
 
     float t = (glm::dot(v0, n) - glm::dot(ray.o, n)) / glm::dot(ray.d, n);
 
-    if (t <= isect->tMin || t >= isect->tMax) return false;
+    if (t <= isect.tMin || t >= isect.tMax) return false;
 
     // Translate ray origin to world origin
     glm::vec3 p0 = v0 - ray.o;
@@ -77,12 +77,12 @@ bool Triangle::Intersect(const Ray& ray, Intersection* isect) const
 
     n = glm::normalize(n);
 
-    isect->tMax = t;
-    isect->u = u;
-    isect->v = v;
-    isect->gn = n;
-    isect->sn = n0 * isect->u + n1 * isect->v + n2 * (1 - isect->u - isect->v);
-    isect->p = p;
+    isect.tMax = t;
+    isect.u = u;
+    isect.v = v;
+    isect.gn = n;
+    isect.sn = n0 * isect.u + n1 * isect.v + n2 * (1 - isect.u - isect.v);
+    isect.p = p;
 
     return true;
 }

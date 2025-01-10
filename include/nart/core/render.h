@@ -45,7 +45,7 @@ public:
 
     std::vector<Pixel> RenderTile(const float* filterTable, uint32_t x0, uint32_t x1, uint32_t y0, uint32_t y1) const;
 
-    glm::vec3 EstimateDirect(const glm::vec3 wo, BSDF& bsdf, const Intersection& isect, float* alphaTweak, const Ray& ray, RNG& rng, uint8_t* flags) const;
+    glm::vec3 EstimateDirect(const glm::vec3 wo, BSDF& bsdf, const Intersection& isect, const Ray& ray, RNG& rng, uint8_t& flags) const;
 
     std::vector<Pixel> Render() const;
 
@@ -70,7 +70,7 @@ private:
 using RenderSessionPtr = std::unique_ptr<RenderSession>;
 
 // Parses render parameter arguments, returns true if successful
-bool ParseRenderParamArguments(int argc, char* argv[], RenderParams* params);
+bool ParseRenderParamArguments(int argc, char* argv[], RenderParams& params);
 
 std::vector<std::unique_ptr<RenderSession>> LoadSessions(const std::string& scenePath, const Scene& scene, const RenderParams& _params);
 

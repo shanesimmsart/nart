@@ -15,7 +15,7 @@ int main(int argc, char* argv[])
         // Default render parameters
         // (Overridden by scene file if left at default)
         RenderParams params;
-        if (!ParseRenderParamArguments(argc, argv, &params))
+        if (!ParseRenderParamArguments(argc, argv, params))
         {
             return EXIT_FAILURE;
         }

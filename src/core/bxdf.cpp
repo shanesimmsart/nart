@@ -31,8 +31,6 @@ BSDF::BSDF(const glm::vec3& n, uint8_t numBxDFs) : n(n), numBxDFs(numBxDFs)
         n_t = glm::normalize(glm::vec3(0.f, n.z, -n.y));
     }
     n_b = glm::normalize(glm::cross(n, n_t));
-
-    bxdfs.reserve(numBxDFs);
 }
 
 glm::vec3 BSDF::f(const glm::vec3& wo, const glm::vec3& wi, bool use_alpha_prime)
@@ -45,34 +43,34 @@ glm::vec3 BSDF::f(const glm::vec3& wo, const glm::vec3& wi, bool use_alpha_prime
     return f;
 }
 
-glm::vec3 BSDF::Sample_f(const glm::vec3& wo, glm::vec3* wi, float sample1D, glm::vec2 sample, float* pdf, uint8_t* flags, bool use_alpha_prime, float* alpha_i)
+glm::vec3 BSDF::Sample_f(const glm::vec3& wo, glm::vec3& wi, float sample1D, glm::vec2 sample, float& pdf, uint8_t& flags, bool use_alpha_prime, float* alpha_i)
 {
     // Choose a BxDF
-    uint8_t bxdfIndex = static_cast<uint8_t>(sample.x * static_cast<float>(numBxDFs));
+    uint8_t bxdfIndex = static_cast<uint8_t>(sample1D * static_cast<float>(numBxDFs));
 
-    // Remap sample to remove bias
-    sample.x = glm::fract(sample.x * static_cast<float>(numBxDFs));
+    // Remap sample to remove bias so we can reuse it
+    sample1D = glm::fract(sample1D * static_cast<float>(numBxDFs));
 
     glm::vec3 f = bxdfs[bxdfIndex]->Sample_f(wo, wi, sample1D, sample, pdf, flags, alpha_i, use_alpha_prime);
 
     float numEvaluated = 1.f;
 
-    if (!(*flags & SPECULAR))
+    if (!(flags & SPECULAR))
     {
         for (uint8_t i = 0; i < numBxDFs; ++i)
         {
             if (i != bxdfIndex && !(bxdfs[i]->flags & SPECULAR))
             {
-                float bxdfPdf = bxdfs[i]->Pdf(wo, *wi, use_alpha_prime);
+                float bxdfPdf = bxdfs[i]->Pdf(wo, wi, use_alpha_prime);
                 if (bxdfPdf > 0.f)
                 {
-                    *pdf += bxdfs[i]->Pdf(wo, *wi, use_alpha_prime);
-                    f += bxdfs[i]->f(wo, *wi, use_alpha_prime);
+                    pdf += bxdfs[i]->Pdf(wo, wi, use_alpha_prime);
+                    f += bxdfs[i]->f(wo, wi, use_alpha_prime);
                     numEvaluated += 1.f;
                 }
             }
         }
-        *pdf /= static_cast<float>(numBxDFs); //numEvaluated;
+        pdf /= static_cast<float>(numBxDFs); //numEvaluated;
     }
 
     return f;
