@@ -1,7 +1,7 @@
 # nart
 This project is where I put things that I have learned about path tracing into practice.
 
-You can follow my progress [here]([https://twitter.com/shaneasimms/status/1728665955797217295](https://bsky.app/profile/shaneasimms.bsky.social/post/3lannomsuv327)).
+You can follow my progress [here](https://bsky.app/profile/shaneasimms.bsky.social/post/3lannomsuv327).
 
 ![glass](https://github.com/user-attachments/assets/8cbb833f-176d-4527-ba49-d5751709814e)
 ![veach](https://github.com/user-attachments/assets/34fafd04-04a3-483d-85e6-2a1732a8b190)
