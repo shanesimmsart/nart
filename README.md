@@ -53,7 +53,7 @@ Tested compilers:
   - MSVC 19
 
 ## Dependencies:
-  - C++ 14
+  - C++14
   - [OpenEXR](https://openexr.com/en/latest/install.html#install)
   - [GLM](https://github.com/g-truc/glm)
   - [Intel TBB](https://www.intel.com/content/www/us/en/developer/articles/tool/oneapi-standalone-components.html#onetbb)
