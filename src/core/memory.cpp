@@ -1,15 +1,14 @@
 #include "../../include/nart/core/memory.h"
 
-MemoryArena::MemoryArena(size_t blockSize) // ~2KB by default
+MemoryArena::MemoryArena(size_t blockSize) // ~64KB by default
 {
-    // Blocks in chunks of ~1KB to minimise number of block allocations
-    currentSize = (blockSize + 1023) & (~1023);
+    // Aligning to 16 bytes for cache-friendliness
+    currentSize = (blockSize + 15) & (~15);
     currentBlockAddress = (uint8_t*)::operator new(currentSize);
 }
 
 void* MemoryArena::Allocate(size_t allocSize)
 {
-    // Aligning to 16 bytes for cache-friendliness
     allocSize = (allocSize + 15) & (~15);
 
     if (allocSize > (currentSize - currentOffset))
@@ -34,7 +33,8 @@ void* MemoryArena::Allocate(size_t allocSize)
         // If no block found, create a new one
         if (!currentBlockAddress)
         {
-            currentSize = (allocSize + 1023) & (~1023);
+            // Defaulting to 2KB
+            currentSize = (allocSize + 2047) & (~2047);
             currentBlockAddress = (uint8_t*)::operator new(currentSize);
         }
     }
@@ -44,11 +44,9 @@ void* MemoryArena::Allocate(size_t allocSize)
     return allocAddress;
 }
 
-void MemoryArena::Reset()
+void MemoryArena::Refresh()
 {
-    availableBlocks.push_back(std::pair<uint8_t*, size_t>(currentBlockAddress, currentSize));
-    currentBlockAddress = nullptr;
-    currentSize = 0;
+    currentOffset = 0;
 
     for (auto block : usedBlocks)
     {

@@ -9,7 +9,7 @@ public:
 
     void* Allocate(size_t allocSize);
 
-    void Reset();
+    void Refresh();
 
     ~MemoryArena();
 
