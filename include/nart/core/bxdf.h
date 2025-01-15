@@ -65,11 +65,11 @@ public:
         return glm::normalize(v.x * n_t + v.y * n_b + v.z * n);
     }
 
-    inline void AddBxDF(BxDFPtr&& bxdf)
+    inline void AddBxDF(BxDF& bxdf)
     {
         if (bxdfIndex < numBxDFs)
         {
-            bxdfs[bxdfIndex] = std::move(bxdf);
+            bxdfs[bxdfIndex] = &bxdf;
         }
 
         ++bxdfIndex;
@@ -90,7 +90,8 @@ private:
 
     uint8_t numBxDFs = 0;
     uint8_t bxdfIndex = 0;
-    BxDFPtr bxdfs[MAX_BXDFS];
+    // Stored in MemoryArena to reduce overhead of heap allocations
+    BxDF* bxdfs[MAX_BXDFS];
 };
 
 

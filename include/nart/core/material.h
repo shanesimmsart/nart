@@ -11,7 +11,7 @@ class Material
 public:
     // Creates BSDF and adds BxDFs
     // I think this can be const?
-    virtual BSDF CreateBSDF(const glm::vec3& n, float alphaTweak) = 0;
+    virtual BSDF CreateBSDF(const glm::vec3& n, float alphaTweak, MemoryArena& memoryArena) = 0;
 
     virtual ~Material() {}
 
