@@ -1,6 +1,6 @@
 #include "../../include/nart/lights/disklight.h"
 
-DiskLight::DiskLight(float radius, const glm::vec3& Le, float intensity, const glm::mat4& LightToWorld) : Light(Le, intensity, LightToWorld), radius(radius)
+DiskLight::DiskLight(float radius, const glm::vec3& Le, float intensity, const glm::mat4& LightToWorld) : radius(radius), Le(Le), intensity(intensity), LightToWorld(LightToWorld)
 {
     isDelta = false;
 }

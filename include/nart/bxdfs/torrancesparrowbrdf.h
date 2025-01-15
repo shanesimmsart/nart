@@ -31,6 +31,13 @@ public:
     float Pdf(const glm::vec3& wo, const glm::vec3& wi, bool use_alpha_prime);
 
 private:
+    // alpha used when calculating BRDF
+    float alpha = 0.f;
+    // unadjusted alpha
+    float alpha_0 = 0.f;
+    // alpha adjusted via roughening over paths
+    float alpha_prime = 0.f;
+
     // Reflectance
     const glm::vec3 rho_s;
     // IOR

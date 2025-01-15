@@ -14,6 +14,11 @@ public:
     float Pdf(Intersection& lightIsect, const glm::vec3& p, const glm::vec3& wi) const;
 
 private:
+    // Radiance emitted
+    const glm::vec3 Le;
+    const float intensity;
+    const glm::mat4 LightToWorld;
+
     glm::vec3 direction;
 };
 

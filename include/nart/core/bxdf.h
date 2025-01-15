@@ -8,6 +8,7 @@
 #include <memory>
 
 #include "sampling.h"
+#include "memory.h"
 
 #define MAX_BXDFS 2
 
@@ -45,13 +46,6 @@ public:
 
 protected:
     BxDF() {}
-
-    // alpha used when calculating BRDF
-    float alpha = 0.f;
-    // unadjusted alpha
-    float alpha_0 = 0.f;
-    // alpha adjusted via roughening over paths
-    float alpha_prime = 0.f;
 };
 
 using BxDFPtr = std::unique_ptr<BxDF>;

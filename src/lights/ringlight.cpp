@@ -1,6 +1,6 @@
 #include "../../include/nart/lights/ringlight.h"
 
-RingLight::RingLight(float radius, float innerRadius, const glm::vec3& Le, float intensity, const glm::mat4& LightToWorld) : Light(Le, intensity, LightToWorld), radius(radius), innerRadius(innerRadius)
+RingLight::RingLight(float radius, float innerRadius, const glm::vec3& Le, float intensity, const glm::mat4& LightToWorld) : radius(radius), innerRadius(innerRadius), Le(Le), intensity(intensity), LightToWorld(LightToWorld)
 {
     isDelta = false;
 }

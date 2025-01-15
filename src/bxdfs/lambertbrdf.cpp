@@ -3,9 +3,6 @@
 LambertBRDF::LambertBRDF(const glm::vec3& rho_d) : rho_d(rho_d)
 {
     flags = DIFFUSE;
-    alpha = 1.f;
-    alpha_0 = 1.f;
-    alpha_prime = 1.f;
 }
 
 glm::vec3 LambertBRDF::f(const glm::vec3& wo, const glm::vec3& wi, bool use_alpha_prime)
@@ -16,7 +13,7 @@ glm::vec3 LambertBRDF::f(const glm::vec3& wo, const glm::vec3& wi, bool use_alph
 
 glm::vec3 LambertBRDF::Sample_f(const glm::vec3& wo, glm::vec3& wi, float sample1D, glm::vec2 sample, float& pdf, uint8_t& flags, float* alpha_i, bool use_alpha_prime)
 {
-    if (alpha_i != nullptr) *alpha_i = alpha;
+    if (alpha_i != nullptr) *alpha_i = 1.f;
 
     flags = DIFFUSE;
     wi = CosineSampleHemisphere(sample, pdf);
