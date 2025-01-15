@@ -4,19 +4,19 @@
 #include <vector>
 
 class MemoryArena {
- public:
-  MemoryArena(size_t blockSize = 2048);  // ~2KB by default
+public:
+    MemoryArena(size_t blockSize = 2048);  // ~2KB by default
 
-  void* Allocate(size_t allocSize);
+    void* Allocate(size_t allocSize);
 
-  void Refresh();
+    void Refresh();
 
-  ~MemoryArena();
+    ~MemoryArena();
 
- private:
-  uint8_t* currentBlockAddress = nullptr;
-  size_t currentOffset = 0;
-  size_t currentSize = 0;
-  std::vector<std::pair<uint8_t*, size_t>> usedBlocks;
-  std::vector<std::pair<uint8_t*, size_t>> availableBlocks;
+private:
+    uint8_t* currentBlockAddress = nullptr;
+    size_t currentOffset = 0;
+    size_t currentSize = 0;
+    std::vector<std::pair<uint8_t*, size_t>> usedBlocks;
+    std::vector<std::pair<uint8_t*, size_t>> availableBlocks;
 };

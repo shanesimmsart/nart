@@ -17,33 +17,33 @@
 #include "geometry.h"
 
 class Scene {
- public:
-  Scene(std::string scenePath);
+public:
+    Scene(std::string scenePath);
 
-  bool Intersect(const Ray& ray, Intersection& isect) const;
+    bool Intersect(const Ray& ray, Intersection& isect) const;
 
-  const Light& GetLight(uint8_t index) const;
+    const Light& GetLight(uint8_t index) const;
 
-  uint8_t GetNumLights() const;
+    uint8_t GetNumLights() const;
 
-  const Camera& GetCamera() const;
+    const Camera& GetCamera() const;
 
-  const BVH& GetBVH() const;
+    const BVH& GetBVH() const;
 
- private:
-  glm::mat4 MatrixFromVector(const std::vector<float>& vector) const;
+private:
+    glm::mat4 MatrixFromVector(const std::vector<float>& vector) const;
 
-  TriMeshPtr LoadMeshFromFile(const std::string& filePath,
-                              glm::mat4& objectToWorld,
-                              std::unique_ptr<Material>&& material) const;
+    TriMeshPtr LoadMeshFromFile(const std::string& filePath,
+                                glm::mat4& objectToWorld,
+                                std::unique_ptr<Material>&& material) const;
 
-  void LoadMeshes(const nlohmann::json& json);
+    void LoadMeshes(const nlohmann::json& json);
 
-  void LoadCamera(const nlohmann::json& json);
+    void LoadCamera(const nlohmann::json& json);
 
-  void LoadLights(const nlohmann::json& json);
+    void LoadLights(const nlohmann::json& json);
 
-  std::vector<LightPtr> lights;
-  CameraPtr camera;
-  BVHPtr bvh;
+    std::vector<LightPtr> lights;
+    CameraPtr camera;
+    BVHPtr bvh;
 };
