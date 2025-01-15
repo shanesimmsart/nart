@@ -136,9 +136,10 @@ glm::vec3 RenderSession::EstimateDirect(const glm::vec3 wo, BSDF& bsdf, const In
     return L * numLights;
 }
 
-std::vector<Pixel> RenderSession::RenderTile(const float* filterTable, uint32_t x0, uint32_t x1, uint32_t y0, uint32_t y1, MemoryArena& memoryArena) const
+std::vector<Pixel> RenderSession::RenderTile(const float* filterTable, uint32_t x0, uint32_t x1, uint32_t y0, uint32_t y1) const
 {
     std::vector<Pixel> pixels((tileSize) * (tileSize));
+    MemoryArena memoryArena = MemoryArena();
 
     for (uint32_t y = y0; y < y1; ++y)
     {
@@ -243,6 +244,9 @@ std::vector<Pixel> RenderSession::RenderTile(const float* filterTable, uint32_t 
                     }
 
                     else break;
+
+                    // Free memory before moving onto next sample
+                    memoryArena.Refresh();
                 }
 
                 // Transform image sample to "total" image coords (image including filter bounds)
@@ -308,8 +312,7 @@ std::vector<Pixel> RenderSession::Render() const
                     uint32_t y0 = params.bucketSize * y;
                     uint32_t x1 = glm::min(params.bucketSize * (x + 1), totalWidth);
                     uint32_t y1 = glm::min(params.bucketSize * (y + 1), totalHeight);
-                    MemoryArena memoryArena = MemoryArena();
-                    std::vector<Pixel> tile = RenderTile(filterTable, x0, x1, y0, y1, memoryArena);
+                    std::vector<Pixel> tile = RenderTile(filterTable, x0, x1, y0, y1);
                     tiles[index] = tile;
                     nBucketsComplete++;
                 });
