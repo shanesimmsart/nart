@@ -3,10 +3,13 @@
 DiffuseMaterial::DiffuseMaterial(const glm::vec3& rho) : rho(rho) // your boat...
 {}
 
-BSDF DiffuseMaterial::CreateBSDF(const glm::vec3& n, float alphaTweak)
+BSDF DiffuseMaterial::CreateBSDF(const glm::vec3& n, float alphaTweak, MemoryArena& memoryArena)
 {
     BSDF bsdf(n, 1);
-    bsdf.AddBxDF(std::make_unique<LambertBRDF>(rho));
+
+    BxDF* lambert = new(memoryArena.Allocate(sizeof(LambertBRDF))) LambertBRDF(rho);
+    bsdf.AddBxDF(*lambert);
+
     return bsdf;
 }
 

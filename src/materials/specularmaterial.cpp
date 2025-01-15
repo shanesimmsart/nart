@@ -3,7 +3,7 @@
 SpecularMaterial::SpecularMaterial(const glm::vec3& rho_s, float eta) : rho_s(rho_s), eta(eta)
 {}
 
-BSDF SpecularMaterial::CreateBSDF(const glm::vec3& n, float alphaTweak)
+BSDF SpecularMaterial::CreateBSDF(const glm::vec3& n, float alphaTweak, MemoryArena& memoryArena)
 {
     BSDF bsdf(n, 1);
 
@@ -11,10 +11,15 @@ BSDF SpecularMaterial::CreateBSDF(const glm::vec3& n, float alphaTweak)
     float alpha_prime = 1.f - ((1.f - alpha) * alphaTweak);
 
     if (alpha_prime > 0.0001f) {
-        bsdf.AddBxDF(std::make_unique<TorranceSparrowBRDF>(rho_s, eta, glm::max(0.0001f, alpha), alpha_prime));
+        BxDF* specularBRDF = new(memoryArena.Allocate(sizeof(TorranceSparrowBRDF))) TorranceSparrowBRDF(rho_s, eta, glm::max(0.0001f, alpha), alpha_prime);
+        bsdf.AddBxDF(*specularBRDF);
     }
 
-    else bsdf.AddBxDF(std::make_unique<SpecularBRDF>(rho_s, eta));
+    else
+    {
+        BxDF* specularBRDF = new(memoryArena.Allocate(sizeof(SpecularBRDF))) SpecularBRDF(rho_s, eta);
+        bsdf.AddBxDF(*specularBRDF);
+    }
 
     return bsdf;
 }

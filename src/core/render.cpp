@@ -136,7 +136,7 @@ glm::vec3 RenderSession::EstimateDirect(const glm::vec3 wo, BSDF& bsdf, const In
     return L * numLights;
 }
 
-std::vector<Pixel> RenderSession::RenderTile(const float* filterTable, uint32_t x0, uint32_t x1, uint32_t y0, uint32_t y1) const
+std::vector<Pixel> RenderSession::RenderTile(const float* filterTable, uint32_t x0, uint32_t x1, uint32_t y0, uint32_t y1, MemoryArena& memoryArena) const
 {
     std::vector<Pixel> pixels((tileSize) * (tileSize));
 
@@ -203,7 +203,7 @@ std::vector<Pixel> RenderSession::RenderTile(const float* filterTable, uint32_t 
                     {
                         if (bounce == 0) alpha = 1.f;
 
-                        BSDF bsdf = isect.material->CreateBSDF(isect.sn, alphaTweak);
+                        BSDF bsdf = isect.material->CreateBSDF(isect.sn, alphaTweak, memoryArena);
                         glm::vec3 wo = bsdf.ToLocal(-ray.d);
 
                         L += EstimateDirect(wo, bsdf, isect, ray, rng, flags) * beta;
@@ -308,7 +308,8 @@ std::vector<Pixel> RenderSession::Render() const
                     uint32_t y0 = params.bucketSize * y;
                     uint32_t x1 = glm::min(params.bucketSize * (x + 1), totalWidth);
                     uint32_t y1 = glm::min(params.bucketSize * (y + 1), totalHeight);
-                    std::vector<Pixel> tile = RenderTile(filterTable, x0, x1, y0, y1);
+                    MemoryArena memoryArena = MemoryArena();
+                    std::vector<Pixel> tile = RenderTile(filterTable, x0, x1, y0, y1, memoryArena);
                     tiles[index] = tile;
                     nBucketsComplete++;
                 });

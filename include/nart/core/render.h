@@ -43,7 +43,7 @@ public:
 
     void AddSample(const float* filterTable, const glm::vec2& sampleCoords, const glm::vec4& L, std::vector<Pixel>& pixels) const;
 
-    std::vector<Pixel> RenderTile(const float* filterTable, uint32_t x0, uint32_t x1, uint32_t y0, uint32_t y1) const;
+    std::vector<Pixel> RenderTile(const float* filterTable, uint32_t x0, uint32_t x1, uint32_t y0, uint32_t y1, MemoryArena& memoryArena) const;
 
     glm::vec3 EstimateDirect(const glm::vec3 wo, BSDF& bsdf, const Intersection& isect, const Ray& ray, RNG& rng, uint8_t& flags) const;
 
