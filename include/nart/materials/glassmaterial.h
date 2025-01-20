@@ -1,18 +1,19 @@
 #pragma once
 
 #include "../core/material.h"
+#include "../core/pattern.h"
 
 class GlassMaterial : public Material {
 public:
-    GlassMaterial(const glm::vec3& rho_s, const glm::vec3& tau, float eta,
-                  float alpha);
+    GlassMaterial(PatternPtr&& rho_s, PatternPtr&& tau, PatternPtr&& eta,
+                  PatternPtr&& alpha);
 
-    BSDF CreateBSDF(const glm::vec3& n, float alphaTweak,
+    BSDF CreateBSDF(const Intersection& isect, float alphaTweak,
                     MemoryArena& memoryArena);
 
 private:
-    const glm::vec3 rho_s;
-    const glm::vec3 tau;
-    const float eta;
-    float alpha;
+    PatternPtr rho_sPtn;
+    PatternPtr tauPtn;
+    PatternPtr etaPtn;
+    PatternPtr alphaPtn;
 };

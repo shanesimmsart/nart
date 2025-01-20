@@ -13,6 +13,8 @@
 #include "../materials/glossydielectricmaterial.h"
 #include "../materials/plasticmaterial.h"
 #include "../materials/specularmaterial.h"
+#include "../patterns/constantpattern.h"
+#include "../patterns/texturepattern.h"
 #include "bvh.h"
 #include "geometry.h"
 
@@ -35,13 +37,23 @@ private:
 
     TriMeshPtr LoadMeshFromFile(const std::string& filePath,
                                 glm::mat4& objectToWorld,
-                                std::unique_ptr<Material>&& material) const;
+                                MaterialPtr&& material) const;
 
     void LoadMeshes(const nlohmann::json& json);
 
     void LoadCamera(const nlohmann::json& json);
 
     void LoadLights(const nlohmann::json& json);
+
+    PatternPtr GetRho_d(const nlohmann::json& material);
+
+    PatternPtr GetRho_s(const nlohmann::json& material);
+
+    PatternPtr GetEta(const nlohmann::json& material);
+
+    PatternPtr GetTau(const nlohmann::json& material);
+
+    PatternPtr GetAlpha(const nlohmann::json& material);
 
     std::vector<LightPtr> lights;
     CameraPtr camera;

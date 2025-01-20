@@ -1,15 +1,16 @@
 #pragma once
 
 #include "../core/material.h"
+#include "../core/pattern.h"
 
 class SpecularMaterial : public Material {
 public:
-    SpecularMaterial(const glm::vec3& rho_s, float eta);
+    SpecularMaterial(PatternPtr&& rho_s, PatternPtr&& eta);
 
-    BSDF CreateBSDF(const glm::vec3& n, float alphaTweak,
+    BSDF CreateBSDF(const Intersection& isect, float alphaTweak,
                     MemoryArena& memoryArena);
 
 private:
-    const glm::vec3 rho_s;
-    const float eta;
+    PatternPtr rho_sPtn;
+    PatternPtr etaPtn;
 };

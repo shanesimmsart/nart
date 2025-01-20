@@ -4,7 +4,7 @@
             "imageWidth": 1280,
             "imageHeight": 720,
             "bucketSize": 16,
-            "spp": 4,
+            "spp": 1,
             "filterWidth": 2,
             "rougheningFactor": 0.2
         }
@@ -17,23 +17,16 @@
 
     "meshes": [
         {
-        "filePath": "input//meshes//sphere.geo",
+        "filePath": "input//meshes//cube.geo",
         "material": {
-            "type": "glass",
+            "type": "lambert",
+            "rho_d": [0.03, 0.03, 0.03],
             "rho_s": [1, 1, 1],
             "tau": [1, 1, 1],
             "eta": 1.5,
             "roughness": 0
         },
         "transform": [ 0.500000, 0.000000, 0.000000, -0.758663, 0.000000, 0.500000, 0.000000, -3.285489, 0.000000, 0.000000, 0.500000, 0.500000, 0.000000, 0.000000, 0.000000, 1.000000 ]
-        },
-        {
-        "filePath": "input//meshes//backdrop.geo",
-        "material": {
-            "type": "lambert",
-            "rho_d": [0.03, 0.03, 0.03]
-        },
-        "transform": [ 0.961944, 0.273247, 0.000000, 0.000000, -0.273247, 0.961944, 0.000000, 0.000000, 0.000000, 0.000000, 1.000000, 0.000000, 0.000000, 0.000000, 0.000000, 1.000000 ]
         }
     ],    
 

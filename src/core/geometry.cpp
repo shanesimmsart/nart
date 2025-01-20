@@ -15,8 +15,18 @@ Ray::Ray(const glm::vec3& o, const glm::vec3& d) : o(o), d(d) {
 
 Triangle::Triangle(const glm::vec3& v0, const glm::vec3& v1,
                    const glm::vec3& v2, const glm::vec3& n0,
-                   const glm::vec3& n1, const glm::vec3& n2)
-    : v0(v0), v1(v1), v2(v2), n0(n0), n1(n1), n2(n2) {}
+                   const glm::vec3& n1, const glm::vec3& n2,
+                   const glm::vec2& uv0, const glm::vec2& uv1, const glm::vec2& uv2)
+    : v0(v0),
+      v1(v1),
+      v2(v2),
+      n0(n0),
+      n1(n1),
+      n2(n2),
+      uv0(uv0),
+      uv1(uv1),
+      uv2(uv2)
+{}
 
 bool Triangle::Intersect(const Ray& ray, Intersection& isect) const {
     glm::vec3 n = glm::cross(v1 - v0, v2 - v0);
@@ -87,10 +97,11 @@ bool Triangle::Intersect(const Ray& ray, Intersection& isect) const {
     isect.gn = n;
     isect.sn = n0 * isect.u + n1 * isect.v + n2 * (1 - isect.u - isect.v);
     isect.p = p;
+    isect.st = uv0 * isect.u + uv1 * isect.v + uv2 * (1 - isect.u - isect.v);
 
     return true;
 }
 
-TriMesh::TriMesh(MaterialPtr material) : material(std::move(material)) {}
+TriMesh::TriMesh(MaterialPtr&& material) : material(std::move(material)) {}
 
 Material* TriMesh::GetMaterial() const { return material.get(); }

@@ -5,15 +5,18 @@
 #include "../bxdfs/specularbrdf.h"
 #include "../bxdfs/speculardielectricbrdf.h"
 #include "../bxdfs/torrancesparrowbrdf.h"
+#include "bxdf.h"
+
+struct Intersection;
 
 class Material {
 public:
     // Creates BSDF and adds BxDFs
     // I think this can be const?
-    virtual BSDF CreateBSDF(const glm::vec3& n, float alphaTweak,
-                            MemoryArena& memoryArena) = 0;
+    // I've created a circular dependency!!! :d
+    virtual BSDF CreateBSDF(const Intersection& isect, float alphaTweak, MemoryArena& memoryArena) = 0;
 
-    virtual ~Material() {}
+    virtual ~Material(){}
 
 protected:
     Material(){};

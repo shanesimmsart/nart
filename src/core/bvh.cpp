@@ -126,6 +126,7 @@ void BVH::Octree::Insert(ChunkPtr chunk) {
 
 void BVH::Octree::Build() { root->BuildBoundingVolumes(); }
 
+// TODO: This breaks if root is leaf
 bool BVH::Octree::Intersect(const Ray& ray, Intersection& isect) {
     using NodeDistancePair = std::pair<float, const OctreeNode*>;
     // Using priority queue to keep track of closest node intersection

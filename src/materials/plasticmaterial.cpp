@@ -1,14 +1,18 @@
 #include "../../include/nart/materials/plasticmaterial.h"
 
-PlasticMaterial::PlasticMaterial(const glm::vec3& rho_d, const glm::vec3& rho_s,
-                                 float eta, float alpha)
-    : rho_d(rho_d), rho_s(rho_s), eta(eta), alpha(alpha) {}
+PlasticMaterial::PlasticMaterial(PatternPtr&& rho_d, PatternPtr&& rho_s,
+                                 PatternPtr&& eta, PatternPtr&& alpha)
+    : rho_dPtn(std::move(rho_d)), rho_sPtn(std::move(rho_s)), etaPtn(std::move(eta)), alphaPtn(std::move(alpha)) {}
 
-BSDF PlasticMaterial::CreateBSDF(const glm::vec3& n, float alphaTweak,
+BSDF PlasticMaterial::CreateBSDF(const Intersection& isect, float alphaTweak,
                                  MemoryArena& memoryArena) {
-    BSDF bsdf(n, 2);
+    BSDF bsdf(isect.sn, 2);
 
+    float alpha = alphaPtn->GetValue(isect).x;
     float alpha_prime = 1.f - ((1.f - alpha) * alphaTweak);
+    glm::vec3 rho_d = rho_dPtn->GetValue(isect);
+    glm::vec3 rho_s = rho_sPtn->GetValue(isect);
+    float eta = etaPtn->GetValue(isect).x;
 
     BxDF* lambert =
         new (memoryArena.Allocate(sizeof(LambertBRDF))) LambertBRDF(rho_d);

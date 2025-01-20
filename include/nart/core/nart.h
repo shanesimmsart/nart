@@ -13,6 +13,8 @@
 #include "../materials/glossydielectricmaterial.h"
 #include "../materials/plasticmaterial.h"
 #include "../materials/specularmaterial.h"
+#include "../patterns/constantpattern.h"
+#include "../patterns/texturepattern.h"
 #include "bvh.h"
 #include "geometry.h"
 #include "render.h"

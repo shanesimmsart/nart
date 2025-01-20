@@ -14,6 +14,7 @@ gString = str(fString.count("f ")) + " \n"
 # faces
 faceString = ""
 normIndexString = ""
+uvIndexString = ""
 
 n = 0
 for item in fString.split("f ")[1:]:
@@ -22,6 +23,7 @@ for item in fString.split("f ")[1:]:
 	for face in item.split("\n")[0].split(" "):
 		faceString += str(int(face.split("/")[0])-1) + " "
 		normIndexString += str(int(face.split("/")[2])-1) + " "
+		uvIndexString += str(int(face.split("/")[1])-1) + " "
 	n += 1
 
 print("Faces: " + str(n))
@@ -35,7 +37,6 @@ n = 0
 for vert in fString.split("v ")[1:]:
 	for coord in vert.split("vn")[0].split("vt")[0].split(" "):
 		vertString += coord.split("\n")[0] + " "
-		# print coord # .split("\n")[0]
 	n += 1
 
 print("Vertices: " + str(n))
@@ -47,14 +48,26 @@ normString = ""
 
 n = 0
 for vert in fString.split("vn ")[1:]:
-	for coord in vert.split("usemtl")[0].split(" "):
+	for coord in vert.split("vt")[0].split(" "):
 		normString += coord.split("\n")[0] + " "
 	n += 1
 print("Vertex normals: " + str(n))
 
 gString += normIndexString + "\n"
+gString += normString + "\n"
 
-gString += normString
+# UVs
+uvString = ""
+
+n = 0
+for vert in fString.split("vt ")[1:]:
+	for coord in vert.split("usemtl")[0].split("s")[0].split(" "):
+		uvString += coord.split("\n")[0] + " "
+	n += 1
+print("UVs: " + str(n))
+
+gString += uvIndexString + "\n"
+gString += uvString
 
 g.write(gString)
 

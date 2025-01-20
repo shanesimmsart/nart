@@ -1,12 +1,14 @@
 #include "../../include/nart/materials/diffusematerial.h"
 
-DiffuseMaterial::DiffuseMaterial(const glm::vec3& rho)
-    : rho(rho)  // your boat...
+DiffuseMaterial::DiffuseMaterial(PatternPtr&& rho)
+    : rhoPtn(std::move(rho))
 {}
 
-BSDF DiffuseMaterial::CreateBSDF(const glm::vec3& n, float alphaTweak,
+BSDF DiffuseMaterial::CreateBSDF(const Intersection& isect, float alphaTweak,
                                  MemoryArena& memoryArena) {
-    BSDF bsdf(n, 1);
+    BSDF bsdf(isect.sn, 1);
+
+    glm::vec3 rho = rhoPtn->GetValue(isect);
 
     BxDF* lambert =
         new (memoryArena.Allocate(sizeof(LambertBRDF))) LambertBRDF(rho);

@@ -27,6 +27,8 @@ struct Intersection {
     float u, v;
     // Point, geometric normal, shading normal
     glm::vec3 p, gn, sn;
+    // UVs
+    glm::vec2 st;
 
     // Upper and lower bounds of ray to be considered
     float tMin = 0.f;
@@ -38,17 +40,21 @@ struct Intersection {
 
 struct Triangle {
     Triangle(const glm::vec3& v0, const glm::vec3& v1, const glm::vec3& v2,
-             const glm::vec3& n0, const glm::vec3& n1, const glm::vec3& n2);
+             const glm::vec3& n0, const glm::vec3& n1, const glm::vec3& n2,
+             const glm::vec2& uv0 = glm::vec2(0.f),
+             const glm::vec2& uv1 = glm::vec2(0.f),
+             const glm::vec2& uv2 = glm::vec2(0.f));
 
     bool Intersect(const Ray& ray, Intersection& isect) const;
 
-    const glm::vec3 v0, v1, v2;
-    const glm::vec3 n0, n1, n2;
+    const glm::vec3  v0,  v1,  v2;
+    const glm::vec3  n0,  n1,  n2;
+    const glm::vec2 uv0, uv1, uv2;
 };
 
 class TriMesh {
 public:
-    TriMesh(MaterialPtr material);
+    TriMesh(MaterialPtr&& material);
 
     // Passing as pointer instead of const ref as Intersect needs to hold the
     // pointer and Material will call CreateBSDF() (non-const)

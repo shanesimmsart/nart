@@ -76,7 +76,7 @@ glm::mat4 Scene::MatrixFromVector(const std::vector<float>& vector) const {
 
 TriMeshPtr Scene::LoadMeshFromFile(const std::string& filePath,
                                    glm::mat4& objectToWorld,
-                                   std::unique_ptr<Material>&& material) const {
+                                   MaterialPtr&& material) const {
     std::ifstream file;
     uint32_t numFaces;
     file.open(filePath);
@@ -91,6 +91,7 @@ TriMeshPtr Scene::LoadMeshFromFile(const std::string& filePath,
 
     std::vector<uint32_t> faces(numFaces);
     uint32_t maxNormIndex = 0;
+    uint32_t maxUVIndex = 0;
 
     uint32_t numVertIndices = 0;
 
@@ -169,6 +170,61 @@ TriMeshPtr Scene::LoadMeshFromFile(const std::string& filePath,
         normCoords[i] = normCoord;
     }
 
+    // UVs (optional)
+    std::vector<uint32_t> UVIndices(numVertIndices);
+    k = 0;
+    bool noUVs = false;
+
+    for (uint32_t i = 0; i < numFaces; ++i) {
+        for (uint32_t j = 0; j < faces[i]; ++j) {
+            uint32_t UVIndex;
+
+            if (!(file >> UVIndex)) {
+                if (i == 0) {
+                    // No UVs present
+                    noUVs = true;
+                    break;
+                }
+                
+                else {
+                    std::cerr << "Error: Mesh file could not be read.\n";
+                    return nullptr;
+                }
+            }
+
+            UVIndices[k] = UVIndex;
+            k += 1;
+
+            maxUVIndex = glm::max(maxUVIndex, UVIndex);
+        }
+
+        if (noUVs) {
+            break;
+        }
+    }
+
+    uint32_t numUVCoords = 0;
+    std::vector<float> UVCoords(0);
+
+    if (!noUVs) {
+        numUVCoords = (maxUVIndex + 1) * 2;
+        UVCoords.reserve(numUVCoords);
+
+        for (uint32_t i = 0; i < numUVCoords; ++i) {
+            float UVCoord;
+            if (!(file >> UVCoord)) {
+                std::cerr << "Error: Mesh file could not be read.\n";
+                return nullptr;
+            }
+
+            UVCoords.push_back(UVCoord);
+        }
+    }
+
+    // Finished reading mesh file
+
+    // Start building mesh
+
     // Calculate number of tris
     uint32_t numTris = 0;
     for (uint32_t i = 0; i < numFaces; ++i) {
@@ -196,6 +252,18 @@ TriMeshPtr Scene::LoadMeshFromFile(const std::string& filePath,
                                      glm::vec4(normCoords[j], normCoords[j + 1],
                                                normCoords[j + 2], 0.f)));
         j += 3;
+    }
+
+    // Create vector of UVs
+    std::vector<glm::vec2> UVs(maxUVIndex + 1);
+    if (!noUVs) {
+        j = 0;
+        for (uint32_t i = 0; i < maxUVIndex + 1; ++i) {
+            // Need to transform normals by inverse transpose - otherwise the
+            // normal will get scaled by any non-uniform scaling
+            UVs[i] = glm::vec2(UVCoords[j], UVCoords[j + 1]);
+            j += 2;
+        }
     }
 
     // Create tri indices
@@ -226,22 +294,252 @@ TriMeshPtr Scene::LoadMeshFromFile(const std::string& filePath,
         l += faces[i];
     }
 
+    // Create tri UV indices
+    std::vector<uint32_t> triUVIndices(numTris * 3);
+    if (!noUVs) {
+        k = 0;
+        l = 0;
+        for (uint32_t i = 0; i < numFaces; ++i) {
+            for (uint32_t j = 0; j < faces[i] - 2; ++j) {
+                triUVIndices[k] = UVIndices[l];
+                triUVIndices[k + 1] = UVIndices[l + j + 1];
+                triUVIndices[k + 2] = UVIndices[l + j + 2];
+                k += 3;
+            }
+            l += faces[i];
+        }
+    }
+
     TriMeshPtr mesh = std::make_unique<TriMesh>(std::move(material));
     mesh->triangles.reserve(numTris);
 
     // Now we can finally build our triangles
     j = 0;
+    k = 0;
     for (uint32_t i = 0; i < numTris; ++i) {
-        Triangle tri(verts[triIndices[j]], verts[triIndices[j + 1]],
-                     verts[triIndices[j + 2]], norms[triNormIndices[j]],
-                     norms[triNormIndices[j + 1]],
-                     norms[triNormIndices[j + 2]]);
-        mesh->triangles.emplace_back(tri);
+        if (noUVs) {
+            mesh->triangles.emplace_back(
+                verts[triIndices[j]], verts[triIndices[j + 1]],
+                         verts[triIndices[j + 2]], norms[triNormIndices[j]],
+                         norms[triNormIndices[j + 1]],
+                         norms[triNormIndices[j + 2]]);
+        }
+
+        else {
+            mesh->triangles.emplace_back(
+                verts[triIndices[j]], verts[triIndices[j + 1]],
+                         verts[triIndices[j + 2]], norms[triNormIndices[j]],
+                         norms[triNormIndices[j + 1]],
+                         norms[triNormIndices[j + 2]], UVs[triUVIndices[k + 0]],
+                         UVs[triUVIndices[k + 1]], UVs[triUVIndices[k + 2]]);
+        }
 
         j += 3;
+        k += 3;
     }
 
     return mesh;
+}
+
+PatternPtr Scene::GetRho_d(const nlohmann::json& material) {
+    PatternPtr rho_dPtn;
+
+    // rho_d
+    if (material["rho_d"].is_object()) {
+        std::string ptnType = material["rho_d"]["type"].get<std::string>();
+
+        if (ptnType == "constant") {
+            std::vector<float> rho_dGet =
+                material["rho_d"]["value"].get<std::vector<float>>();
+            glm::vec3 rho_d =
+                glm::vec3(glm::min(rho_dGet[0], 1.f - glm::epsilon<float>()),
+                          glm::min(rho_dGet[1], 1.f - glm::epsilon<float>()),
+                          glm::min(rho_dGet[2], 1.f - glm::epsilon<float>()));
+
+            rho_dPtn = std::make_unique<ConstantPattern>(rho_d);
+        }
+
+        if (ptnType == "texture") {
+            std::string rho_dPath =
+                material["rho_d"]["filePath"].get<std::string>();
+
+            rho_dPtn = std::make_unique<TexturePattern>(rho_dPath);
+        }
+
+        else {
+            std::cerr << "Error: '" << ptnType
+                      << "' is not a pattern type.\nAborting.\n";
+            std::abort();
+        };
+    }
+
+    else {
+        std::vector<float> rho_dGet = material["rho_d"].get<std::vector<float>>();
+        glm::vec3 rho_d = glm::vec3(rho_dGet[0], rho_dGet[1], rho_dGet[2]);
+
+        rho_dPtn = std::make_unique<ConstantPattern>(rho_d);
+    }
+
+    return rho_dPtn;
+}
+
+PatternPtr Scene::GetRho_s(const nlohmann::json& material) {
+    PatternPtr rho_sPtn;
+
+    if (material["rho_s"].is_object()) {
+        std::string ptnType = material["rho_s"]["type"].get<std::string>();
+
+        if (ptnType == "constant") {
+            std::vector<float> rho_sGet =
+                material["rho_s"]["value"].get<std::vector<float>>();
+            glm::vec3 rho_s =
+                glm::vec3(glm::min(rho_sGet[0], 1.f - glm::epsilon<float>()),
+                          glm::min(rho_sGet[1], 1.f - glm::epsilon<float>()),
+                          glm::min(rho_sGet[2], 1.f - glm::epsilon<float>()));
+
+            rho_sPtn = std::make_unique<ConstantPattern>(rho_s);
+        }
+
+        if (ptnType == "texture") {
+            std::string rho_sPath =
+                material["rho_s"]["filePath"].get<std::string>();
+
+            rho_sPtn = std::make_unique<TexturePattern>(rho_sPath);
+        }
+
+        else {
+            std::cerr << "Error: '" << ptnType
+                      << "' is not a pattern type.\nAborting.\n";
+            std::abort();
+        };
+    }
+
+    else {
+        std::vector<float> rho_sGet = material["rho_s"].get<std::vector<float>>();
+        glm::vec3 rho_s =
+            glm::vec3(glm::min(rho_sGet[0], 1.f - glm::epsilon<float>()),
+                      glm::min(rho_sGet[1], 1.f - glm::epsilon<float>()),
+                      glm::min(rho_sGet[2], 1.f - glm::epsilon<float>()));
+
+        rho_sPtn = std::make_unique<ConstantPattern>(rho_s);
+    }
+
+    return rho_sPtn;
+}
+
+PatternPtr Scene::GetEta(const nlohmann::json& material) {
+    PatternPtr etaPtn;
+
+    if (material["eta"].is_object()) {
+        std::string ptnType = material["eta"]["type"].get<std::string>();
+
+        if (ptnType == "constant") {
+            float eta = material["eta"]["value"].get<float>();
+
+            etaPtn = std::make_unique<ConstantPattern>(glm::vec3(eta));
+        }
+
+        if (ptnType == "texture") {
+            std::string etaPath =
+                material["eta"]["filePath"].get<std::string>();
+
+            etaPtn = std::make_unique<TexturePattern>(etaPath);
+        }
+
+        else {
+            std::cerr << "Error: '" << ptnType
+                      << "' is not a pattern type.\nAborting.\n";
+            std::abort();
+        };
+    }
+
+    else {
+        float eta = material["eta"].get<float>();
+
+        etaPtn = std::make_unique<ConstantPattern>(glm::vec3(eta));
+    }
+
+    return etaPtn;
+}
+
+PatternPtr Scene::GetTau(const nlohmann::json& material) {
+    PatternPtr tauPtn;
+
+    if (material["tau"].is_object()) {
+        std::string ptnType = material["tau"]["type"].get<std::string>();
+
+        if (ptnType == "constant") {
+            std::vector<float> tauGet =
+                material["tau"]["value"].get<std::vector<float>>();
+            glm::vec3 tau =
+                glm::vec3(glm::min(tauGet[0], 1.f - glm::epsilon<float>()),
+                          glm::min(tauGet[1], 1.f - glm::epsilon<float>()),
+                          glm::min(tauGet[2], 1.f - glm::epsilon<float>()));
+
+            tauPtn = std::make_unique<ConstantPattern>(tau);
+        }
+
+        if (ptnType == "texture") {
+            std::string tauPath =
+                material["tau"]["filePath"].get<std::string>();
+
+            tauPtn = std::make_unique<TexturePattern>(tauPath);
+        }
+
+        else {
+            std::cerr << "Error: '" << ptnType
+                      << "' is not a pattern type.\nAborting.\n";
+            std::abort();
+        };
+    }
+
+    else {
+        std::vector<float> tauGet = material["tau"].get<std::vector<float>>();
+        glm::vec3 tau =
+            glm::vec3(glm::min(tauGet[0], 1.f - glm::epsilon<float>()),
+                      glm::min(tauGet[1], 1.f - glm::epsilon<float>()),
+                      glm::min(tauGet[2], 1.f - glm::epsilon<float>()));
+
+        tauPtn = std::make_unique<ConstantPattern>(tau);
+    }
+
+    return tauPtn;
+}
+
+PatternPtr Scene::GetAlpha(const nlohmann::json& material) {
+    PatternPtr alphaPtn;
+
+    if (material["roughness"].is_object()) {
+        std::string ptnType = material["roughness"]["type"].get<std::string>();
+
+        if (ptnType == "constant") {
+            float roughness = material["roughness"]["value"].get<float>();
+
+            alphaPtn = std::make_unique<ConstantPattern>(
+                glm::vec3(roughness * roughness));
+        }
+
+        if (ptnType == "texture") {
+            std::string roughnessPath =
+                material["roughness"]["filePath"].get<std::string>();
+
+            alphaPtn = std::make_unique<TexturePattern>(roughnessPath);
+        }
+
+        else {
+            std::cerr << "Error: '" << ptnType
+                      << "' is not a pattern type.\nAborting.\n";
+            std::abort();
+        };
+    }
+
+    else {
+        float alpha = material["roughness"].get<float>();
+
+        alphaPtn = std::make_unique<ConstantPattern>(glm::vec3(alpha));
+    }
+
+    return alphaPtn;
 }
 
 void Scene::LoadMeshes(const nlohmann::json& json) {
@@ -264,94 +562,64 @@ void Scene::LoadMeshes(const nlohmann::json& json) {
                 std::cerr << "Error in mesh file path: " << e.what() << "\n";
             }
 
-            for (auto& mat : elem["material"]) {
-                try {
-                    std::string type = mat["type"].get<std::string>();
+            auto& mat = elem["material"];
+            try {
+                std::string type = mat["type"].get<std::string>();
 
-                    if (type == "lambert") {
-                        std::vector<float> rho_dGet =
-                            mat["rho_d"].get<std::vector<float>>();
-                        glm::vec3 rho_d =
-                            glm::vec3(rho_dGet[0], rho_dGet[1], rho_dGet[2]);
-                        meshMaterials.push_back(
-                            std::make_unique<DiffuseMaterial>(rho_d));
-                    }
+                if (type == "lambert") {
+                    PatternPtr rho_dPtn = GetRho_d(mat);
 
-                    else if (type == "specular") {
-                        std::vector<float> rho_sGet =
-                            mat["rho_s"].get<std::vector<float>>();
-                        glm::vec3 rho_s = glm::vec3(
-                            glm::min(rho_sGet[0], 1.f - glm::epsilon<float>()),
-                            glm::min(rho_sGet[1], 1.f - glm::epsilon<float>()),
-                            glm::min(rho_sGet[2], 1.f - glm::epsilon<float>()));
-                        float eta = mat["eta"].get<float>();
-                        meshMaterials.push_back(
-                            std::make_unique<SpecularMaterial>(rho_s, eta));
-                    }
-
-                    else if (type == "glass") {
-                        std::vector<float> rho_sGet =
-                            mat["rho_s"].get<std::vector<float>>();
-                        glm::vec3 rho_s = glm::vec3(
-                            glm::min(rho_sGet[0], 1.f - glm::epsilon<float>()),
-                            glm::min(rho_sGet[1], 1.f - glm::epsilon<float>()),
-                            glm::min(rho_sGet[2], 1.f - glm::epsilon<float>()));
-                        std::vector<float> tauGet =
-                            mat["tau"].get<std::vector<float>>();
-                        glm::vec3 tau = glm::vec3(
-                            glm::min(tauGet[0], 1.f - glm::epsilon<float>()),
-                            glm::min(tauGet[1], 1.f - glm::epsilon<float>()),
-                            glm::min(tauGet[2], 1.f - glm::epsilon<float>()));
-                        float eta = mat["eta"].get<float>();
-                        float roughness = mat["roughness"].get<float>();
-                        float alpha = roughness * roughness;
-                        meshMaterials.push_back(std::make_unique<GlassMaterial>(
-                            rho_s, tau, eta, alpha));
-                    }
-
-                    else if (type == "glossy") {
-                        std::vector<float> rho_sGet =
-                            mat["rho_s"].get<std::vector<float>>();
-                        glm::vec3 rho_s = glm::vec3(
-                            glm::min(rho_sGet[0], 1.f - glm::epsilon<float>()),
-                            glm::min(rho_sGet[1], 1.f - glm::epsilon<float>()),
-                            glm::min(rho_sGet[2], 1.f - glm::epsilon<float>()));
-                        float eta = mat["eta"].get<float>();
-                        float roughness = mat["roughness"].get<float>();
-                        float alpha = roughness * roughness;
-                        meshMaterials.push_back(
-                            std::make_unique<GlossyDielectricMaterial>(
-                                rho_s, eta, alpha));
-                    }
-
-                    else if (type == "plastic") {
-                        std::vector<float> rho_dGet =
-                            mat["rho_d"].get<std::vector<float>>();
-                        glm::vec3 rho_d =
-                            glm::vec3(rho_dGet[0], rho_dGet[1], rho_dGet[2]);
-                        std::vector<float> rho_sGet =
-                            mat["rho_s"].get<std::vector<float>>();
-                        glm::vec3 rho_s = glm::vec3(
-                            glm::min(rho_sGet[0], 1.f - glm::epsilon<float>()),
-                            glm::min(rho_sGet[1], 1.f - glm::epsilon<float>()),
-                            glm::min(rho_sGet[2], 1.f - glm::epsilon<float>()));
-                        float eta = mat["eta"].get<float>();
-                        float roughness = mat["roughness"].get<float>();
-                        float alpha = roughness * roughness;
-                        meshMaterials.push_back(
-                            std::make_unique<PlasticMaterial>(rho_d, rho_s, eta,
-                                                              alpha));
-                    }
-
-                    else {
-                        std::cerr << "Error: '" << type
-                                  << "' is not a material type.\nAborting.\n";
-                        std::abort();
-                    }
-                } catch (nlohmann::json::exception& e) {
-                    std::cerr << "Error in mesh material type: " << e.what()
-                              << "\n";
+                    meshMaterials.push_back(
+                        std::make_unique<DiffuseMaterial>(std::move(rho_dPtn)));
                 }
+
+                else if (type == "specular") {
+                    PatternPtr rho_sPtn = GetRho_s(mat);
+                    PatternPtr etaPtn = GetEta(mat);
+
+                    meshMaterials.push_back(std::make_unique<SpecularMaterial>(
+                        std::move(rho_sPtn), std::move(etaPtn)));
+                }
+
+                else if (type == "glass") {
+                    PatternPtr rho_sPtn = GetRho_s(mat);
+                    PatternPtr tauPtn = GetTau(mat);
+                    PatternPtr etaPtn = GetEta(mat);
+                    PatternPtr alphaPtn = GetAlpha(mat);
+
+                    meshMaterials.push_back(std::make_unique<GlassMaterial>(
+                        std::move(rho_sPtn), std::move(tauPtn), std::move(etaPtn), std::move(alphaPtn)));
+                }
+
+                else if (type == "glossy") {
+                    PatternPtr rho_sPtn = GetRho_s(mat);
+                    PatternPtr etaPtn = GetEta(mat);
+                    PatternPtr alphaPtn = GetAlpha(mat);
+
+                    meshMaterials.push_back(
+                        std::make_unique<GlossyDielectricMaterial>(
+                            std::move(rho_sPtn), std::move(etaPtn), std::move(alphaPtn)));
+                }
+
+                else if (type == "plastic") {
+                    PatternPtr rho_dPtn = GetRho_d(mat);
+                    PatternPtr rho_sPtn = GetRho_s(mat);
+                    PatternPtr etaPtn = GetEta(mat);
+                    PatternPtr alphaPtn = GetAlpha(mat);
+
+                    meshMaterials.push_back(
+                        std::make_unique<PlasticMaterial>(std::move(rho_dPtn), std::move(rho_sPtn), std::move(etaPtn),
+                                                            std::move(alphaPtn)));
+                }
+
+                else {
+                    std::cerr << "Error: '" << type
+                                << "' is not a material type.\nAborting.\n";
+                    std::abort();
+                }
+            } catch (nlohmann::json::exception& e) {
+                std::cerr << "Error in mesh material type: " << e.what()
+                            << "\n";
             }
         }
 

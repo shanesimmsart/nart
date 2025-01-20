@@ -1,5 +1,9 @@
 #pragma once
 
+// TODO: GET LOOKUP TABLE WORKING!!! >:d
+//       OR F16C SSE
+#define IMATH_HALF_USE_LOOKUP_TABLE 0
+#define IMATH_HALF_NO_LOOKUP_TABLE
 #include <OpenEXR/ImfArray.h>
 #include <OpenEXR/ImfRgbaFile.h>
 #include <tbb/task_group.h>

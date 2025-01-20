@@ -7,7 +7,7 @@
 
 #define DEBUG_BUCKET 0
 #define DEBUG_BUCKET_X 36
-#define DEBUG_BUCKET_Y 22
+#define DEBUG_BUCKET_Y 25
 
 #define BSDF_SAMPLING 1
 #define LIGHT_SAMPLING 1
@@ -76,6 +76,8 @@ glm::vec3 RenderSession::EstimateDirect(const glm::vec3 wo, BSDF& bsdf,
                                         uint8_t& flags) const {
     glm::vec3 L = glm::vec3(0.f);
 
+    // return glm::vec3(isect.st, 0.f);
+
     glm::vec3 wi;
     glm::vec3 Li;
     float scatteringPdf = 0.f;
@@ -137,7 +139,7 @@ glm::vec3 RenderSession::EstimateDirect(const glm::vec3 wo, BSDF& bsdf,
     float flip = wi.z > 0.f ? 1.f : -1.f;
     Ray shadowRay(isect.p + (isect.gn * shadowBias * flip), wiWorld);
     if (!scene.GetBVH().Intersect(shadowRay, lightIsect) &&
-        lightingPdf > 0.f)  // || flags && TRANSMISSIVE)
+        lightingPdf > 0.f)
     {
         float weight = 1.f;
         scatteringPdf = bsdf.Pdf(wo, wi, 1);
@@ -218,7 +220,7 @@ std::vector<Pixel> RenderSession::RenderTile(const float* filterTable,
                         if (bounce == 0) alpha = 1.f;
 
                         BSDF bsdf = isect.material->CreateBSDF(
-                            isect.sn, alphaTweak, memoryArena);
+                            isect, alphaTweak, memoryArena);
                         glm::vec3 wo = bsdf.ToLocal(-ray.d);
 
                         L += EstimateDirect(wo, bsdf, isect, ray, rng, flags) *
