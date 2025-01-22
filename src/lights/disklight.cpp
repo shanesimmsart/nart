@@ -31,7 +31,6 @@ glm::vec3 DiskLight::Sample_Li(Intersection& lightIsect, const glm::vec3& p,
 
     float u = ((diskSample.x + 1.f) * 0.5f) / radius;
     float v = ((diskSample.y + 1.f) * 0.5f) / radius;
-
     lightIsect.st = glm::vec2(u, 1.f - v);
 
     // Transform disk sample to world space

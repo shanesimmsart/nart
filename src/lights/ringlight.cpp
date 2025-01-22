@@ -31,7 +31,9 @@ glm::vec3 RingLight::Sample_Li(Intersection& lightIsect, const glm::vec3& p,
         glm::vec4(UniformSampleRing(sample, pdf, innerRadius / radius) * radius,
                   0.f, 1.f);
 
-    lightIsect.st = glm::vec2(ringSample.x, ringSample.y);
+    float u = ((ringSample.x + 1.f) * 0.5f) / radius;
+    float v = ((ringSample.y + 1.f) * 0.5f) / radius;
+    lightIsect.st = glm::vec2(u, 1.f - v);
 
     // Transform disk sample to world space
     ringSample = ringSample * LightToWorld;
@@ -88,7 +90,7 @@ float RingLight::Pdf(Intersection& lightIsect, const glm::vec3& p,
               radius;
     u = (u + 1.f) * 0.5f;
     v = (v + 1.f) * 0.5f;
-    lightIsect.st = glm::vec2(u, v);
+    lightIsect.st = glm::vec2(u, 1.f - v);
 
     // If not hit, pdf == 0
     float dist = diskCenterToPHit.x * diskCenterToPHit.x +
