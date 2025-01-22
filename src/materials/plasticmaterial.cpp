@@ -2,7 +2,10 @@
 
 PlasticMaterial::PlasticMaterial(PatternPtr&& rho_d, PatternPtr&& rho_s,
                                  PatternPtr&& eta, PatternPtr&& alpha)
-    : rho_dPtn(std::move(rho_d)), rho_sPtn(std::move(rho_s)), etaPtn(std::move(eta)), alphaPtn(std::move(alpha)) {}
+    : rho_dPtn(std::move(rho_d)),
+      rho_sPtn(std::move(rho_s)),
+      etaPtn(std::move(eta)),
+      alphaPtn(std::move(alpha)) {}
 
 BSDF PlasticMaterial::CreateBSDF(const Intersection& isect, float alphaTweak,
                                  MemoryArena& memoryArena) {

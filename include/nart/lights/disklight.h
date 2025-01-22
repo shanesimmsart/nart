@@ -1,10 +1,11 @@
 #pragma once
 
 #include "../core/light.h"
+#include "../core/pattern.h"
 
 class DiskLight : public Light {
 public:
-    DiskLight(float radius, const glm::vec3& Le, float intensity,
+    DiskLight(float radius, PatternPtr&& Le, float intensity,
               const glm::mat4& LightToWorld);
 
     glm::vec3 Li(Intersection& lightIsect, const glm::vec3& p,
@@ -18,7 +19,7 @@ public:
 
 private:
     // Radiance emitted
-    const glm::vec3 Le;
+    PatternPtr Le;
     const float intensity;
     const glm::mat4 LightToWorld;
 

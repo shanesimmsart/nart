@@ -3,9 +3,12 @@
 GlossyDielectricMaterial::GlossyDielectricMaterial(PatternPtr&& rho_s,
                                                    PatternPtr&& eta,
                                                    PatternPtr&& alpha)
-    : rho_sPtn(std::move(rho_s)), etaPtn(std::move(eta)), alphaPtn(std::move(alpha)) {}
+    : rho_sPtn(std::move(rho_s)),
+      etaPtn(std::move(eta)),
+      alphaPtn(std::move(alpha)) {}
 
-BSDF GlossyDielectricMaterial::CreateBSDF(const Intersection& isect, float alphaTweak,
+BSDF GlossyDielectricMaterial::CreateBSDF(const Intersection& isect,
+                                          float alphaTweak,
                                           MemoryArena& memoryArena) {
     BSDF bsdf(isect.sn, 1);
 

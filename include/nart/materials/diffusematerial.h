@@ -5,7 +5,7 @@
 
 class DiffuseMaterial : public Material {
 public:
-    DiffuseMaterial(std::unique_ptr<Pattern>&& rho);
+    DiffuseMaterial(PatternPtr&& rho);
 
     BSDF CreateBSDF(const Intersection& isect, float alphaTweak,
                     MemoryArena& memoryArena);

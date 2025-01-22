@@ -1,8 +1,11 @@
 #include "../../include/nart/lights/disklight.h"
 
-DiskLight::DiskLight(float radius, const glm::vec3& Le, float intensity,
+DiskLight::DiskLight(float radius, PatternPtr&& Le, float intensity,
                      const glm::mat4& LightToWorld)
-    : radius(radius), Le(Le), intensity(intensity), LightToWorld(LightToWorld) {
+    : radius(radius),
+      Le(std::move(Le)),
+      intensity(intensity),
+      LightToWorld(LightToWorld) {
     isDelta = false;
 }
 
@@ -12,7 +15,7 @@ glm::vec3 DiskLight::Li(Intersection& lightIsect, const glm::vec3& p,
 
     if (LiPdf > 0.f) {
         if (pdf) *pdf = LiPdf;
-        return Le * intensity;
+        return Le->GetValue(lightIsect) * intensity;
     }
 
     else
@@ -25,6 +28,11 @@ glm::vec3 DiskLight::Sample_Li(Intersection& lightIsect, const glm::vec3& p,
     // Sample disk
     glm::vec4 diskSample =
         glm::vec4(UniformSampleDisk(sample) * radius, 0.f, 1.f);
+
+    float u = ((diskSample.x + 1.f) * 0.5f) / radius;
+    float v = ((diskSample.y + 1.f) * 0.5f) / radius;
+
+    lightIsect.st = glm::vec2(u, 1.f - v);
 
     // Transform disk sample to world space
     diskSample = diskSample * LightToWorld;
@@ -49,7 +57,7 @@ glm::vec3 DiskLight::Sample_Li(Intersection& lightIsect, const glm::vec3& p,
     lightIsect.p = diskSample;
     lightIsect.tMax = distPToSample;
 
-    return Le * intensity;
+    return Le->GetValue(lightIsect) * intensity;
 }
 
 float DiskLight::Pdf(Intersection& lightIsect, const glm::vec3& p,
@@ -70,6 +78,16 @@ float DiskLight::Pdf(Intersection& lightIsect, const glm::vec3& p,
     glm::vec3 pHit = p + t * wi;
 
     glm::vec3 diskCenterToPHit = pHit - diskCenter;
+
+    float u = glm::dot(glm::vec4(diskCenterToPHit, 0.f),
+                       glm::vec4(1.f, 0.f, 0.f, 0.f) * LightToWorld) /
+              radius;
+    float v = glm::dot(glm::vec4(diskCenterToPHit, 0.f),
+                       glm::vec4(0.f, 1.f, 0.f, 0.f) * LightToWorld) /
+              radius;
+    u = (u + 1.f) * 0.5f;
+    v = (v + 1.f) * 0.5f;
+    lightIsect.st = glm::vec2(u, 1.f - v);
 
     // If not hit, pdf == 0
     float dist = diskCenterToPHit.x * diskCenterToPHit.x +

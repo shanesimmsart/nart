@@ -11,5 +11,3 @@ public:
 private:
     glm::vec3 value = glm::vec3(0.f);
 };
-
-

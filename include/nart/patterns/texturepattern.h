@@ -10,13 +10,12 @@
 
 class TexturePattern : public Pattern {
 public:
-    TexturePattern(std::string filePath);
+    TexturePattern(std::string filePath, bool isRoughness = false);
 
     glm::vec3 GetValue(const Intersection& isect);
 
 private:
     uint16_t width, height;
     Imf::Array2D<Imf::Rgba> pixels;
+    bool isRoughness = false;
 };
-
-

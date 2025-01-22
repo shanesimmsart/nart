@@ -1,8 +1,6 @@
 #include "../../include/nart/materials/diffusematerial.h"
 
-DiffuseMaterial::DiffuseMaterial(PatternPtr&& rho)
-    : rhoPtn(std::move(rho))
-{}
+DiffuseMaterial::DiffuseMaterial(PatternPtr&& rho) : rhoPtn(std::move(rho)) {}
 
 BSDF DiffuseMaterial::CreateBSDF(const Intersection& isect, float alphaTweak,
                                  MemoryArena& memoryArena) {

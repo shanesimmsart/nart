@@ -95,8 +95,6 @@ private:
         private:
             const uint8_t maxDepth = 5;
         };
-
-        using OctreeNodePtr = std::unique_ptr<OctreeNode>;
     };
 
     using OctreePtr = std::unique_ptr<Octree>;

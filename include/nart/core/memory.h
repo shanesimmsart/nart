@@ -1,6 +1,9 @@
 #pragma once
 
+#include <algorithm>
+#include <cstddef>
 #include <cstdint>
+#include <utility>
 #include <vector>
 
 class MemoryArena {

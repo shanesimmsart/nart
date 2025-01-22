@@ -1,10 +1,10 @@
 #include "../../include/nart/lights/ringlight.h"
 
-RingLight::RingLight(float radius, float innerRadius, const glm::vec3& Le,
+RingLight::RingLight(float radius, float innerRadius, PatternPtr&& Le,
                      float intensity, const glm::mat4& LightToWorld)
     : radius(radius),
       innerRadius(innerRadius),
-      Le(Le),
+      Le(std::move(Le)),
       intensity(intensity),
       LightToWorld(LightToWorld) {
     isDelta = false;
@@ -16,7 +16,7 @@ glm::vec3 RingLight::Li(Intersection& lightIsect, const glm::vec3& p,
 
     if (LiPdf > 0.f) {
         if (pdf) *pdf = LiPdf;
-        return Le * intensity;
+        return Le->GetValue(lightIsect) * intensity;
     }
 
     else
@@ -30,6 +30,8 @@ glm::vec3 RingLight::Sample_Li(Intersection& lightIsect, const glm::vec3& p,
     glm::vec4 ringSample =
         glm::vec4(UniformSampleRing(sample, pdf, innerRadius / radius) * radius,
                   0.f, 1.f);
+
+    lightIsect.st = glm::vec2(ringSample.x, ringSample.y);
 
     // Transform disk sample to world space
     ringSample = ringSample * LightToWorld;
@@ -56,7 +58,7 @@ glm::vec3 RingLight::Sample_Li(Intersection& lightIsect, const glm::vec3& p,
     lightIsect.p = ringSample;
     lightIsect.tMax = distPToSample;
 
-    return Le * intensity;
+    return Le->GetValue(lightIsect) * intensity;
 }
 
 float RingLight::Pdf(Intersection& lightIsect, const glm::vec3& p,
@@ -77,6 +79,16 @@ float RingLight::Pdf(Intersection& lightIsect, const glm::vec3& p,
     glm::vec3 pHit = p + t * wi;
 
     glm::vec3 diskCenterToPHit = pHit - ringCenter;
+
+    float u = glm::dot(glm::vec4(diskCenterToPHit, 0.f),
+                       glm::vec4(1.f, 0.f, 0.f, 0.f) * LightToWorld) /
+              radius;
+    float v = glm::dot(glm::vec4(diskCenterToPHit, 0.f),
+                       glm::vec4(0.f, 1.f, 0.f, 0.f) * LightToWorld) /
+              radius;
+    u = (u + 1.f) * 0.5f;
+    v = (v + 1.f) * 0.5f;
+    lightIsect.st = glm::vec2(u, v);
 
     // If not hit, pdf == 0
     float dist = diskCenterToPHit.x * diskCenterToPHit.x +

@@ -115,6 +115,7 @@ glm::vec3 RenderSession::EstimateDirect(const glm::vec3 wo, BSDF& bsdf,
                     (scatteringPdf * scatteringPdf + lightingPdf * lightingPdf);
 #endif
                 if (lightingPdf > 0.f) {
+                    // TODO: glm::dot(wi, isect.sn)
                     L += (f * Li * glm::abs(wi.z) * weight) / scatteringPdf;
                 }
             }
@@ -138,9 +139,7 @@ glm::vec3 RenderSession::EstimateDirect(const glm::vec3 wo, BSDF& bsdf,
 
     float flip = wi.z > 0.f ? 1.f : -1.f;
     Ray shadowRay(isect.p + (isect.gn * shadowBias * flip), wiWorld);
-    if (!scene.GetBVH().Intersect(shadowRay, lightIsect) &&
-        lightingPdf > 0.f)
-    {
+    if (!scene.GetBVH().Intersect(shadowRay, lightIsect) && lightingPdf > 0.f) {
         float weight = 1.f;
         scatteringPdf = bsdf.Pdf(wo, wi, 1);
         if (scatteringPdf > 0.f) {
@@ -209,13 +208,6 @@ std::vector<Pixel> RenderSession::RenderTile(const float* filterTable,
                         }
                     }
 
-                    if (bounce == 0) {
-                        if (lightHit == true) {
-                            L = Le;
-                            break;
-                        }
-                    }
-
                     if (scene.Intersect(ray, isect)) {
                         if (bounce == 0) alpha = 1.f;
 
@@ -263,8 +255,12 @@ std::vector<Pixel> RenderSession::RenderTile(const float* filterTable,
                         isect = Intersection();
                     }
 
-                    else
+                    else if (bounce == 0) {
+                        if (lightHit == true) {
+                            L = Le;
+                        }
                         break;
+                    }
 
                     // Free memory before moving onto next sample
                     memoryArena.Refresh();

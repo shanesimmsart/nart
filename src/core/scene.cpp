@@ -185,7 +185,7 @@ TriMeshPtr Scene::LoadMeshFromFile(const std::string& filePath,
                     noUVs = true;
                     break;
                 }
-                
+
                 else {
                     std::cerr << "Error: Mesh file could not be read.\n";
                     return nullptr;
@@ -320,18 +320,17 @@ TriMeshPtr Scene::LoadMeshFromFile(const std::string& filePath,
         if (noUVs) {
             mesh->triangles.emplace_back(
                 verts[triIndices[j]], verts[triIndices[j + 1]],
-                         verts[triIndices[j + 2]], norms[triNormIndices[j]],
-                         norms[triNormIndices[j + 1]],
-                         norms[triNormIndices[j + 2]]);
+                verts[triIndices[j + 2]], norms[triNormIndices[j]],
+                norms[triNormIndices[j + 1]], norms[triNormIndices[j + 2]]);
         }
 
         else {
             mesh->triangles.emplace_back(
                 verts[triIndices[j]], verts[triIndices[j + 1]],
-                         verts[triIndices[j + 2]], norms[triNormIndices[j]],
-                         norms[triNormIndices[j + 1]],
-                         norms[triNormIndices[j + 2]], UVs[triUVIndices[k + 0]],
-                         UVs[triUVIndices[k + 1]], UVs[triUVIndices[k + 2]]);
+                verts[triIndices[j + 2]], norms[triNormIndices[j]],
+                norms[triNormIndices[j + 1]], norms[triNormIndices[j + 2]],
+                UVs[triUVIndices[k + 0]], UVs[triUVIndices[k + 1]],
+                UVs[triUVIndices[k + 2]]);
         }
 
         j += 3;
@@ -374,7 +373,8 @@ PatternPtr Scene::GetRho_d(const nlohmann::json& material) {
     }
 
     else {
-        std::vector<float> rho_dGet = material["rho_d"].get<std::vector<float>>();
+        std::vector<float> rho_dGet =
+            material["rho_d"].get<std::vector<float>>();
         glm::vec3 rho_d = glm::vec3(rho_dGet[0], rho_dGet[1], rho_dGet[2]);
 
         rho_dPtn = std::make_unique<ConstantPattern>(rho_d);
@@ -415,7 +415,8 @@ PatternPtr Scene::GetRho_s(const nlohmann::json& material) {
     }
 
     else {
-        std::vector<float> rho_sGet = material["rho_s"].get<std::vector<float>>();
+        std::vector<float> rho_sGet =
+            material["rho_s"].get<std::vector<float>>();
         glm::vec3 rho_s =
             glm::vec3(glm::min(rho_sGet[0], 1.f - glm::epsilon<float>()),
                       glm::min(rho_sGet[1], 1.f - glm::epsilon<float>()),
@@ -523,7 +524,7 @@ PatternPtr Scene::GetAlpha(const nlohmann::json& material) {
             std::string roughnessPath =
                 material["roughness"]["filePath"].get<std::string>();
 
-            alphaPtn = std::make_unique<TexturePattern>(roughnessPath);
+            alphaPtn = std::make_unique<TexturePattern>(roughnessPath, true);
         }
 
         else {
@@ -536,10 +537,53 @@ PatternPtr Scene::GetAlpha(const nlohmann::json& material) {
     else {
         float alpha = material["roughness"].get<float>();
 
-        alphaPtn = std::make_unique<ConstantPattern>(glm::vec3(alpha));
+        alphaPtn = std::make_unique<ConstantPattern>(glm::vec3(alpha * alpha));
     }
 
     return alphaPtn;
+}
+
+PatternPtr Scene::GetLe(const nlohmann::json& light) {
+    PatternPtr LePtn;
+
+    if (light["Le"].is_object()) {
+        std::string ptnType = light["Le"]["type"].get<std::string>();
+
+        if (ptnType == "constant") {
+            std::vector<float> LeGet =
+                light["Le"]["value"].get<std::vector<float>>();
+            glm::vec3 Le =
+                glm::vec3(glm::min(LeGet[0], 1.f - glm::epsilon<float>()),
+                          glm::min(LeGet[1], 1.f - glm::epsilon<float>()),
+                          glm::min(LeGet[2], 1.f - glm::epsilon<float>()));
+
+            LePtn = std::make_unique<ConstantPattern>(Le);
+        }
+
+        if (ptnType == "texture") {
+            std::string filePath = light["Le"]["filePath"].get<std::string>();
+
+            LePtn = std::make_unique<TexturePattern>(filePath);
+        }
+
+        else {
+            std::cerr << "Error: '" << ptnType
+                      << "' is not a pattern type.\nAborting.\n";
+            std::abort();
+        };
+    }
+
+    else {
+        std::vector<float> LeGet = light["Le"].get<std::vector<float>>();
+        glm::vec3 Le =
+            glm::vec3(glm::min(LeGet[0], 1.f - glm::epsilon<float>()),
+                      glm::min(LeGet[1], 1.f - glm::epsilon<float>()),
+                      glm::min(LeGet[2], 1.f - glm::epsilon<float>()));
+
+        LePtn = std::make_unique<ConstantPattern>(Le);
+    }
+
+    return LePtn;
 }
 
 void Scene::LoadMeshes(const nlohmann::json& json) {
@@ -588,7 +632,8 @@ void Scene::LoadMeshes(const nlohmann::json& json) {
                     PatternPtr alphaPtn = GetAlpha(mat);
 
                     meshMaterials.push_back(std::make_unique<GlassMaterial>(
-                        std::move(rho_sPtn), std::move(tauPtn), std::move(etaPtn), std::move(alphaPtn)));
+                        std::move(rho_sPtn), std::move(tauPtn),
+                        std::move(etaPtn), std::move(alphaPtn)));
                 }
 
                 else if (type == "glossy") {
@@ -598,7 +643,8 @@ void Scene::LoadMeshes(const nlohmann::json& json) {
 
                     meshMaterials.push_back(
                         std::make_unique<GlossyDielectricMaterial>(
-                            std::move(rho_sPtn), std::move(etaPtn), std::move(alphaPtn)));
+                            std::move(rho_sPtn), std::move(etaPtn),
+                            std::move(alphaPtn)));
                 }
 
                 else if (type == "plastic") {
@@ -607,19 +653,19 @@ void Scene::LoadMeshes(const nlohmann::json& json) {
                     PatternPtr etaPtn = GetEta(mat);
                     PatternPtr alphaPtn = GetAlpha(mat);
 
-                    meshMaterials.push_back(
-                        std::make_unique<PlasticMaterial>(std::move(rho_dPtn), std::move(rho_sPtn), std::move(etaPtn),
-                                                            std::move(alphaPtn)));
+                    meshMaterials.push_back(std::make_unique<PlasticMaterial>(
+                        std::move(rho_dPtn), std::move(rho_sPtn),
+                        std::move(etaPtn), std::move(alphaPtn)));
                 }
 
                 else {
                     std::cerr << "Error: '" << type
-                                << "' is not a material type.\nAborting.\n";
+                              << "' is not a material type.\nAborting.\n";
                     std::abort();
                 }
             } catch (nlohmann::json::exception& e) {
                 std::cerr << "Error in mesh material type: " << e.what()
-                            << "\n";
+                          << "\n";
             }
         }
 
@@ -693,34 +739,32 @@ void Scene::LoadLights(const nlohmann::json& json) {
             try {
                 std::string type = elem["type"].get<std::string>();
 
-                if (type == "distant") {
-                    std::vector<float> LeGet =
-                        elem["Le"].get<std::vector<float>>();
-                    float intensity = elem["intensity"].get<float>();
-                    glm::vec3 Le = glm::vec3(LeGet[0], LeGet[1], LeGet[2]);
-                    lights.emplace_back(std::make_unique<DistantLight>(
-                        Le, intensity, lightToWorld));
-                }
-
                 if (type == "disk") {
                     float radius = elem["radius"].get<float>();
-                    std::vector<float> LeGet =
-                        elem["Le"].get<std::vector<float>>();
+                    PatternPtr LePtn = GetLe(elem);
                     float intensity = elem["intensity"].get<float>();
-                    glm::vec3 Le = glm::vec3(LeGet[0], LeGet[1], LeGet[2]);
+
                     lights.emplace_back(std::make_unique<DiskLight>(
-                        radius, Le, intensity, lightToWorld));
+                        radius, std::move(LePtn), intensity, lightToWorld));
                 }
 
                 if (type == "ring") {
                     float radius = elem["radius"].get<float>();
                     float innerRadius = elem["innerRadius"].get<float>();
-                    std::vector<float> LeGet =
-                        elem["Le"].get<std::vector<float>>();
+                    PatternPtr LePtn = GetLe(elem);
                     float intensity = elem["intensity"].get<float>();
-                    glm::vec3 Le = glm::vec3(LeGet[0], LeGet[1], LeGet[2]);
+
                     lights.emplace_back(std::make_unique<RingLight>(
-                        radius, innerRadius, Le, intensity, lightToWorld));
+                        radius, innerRadius, std::move(LePtn), intensity,
+                        lightToWorld));
+                }
+
+                if (type == "environment") {
+                    PatternPtr LePtn = GetLe(elem);
+                    float intensity = elem["intensity"].get<float>();
+
+                    lights.emplace_back(std::make_unique<EnvironmentLight>(
+                        std::move(LePtn), intensity, lightToWorld));
                 }
             }
 

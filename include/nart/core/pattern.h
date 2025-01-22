@@ -13,5 +13,3 @@ protected:
 };
 
 using PatternPtr = std::unique_ptr<Pattern>;
-
-

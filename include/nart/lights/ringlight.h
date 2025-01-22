@@ -1,11 +1,12 @@
 #pragma once
 
 #include "../core/light.h"
+#include "../core/pattern.h"
 
 class RingLight : public Light {
 public:
-    RingLight(float radius, float innerRadius, const glm::vec3& Le,
-              float intensity, const glm::mat4& LightToWorld);
+    RingLight(float radius, float innerRadius, PatternPtr&& Le, float intensity,
+              const glm::mat4& LightToWorld);
 
     glm::vec3 Li(Intersection& lightIsect, const glm::vec3& p,
                  const glm::vec3& wi, float* pdf = nullptr) const;
@@ -18,8 +19,8 @@ public:
 
 private:
     // Radiance emitted
-    const glm::vec3 Le;
-    const float intensity;
+    PatternPtr Le;
+    float intensity;
     const glm::mat4 LightToWorld;
 
     const float innerRadius = 0.f;

@@ -118,14 +118,16 @@ FetchContent_MakeAvailable(tbb)
 set(SOURCES
     src/core/main.cpp
     src/core/bvh.cpp
+    src/core/bxdf.cpp
     src/core/geometry.cpp
+    src/core/memory.cpp
     src/core/render.cpp
     src/core/sampling.cpp
     src/core/scene.cpp
-    src/core/bxdf.cpp
     src/cameras/pinholecamera.cpp
     src/lights/disklight.cpp
     src/lights/distantlight.cpp
+    src/lights/environmentlight.cpp
     src/lights/ringlight.cpp
     src/bxdfs/dielectricbrdf.cpp
     src/bxdfs/lambertbrdf.cpp
@@ -137,6 +139,8 @@ set(SOURCES
     src/materials/glossydielectricmaterial.cpp
     src/materials/plasticmaterial.cpp
     src/materials/specularmaterial.cpp
+    src/patterns/constantpattern.cpp
+    src/patterns/texturepattern.cpp
 )
 
 add_executable(${PROJECT_NAME} ${SOURCES})

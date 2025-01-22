@@ -1,6 +1,7 @@
 #include "../../include/nart/patterns/texturepattern.h"
 
-TexturePattern::TexturePattern(std::string filePath) {
+TexturePattern::TexturePattern(std::string filePath, bool isRoughness)
+    : isRoughness(isRoughness) {
     Imf::RgbaInputFile file(filePath.c_str());
     Imath_3_1::Box2i dw = file.dataWindow();
 
@@ -20,5 +21,12 @@ glm::vec3 TexturePattern::GetValue(const Intersection& isect) {
     float r = pixels[indexV][indexU].r;
     float g = pixels[indexV][indexU].g;
     float b = pixels[indexV][indexU].b;
+
+    if (isRoughness) {
+        r *= r;
+        g *= g;
+        b *= b;
+    }
+
     return glm::vec3(r, g, b);
 }

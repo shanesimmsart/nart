@@ -47,8 +47,8 @@ struct Triangle {
 
     bool Intersect(const Ray& ray, Intersection& isect) const;
 
-    const glm::vec3  v0,  v1,  v2;
-    const glm::vec3  n0,  n1,  n2;
+    const glm::vec3 v0, v1, v2;
+    const glm::vec3 n0, n1, n2;
     const glm::vec2 uv0, uv1, uv2;
 };
 

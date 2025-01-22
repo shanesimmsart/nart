@@ -8,6 +8,7 @@
 #include "../cameras/pinholecamera.h"
 #include "../lights/disklight.h"
 #include "../lights/distantlight.h"
+#include "../lights/environmentlight.h"
 #include "../lights/ringlight.h"
 #include "../materials/diffusematerial.h"
 #include "../materials/glossydielectricmaterial.h"

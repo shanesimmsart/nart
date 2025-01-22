@@ -7,6 +7,7 @@
 #include "../cameras/pinholecamera.h"
 #include "../lights/disklight.h"
 #include "../lights/distantlight.h"
+#include "../lights/environmentlight.h"
 #include "../lights/ringlight.h"
 #include "../materials/diffusematerial.h"
 #include "../materials/glassmaterial.h"
@@ -54,6 +55,8 @@ private:
     PatternPtr GetTau(const nlohmann::json& material);
 
     PatternPtr GetAlpha(const nlohmann::json& material);
+
+    PatternPtr GetLe(const nlohmann::json& material);
 
     std::vector<LightPtr> lights;
     CameraPtr camera;
