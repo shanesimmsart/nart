@@ -42,6 +42,7 @@ will override the spp set in the JSON scene file to 64.
   - Multiple importance sampling
   - Russian roulette
   - Roughening over paths to improve sampling of caustics
+  - Texture / normal mapping
 
 ## Requirements:
 Supported operating systems:
