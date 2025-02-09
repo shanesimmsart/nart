@@ -586,6 +586,58 @@ PatternPtr Scene::GetLe(const nlohmann::json& light) {
     return LePtn;
 }
 
+PatternPtr Scene::GetNormal(const nlohmann::json& material) {
+    PatternPtr normalPtn;
+
+    if (material.contains("normal")) {
+        if (material["normal"].is_object()) {
+            std::string ptnType = material["normal"]["type"].get<std::string>();
+
+            if (ptnType == "constant") {
+                std::vector<float> normalGet =
+                    material["normal"]["value"].get<std::vector<float>>();
+                glm::vec3 normal = glm::vec3(
+                    glm::min(normalGet[0], 1.f - glm::epsilon<float>()),
+                    glm::min(normalGet[1], 1.f - glm::epsilon<float>()),
+                    glm::min(normalGet[2], 1.f - glm::epsilon<float>()));
+
+                normalPtn = std::make_unique<ConstantPattern>(normal);
+            }
+
+            if (ptnType == "texture") {
+                std::string filePath =
+                    material["normal"]["filePath"].get<std::string>();
+
+                normalPtn = std::make_unique<TexturePattern>(filePath);
+            }
+
+            else {
+                std::cerr << "Error: '" << ptnType
+                          << "' is not a pattern type.\nAborting.\n";
+                std::abort();
+            };
+        }
+
+        else if (material["normal"].is_array()) {
+            std::vector<float> normalGet =
+                material["normal"].get<std::vector<float>>();
+            glm::vec3 normal =
+                glm::vec3(glm::min(normalGet[0], 1.f - glm::epsilon<float>()),
+                          glm::min(normalGet[1], 1.f - glm::epsilon<float>()),
+                          glm::min(normalGet[2], 1.f - glm::epsilon<float>()));
+
+            normalPtn = std::make_unique<ConstantPattern>(normal);
+        }
+
+        else {
+            return nullptr;
+        }
+
+        return normalPtn;
+    }
+    return nullptr;
+}
+
 void Scene::LoadMeshes(const nlohmann::json& json) {
     std::vector<std::string> meshFilePaths;
     std::vector<std::unique_ptr<Material>> meshMaterials;
@@ -612,17 +664,20 @@ void Scene::LoadMeshes(const nlohmann::json& json) {
 
                 if (type == "lambert") {
                     PatternPtr rho_dPtn = GetRho_d(mat);
+                    PatternPtr normalPtn = GetNormal(mat);
 
-                    meshMaterials.push_back(
-                        std::make_unique<DiffuseMaterial>(std::move(rho_dPtn)));
+                    meshMaterials.push_back(std::make_unique<DiffuseMaterial>(
+                        std::move(rho_dPtn), std::move(normalPtn)));
                 }
 
                 else if (type == "specular") {
                     PatternPtr rho_sPtn = GetRho_s(mat);
                     PatternPtr etaPtn = GetEta(mat);
+                    PatternPtr normalPtn = GetNormal(mat);
 
                     meshMaterials.push_back(std::make_unique<SpecularMaterial>(
-                        std::move(rho_sPtn), std::move(etaPtn)));
+                        std::move(rho_sPtn), std::move(etaPtn),
+                        std::move(normalPtn)));
                 }
 
                 else if (type == "glass") {
@@ -630,21 +685,24 @@ void Scene::LoadMeshes(const nlohmann::json& json) {
                     PatternPtr tauPtn = GetTau(mat);
                     PatternPtr etaPtn = GetEta(mat);
                     PatternPtr alphaPtn = GetAlpha(mat);
+                    PatternPtr normalPtn = GetNormal(mat);
 
                     meshMaterials.push_back(std::make_unique<GlassMaterial>(
                         std::move(rho_sPtn), std::move(tauPtn),
-                        std::move(etaPtn), std::move(alphaPtn)));
+                        std::move(etaPtn), std::move(alphaPtn),
+                        std::move(normalPtn)));
                 }
 
                 else if (type == "glossy") {
                     PatternPtr rho_sPtn = GetRho_s(mat);
                     PatternPtr etaPtn = GetEta(mat);
                     PatternPtr alphaPtn = GetAlpha(mat);
+                    PatternPtr normalPtn = GetNormal(mat);
 
                     meshMaterials.push_back(
                         std::make_unique<GlossyDielectricMaterial>(
                             std::move(rho_sPtn), std::move(etaPtn),
-                            std::move(alphaPtn)));
+                            std::move(alphaPtn), std::move(normalPtn)));
                 }
 
                 else if (type == "plastic") {
@@ -652,10 +710,12 @@ void Scene::LoadMeshes(const nlohmann::json& json) {
                     PatternPtr rho_sPtn = GetRho_s(mat);
                     PatternPtr etaPtn = GetEta(mat);
                     PatternPtr alphaPtn = GetAlpha(mat);
+                    PatternPtr normalPtn = GetNormal(mat);
 
                     meshMaterials.push_back(std::make_unique<PlasticMaterial>(
                         std::move(rho_dPtn), std::move(rho_sPtn),
-                        std::move(etaPtn), std::move(alphaPtn)));
+                        std::move(etaPtn), std::move(alphaPtn),
+                        std::move(normalPtn)));
                 }
 
                 else {

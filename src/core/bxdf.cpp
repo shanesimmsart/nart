@@ -19,16 +19,27 @@ float Fresnel(float eta_o, float eta_i, float cosTheta) {
     return ((fPara * fPara) + (fPerp * fPerp)) * 0.5f;
 }
 
-BSDF::BSDF(const glm::vec3& n, uint8_t numBxDFs) : n(n), numBxDFs(numBxDFs) {
-    // Build local coord sys from normal
-    if (glm::abs(n.x) > glm::abs(n.y)) {
-        n_t = glm::normalize(glm::vec3(n.z, 0.f, -n.x));
-    }
+BSDF::BSDF(const Intersection& isect, uint8_t numBxDFs)
+    : n(isect.sn), numBxDFs(numBxDFs) {}
 
-    else {
-        n_t = glm::normalize(glm::vec3(0.f, n.z, -n.y));
+void BSDF::BuildCoordSys(const Intersection& isect, glm::vec3* nn) {
+    // Build local coord sys from normal
+    // Project dpds onto plane defined by n to get n_t
+    n_t = glm::normalize(isect.dpds - glm::dot(isect.dpds, n) * n);
+
+    // Get n_b
+    n_b = glm::normalize(glm::cross(isect.sn, n_t));
+
+    if (nn) {
+        // Transform nn to world space
+        n = glm::normalize(ToWorld(*nn));
+
+        // Project dpds onto plane defined by nn to get new n_t
+        n_t = glm::normalize(isect.dpds - glm::dot(isect.dpds, n) * n);
+
+        // Get new n_b
+        n_b = glm::normalize(glm::cross(isect.sn, n_t));
     }
-    n_b = glm::normalize(glm::cross(n, n_t));
 }
 
 glm::vec3 BSDF::f(const glm::vec3& wo, const glm::vec3& wi,
@@ -81,4 +92,10 @@ float BSDF::Pdf(const glm::vec3& wo, const glm::vec3& wi,
     }
 
     return pdf / static_cast<float>(numBxDFs);
+}
+
+void BSDF::SetN(glm::vec3 *n) { nn = n; }
+
+glm::vec3 BSDF::GetN(){
+    return n;
 }

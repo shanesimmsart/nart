@@ -1,15 +1,27 @@
 #include "../../include/nart/materials/plasticmaterial.h"
 
 PlasticMaterial::PlasticMaterial(PatternPtr&& rho_d, PatternPtr&& rho_s,
-                                 PatternPtr&& eta, PatternPtr&& alpha)
+                                 PatternPtr&& eta, PatternPtr&& alpha,
+                                 PatternPtr&& normalPtn)
     : rho_dPtn(std::move(rho_d)),
       rho_sPtn(std::move(rho_s)),
       etaPtn(std::move(eta)),
-      alphaPtn(std::move(alpha)) {}
+      alphaPtn(std::move(alpha)),
+      normalPtn(std::move(normalPtn)) {}
 
 BSDF PlasticMaterial::CreateBSDF(const Intersection& isect, float alphaTweak,
                                  MemoryArena& memoryArena) {
-    BSDF bsdf(isect.sn, 2);
+    BSDF bsdf(isect, 2);
+
+    if (normalPtn) {
+        glm::vec3 n = normalPtn->GetValue(isect);
+        n *= 2.f;
+        n -= glm::vec3(1.f);
+        bsdf.BuildCoordSys(isect, &n);
+    }
+
+    else
+        bsdf.BuildCoordSys(isect);
 
     float alpha = alphaPtn->GetValue(isect).x;
     float alpha_prime = 1.f - ((1.f - alpha) * alphaTweak);

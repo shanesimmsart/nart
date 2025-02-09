@@ -1,6 +1,6 @@
 #pragma once
 
-#include "geometry.h"
+#include "bxdf.h"
 
 class Pattern {
 public:

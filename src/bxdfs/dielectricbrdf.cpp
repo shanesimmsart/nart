@@ -102,7 +102,10 @@ glm::vec3 DielectricBRDF::Sample_f(const glm::vec3& wo, glm::vec3& wi,
 
     // Sample projection of hemisphere in wo
     // Build coord sys
-    glm::vec3 T1 = glm::vec3(wo_h.y, -wo_h.x, 0.f);  // cross(wo, z)
+    glm::vec3 T1;
+    if (wo.x == 0.f && wo.y == 0.f)
+        T1 = glm::vec3(1.f, 0.f, 0.f);
+    else T1 = glm::vec3(wo_h.y, -wo_h.x, 0.f);  // cross(wo, z)
     T1 = glm::normalize(T1);
     glm::vec3 T2 = glm::cross(T1, wo_h);
     T2 = glm::normalize(T2);
@@ -143,7 +146,7 @@ glm::vec3 DielectricBRDF::Sample_f(const glm::vec3& wo, glm::vec3& wi,
     }
 
     // Refract
-    float cosTheta_o = glm::dot(wo, wh);
+    float cosTheta_o = glm::min(1.f, glm::max(-1.f, glm::dot(wo, wh)));
     float sinTheta_o = glm::sqrt(1.f - (cosTheta_o * cosTheta_o));
     float sinTheta_i = ((eta_o / eta_i) * sinTheta_o);
 

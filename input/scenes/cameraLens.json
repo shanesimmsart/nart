@@ -1,0 +1,141 @@
+{
+    "renderSessions": [
+        {
+            "imageWidth": 1280,
+            "imageHeight": 720,
+            "bucketSize": 16,
+            "spp": 8,
+            "filterWidth": 2,
+            "rougheningFactor": 0.1
+        }
+    ],
+
+    "camera": {
+        "fov": 11.5,
+        "transform": [0.962653, 0.040674, -0.267664, -3.170043, -0.270737, 0.144625, -0.951728, -12.566072, 0.000001, 0.988650, 0.150236, 3.203278, 0.000000, 0.000000, 0.000000, 1.000000]
+    },
+
+    "meshes": [
+        {
+        "filePath": "input//meshes//backdrop.geo",
+        "material": {
+            "type": "lambert",
+            "rho_d": [0.18, 0.18, 0.18]
+        },
+        "transform": [0.961944, 0.273247, 0.000000, 0.000000, -0.273247, 0.961944, 0.000000, 0.000000, 0.000000, 0.000000, 1.000000, -2.360000, 0.000000, 0.000000, 0.000000, 1.000000]
+        },
+        {
+        "filePath": "input//meshes//sphere.geo",
+        "material": {
+            "type": "lambert",
+            "rho_d": [0.18, 0.18, 0.18]
+        },
+        "transform": [0.270588, 0.000000, 0.000000, -3.514251, 0.000000, 0.270588, 0.000000, -0.326075, 0.000000, 0.000000, 0.270588, 2.602045, 0.000000, 0.000000, 0.000000, 1.000000]
+        },
+        {
+        "filePath": "input//meshes//sphere.geo",
+        "material": {
+            "type": "specular",
+            "rho_s": [1, 1, 1],
+            "eta": 8192
+        },
+        "transform": [0.270588, 0.000000, 0.000000, -3.514251, 0.000000, 0.270588, 0.000000, -0.326075, 0.000000, 0.000000, 0.270588, 3.290969, 0.000000, 0.000000, 0.000000, 1.000000]
+        },
+        {
+        "filePath": "input//meshes//cameraLens//plastic.geo",
+        "material": {
+            "type": "plastic",
+            "rho_d": {
+                "type": "texture",
+                "filePath": "input//textures//cameraLens//plastic_rho_d.exr"
+            },
+            "rho_s": [1, 1, 1],
+            "eta": 1.5,
+            "roughness": {
+                "type": "texture",
+                "filePath": "input//textures//cameraLens//plastic_roughness.exr"
+            },
+            "normal": {
+                "type": "texture",
+                "filePath": "input//textures//cameraLens//plastic_normal.exr"
+            }
+        },
+        "transform": [-0.099890, 0.385022, -0.917486, -0.176167, -0.798088, -0.581672, -0.157208, -2.040000, -0.594204, 0.716531, 0.365384, 1.606670, 0.000000, 0.000000, 0.000000, 1.000000]
+        },
+        {
+        "filePath": "input//meshes//cameraLens//metal.geo",
+        "material": {
+            "type": "glossy",
+            "rho_s": {
+                "type": "texture",
+                "filePath": "input//textures//cameraLens//metal_rho_s.exr"
+            },
+            "eta": 8192,
+            "roughness": {
+                "type": "texture",
+                "filePath": "input//textures//cameraLens//metal_roughness.exr"
+            }
+        },
+        "transform": [-0.099890, 0.385022, -0.917486, -0.176167, -0.798088, -0.581672, -0.157208, -2.040000, -0.594204, 0.716531, 0.365384, 1.606670, 0.000000, 0.000000, 0.000000, 1.000000]
+        },
+        {
+        "filePath": "input//meshes//cameraLens//lens.geo",
+        "material": {
+            "type": "glass",
+            "rho_s": [1, 1, 1],
+            "tau": [1, 1, 1],
+            "eta": 1.45,
+            "roughness": {
+                "type": "texture",
+                "filePath": "input//textures//cameraLens//lens_roughness.exr"
+            }
+        },
+        "transform": [-0.099890, 0.385022, -0.917486, -0.176167, -0.798088, -0.581672, -0.157208, -2.040000, -0.594204, 0.716531, 0.365384, 1.606670, 0.000000, 0.000000, 0.000000, 1.000000]
+        },
+        {
+        "filePath": "input//meshes//cameraLens//aperture.geo",
+        "material": {
+            "type": "lambert",
+            "rho_d": {
+                "type": "texture",
+                "filePath": "input//textures//cameraLens//aperture_rho_d.exr"
+            }
+        },
+        "transform": [-0.099890, 0.385022, -0.917486, -0.176167, -0.798088, -0.581672, -0.157208, -2.040000, -0.594204, 0.716531, 0.365384, 1.606670, 0.000000, 0.000000, 0.000000, 1.000000]
+        },
+        {
+        "filePath": "input//meshes//cameraLens//circle.geo",
+        "material": {
+            "type": "lambert",
+            "rho_d": [0.03, 0.03, 0.03]
+        },
+        "transform": [-0.099890, 0.385022, -0.917486, -0.176167, -0.798088, -0.581672, -0.157208, -2.040000, -0.594204, 0.716531, 0.365384, 1.606670, 0.000000, 0.000000, 0.000000, 1.000000]
+        }
+    ],    
+
+    "lights" : [
+        {
+            "type": "disk",
+            "radius": 2.5,
+            "Le": [1, 1, 1],
+            "intensity": 75,
+            "transform":  [0.266792, -0.851631, -0.451162, -14.159715, 0.329383, 0.520514, -0.787764, -13.364634, 0.905720, 0.061564, 0.419382, 11.083554, 0.000000, 0.000000, 0.000000, 1.000000]
+        },
+        {
+            "type": "disk",
+            "radius": 5,
+            "Le": [1, 1, 1],
+            "intensity": 16.2,
+            "transform":  [-0.251455, -0.460114, -0.851508, -5.761102, 0.949044, 0.055462, -0.310226, 11.755550, 0.189965, -0.886126, 0.422722, 7.705579, 0.000000, 0.000000, 0.000000, 1.000000]
+        },
+        {
+            "type": "environment",
+            "Le": {
+                "type": "texture",
+                "filePath": "input//textures//photo_studio_broadway_hall_1k.exr"
+            },
+            "intensity": 0.2,
+            "transform":  [1.000000, 0.000000, 0.000000, 0.000000, 0.000000, 1.000000, 0.000000, 0.000000, 0.000000, 0.000000, 1.000000, 0.000000, 0.000000, 0.000000, 0.000000, 1.000000]
+        }
+    ]
+}

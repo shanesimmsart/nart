@@ -25,8 +25,10 @@ struct Intersection {
     Material* material;
     // Barycentric coords
     float u, v;
-    // Point, geometric normal, shading normal
+    // Point, partial derivatives with respect to UVs, geometric normal, shading normal
     glm::vec3 p, gn, sn;
+    glm::vec3 dpds = glm::vec3(0.f);
+    glm::vec3 dpdt = glm::vec3(0.f);
     // UVs
     glm::vec2 st;
 
@@ -42,8 +44,8 @@ struct Triangle {
     Triangle(const glm::vec3& v0, const glm::vec3& v1, const glm::vec3& v2,
              const glm::vec3& n0, const glm::vec3& n1, const glm::vec3& n2,
              const glm::vec2& uv0 = glm::vec2(0.f),
-             const glm::vec2& uv1 = glm::vec2(0.f),
-             const glm::vec2& uv2 = glm::vec2(0.f));
+             const glm::vec2& uv1 = glm::vec2(0.f, 1.f),
+             const glm::vec2& uv2 = glm::vec2(1.f, 0.f));
 
     bool Intersect(const Ray& ray, Intersection& isect) const;
 

@@ -58,6 +58,8 @@ private:
 
     PatternPtr GetLe(const nlohmann::json& material);
 
+    PatternPtr GetNormal(const nlohmann::json& material);
+
     std::vector<LightPtr> lights;
     CameraPtr camera;
     BVHPtr bvh;

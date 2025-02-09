@@ -1,11 +1,24 @@
 #include "../../include/nart/materials/specularmaterial.h"
 
-SpecularMaterial::SpecularMaterial(PatternPtr&& rho_s, PatternPtr&& eta)
-    : rho_sPtn(std::move(rho_s)), etaPtn(std::move(eta)) {}
+SpecularMaterial::SpecularMaterial(PatternPtr&& rho_s, PatternPtr&& eta,
+                                   PatternPtr&& normalPtn)
+    : rho_sPtn(std::move(rho_s)),
+      etaPtn(std::move(eta)),
+      normalPtn(std::move(normalPtn)) {}
 
 BSDF SpecularMaterial::CreateBSDF(const Intersection& isect, float alphaTweak,
                                   MemoryArena& memoryArena) {
-    BSDF bsdf(isect.sn, 1);
+    BSDF bsdf(isect, 1);
+
+    if (normalPtn) {
+        glm::vec3 n = normalPtn->GetValue(isect);
+        n *= 2.f;
+        n -= glm::vec3(1.f);
+        bsdf.BuildCoordSys(isect, &n);
+    }
+
+    else
+        bsdf.BuildCoordSys(isect);
 
     float alpha = 0.f;
     float alpha_prime = 1.f - ((1.f - alpha) * alphaTweak);

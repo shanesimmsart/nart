@@ -27,6 +27,11 @@ glm::vec3 EnvironmentLight::Li(Intersection& lightIsect, const glm::vec3& p,
 glm::vec3 EnvironmentLight::Sample_Li(Intersection& lightIsect,
                                       const glm::vec3& p, glm::vec3& wi,
                                       glm::vec2 sample, float& pdf) const {
+    // wi = glm::vec3(0.f);
+    // pdf = 0.f;
+    // lightIsect.tMax = 0x7f7ffffef;
+    // return glm::vec3(0.f);
+
     float theta = glm::acos(1.f - (2.f * sample.x));
     float phi = sample.y * 2.f * glm::pi<float>();
 

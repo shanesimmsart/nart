@@ -7,6 +7,7 @@
 
 #include "memory.h"
 #include "sampling.h"
+#include "geometry.h"
 
 #define MAX_BXDFS 2
 
@@ -47,7 +48,10 @@ using BxDFPtr = std::unique_ptr<BxDF>;
 
 class BSDF {
 public:
-    BSDF(const glm::vec3& n, uint8_t numBxDFs);
+    // nn is an optional normal vector to perturb the shading normal
+    BSDF(const Intersection& isect, uint8_t numBxDFs);
+
+    void BuildCoordSys(const Intersection& isect, glm::vec3* nn = nullptr);
 
     inline glm::vec3 ToLocal(const glm::vec3& v) {
         return glm::normalize(
@@ -78,9 +82,14 @@ public:
     float Pdf(const glm::vec3& wo, const glm::vec3& wi,
               bool use_alpha_prime) const;
 
+    void SetN(glm::vec3* n);
+
+    glm::vec3 GetN();
+
 private:
     // Coord sys in worldspace
     glm::vec3 n_t, n_b, n;
+    glm::vec3* nn = nullptr;
 
     uint8_t numBxDFs = 0;
     uint8_t bxdfIndex = 0;

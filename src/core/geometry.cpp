@@ -77,6 +77,8 @@ bool Triangle::Intersect(const Ray& ray, Intersection& isect) const {
     if ((e0 < 0 || e1 < 0 || e2 < 0) && (e0 > 0 || e1 > 0 || e2 > 0))
         return false;
 
+    if (glm::abs(e0) + glm::abs(e1) + glm::abs(e2) == 0.f) return false;
+
     // If intersection, normalise ray direction
     p0.z = p0.z * ray.Sz;
     p1.z = p1.z * ray.Sz;
@@ -98,6 +100,15 @@ bool Triangle::Intersect(const Ray& ray, Intersection& isect) const {
     isect.sn = n0 * isect.u + n1 * isect.v + n2 * (1 - isect.u - isect.v);
     isect.p = p;
     isect.st = uv0 * isect.u + uv1 * isect.v + uv2 * (1 - isect.u - isect.v);
+
+    // TODO: Deal with 0 determinant
+    float UVDet = (((uv0.x - uv2.x) * (uv1.y - uv2.y)) -
+                   ((uv0.y - uv2.y) * (uv1.x - uv2.x)));
+    float invUVDet = 1.f / UVDet;
+    isect.dpds =
+        ((v0 - v2) * (uv1.y - uv2.y) + (v1 - v2) * (uv2.y - uv0.y)) * invUVDet;
+    isect.dpdt =
+        ((v0 - v2) * (uv2.x - uv1.x) + (v1 - v2) * (uv0.x - uv2.x)) * invUVDet;
 
     return true;
 }

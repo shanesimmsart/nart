@@ -1,13 +1,10 @@
 #pragma once
 
-#include "../bxdfs/dielectricbrdf.h"
-#include "../bxdfs/lambertbrdf.h"
-#include "../bxdfs/specularbrdf.h"
-#include "../bxdfs/speculardielectricbrdf.h"
-#include "../bxdfs/torrancesparrowbrdf.h"
-#include "bxdf.h"
+#include <memory>
+#include "memory.h"
 
 struct Intersection;
+class BSDF;
 
 class Material {
 public:

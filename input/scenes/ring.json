@@ -4,14 +4,14 @@
             "imageWidth": 1280,
             "imageHeight": 720,
             "bucketSize": 16,
-            "spp": 16,
+            "spp": 64,
             "filterWidth": 2
         },
         {
             "imageWidth": 1280,
             "imageHeight": 720,
             "bucketSize": 16,
-            "spp": 16,
+            "spp": 64,
             "filterWidth": 2,
             "rougheningFactor": 0.2
         },
@@ -19,7 +19,7 @@
             "imageWidth": 1280,
             "imageHeight": 720,
             "bucketSize": 16,
-            "spp": 16,
+            "spp": 64,
             "filterWidth": 2,
             "rougheningFactor": 0.3
         }

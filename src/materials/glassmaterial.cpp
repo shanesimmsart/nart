@@ -1,15 +1,27 @@
 #include "../../include/nart/materials/glassmaterial.h"
 
 GlassMaterial::GlassMaterial(PatternPtr&& rho_s, PatternPtr&& tau,
-                             PatternPtr&& eta, PatternPtr&& alpha)
+                             PatternPtr&& eta, PatternPtr&& alpha,
+                             PatternPtr&&)
     : rho_sPtn(std::move(rho_s)),
       tauPtn(std::move(tau)),
       etaPtn(std::move(eta)),
-      alphaPtn(std::move(alpha)) {}
+      alphaPtn(std::move(alpha)),
+      normalPtn(std::move(normalPtn)) {}
 
 BSDF GlassMaterial::CreateBSDF(const Intersection& isect, float alphaTweak,
                                MemoryArena& memoryArena) {
-    BSDF bsdf(isect.sn, 1);
+    BSDF bsdf(isect, 1);
+
+    if (normalPtn) {
+        glm::vec3 n = normalPtn->GetValue(isect);
+        n *= 2.f;
+        n -= glm::vec3(1.f);
+        bsdf.BuildCoordSys(isect, &n);
+    }
+
+    else
+        bsdf.BuildCoordSys(isect);
 
     float alpha = alphaPtn->GetValue(isect).x;
     float alpha_prime =

@@ -6,12 +6,12 @@
 #define FilterTableResolution 64
 
 #define DEBUG_BUCKET 0
-#define DEBUG_BUCKET_X 36
-#define DEBUG_BUCKET_Y 25
+#define DEBUG_BUCKET_X 48
+#define DEBUG_BUCKET_Y 14
 
 #define BSDF_SAMPLING 1
 #define LIGHT_SAMPLING 1
-#define MAX_BOUNCES 10
+#define MAX_BOUNCES 5
 
 RenderSession::RenderSession(const Scene& scene, RenderParams params)
     : scene(scene), params(params) {
@@ -115,7 +115,6 @@ glm::vec3 RenderSession::EstimateDirect(const glm::vec3 wo, BSDF& bsdf,
                     (scatteringPdf * scatteringPdf + lightingPdf * lightingPdf);
 #endif
                 if (lightingPdf > 0.f) {
-                    // TODO: glm::dot(wi, isect.sn)
                     L += (f * Li * glm::abs(wi.z) * weight) / scatteringPdf;
                 }
             }
