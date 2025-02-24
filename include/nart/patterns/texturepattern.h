@@ -8,9 +8,35 @@
 #include <OpenEXR/ImfArray.h>
 #include <OpenEXR/ImfRgbaFile.h>
 
+class Pdf2D {
+public:
+    Pdf2D(const Imf::Array2D<Imf::Rgba>& pixels, uint32_t width,
+          uint32_t height);
+
+    glm::vec2 Sample(const glm::vec2& sample, float& pdf);
+
+    float Pdf(const glm::vec2& sample);
+
+private:
+    uint32_t width = 0;
+    uint32_t height = 0;
+    float invW = 0.f;
+    float invH = 0.f;
+    std::vector<float> marginalPdf;
+    std::vector<float> conditionalPdf;
+    std::vector<float> marginalCdf;
+    std::vector<float> conditionalCdf;
+};
+
+using Pdf2DPtr = std::unique_ptr<Pdf2D>;
+
 class TexturePattern : public Pattern {
 public:
-    TexturePattern(std::string filePath, bool isRoughness = false);
+    TexturePattern(std::string filePath, bool isRoughness = false, bool createPdf = false);
+
+    glm::vec3 Sample(const glm::vec2& sample, glm::vec2& pdfSample, float& pdf);
+
+    float Pdf(const glm::vec2& sample);
 
     glm::vec3 GetValue(const Intersection& isect);
 
@@ -18,4 +44,5 @@ private:
     uint16_t width, height;
     Imf::Array2D<Imf::Rgba> pixels;
     bool isRoughness = false;
+    Pdf2DPtr pdf2D = nullptr;
 };

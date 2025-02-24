@@ -11,7 +11,7 @@
 
 #define BSDF_SAMPLING 1
 #define LIGHT_SAMPLING 1
-#define MAX_BOUNCES 5
+#define MAX_BOUNCES 10
 
 RenderSession::RenderSession(const Scene& scene, RenderParams params)
     : scene(scene), params(params) {

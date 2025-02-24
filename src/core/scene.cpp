@@ -543,6 +543,7 @@ PatternPtr Scene::GetAlpha(const nlohmann::json& material) {
     return alphaPtn;
 }
 
+// TODO: Add option to turn off PDF?
 PatternPtr Scene::GetLe(const nlohmann::json& light) {
     PatternPtr LePtn;
 
@@ -563,7 +564,7 @@ PatternPtr Scene::GetLe(const nlohmann::json& light) {
         if (ptnType == "texture") {
             std::string filePath = light["Le"]["filePath"].get<std::string>();
 
-            LePtn = std::make_unique<TexturePattern>(filePath);
+            LePtn = std::make_unique<TexturePattern>(filePath, 0, 1);
         }
 
         else {
