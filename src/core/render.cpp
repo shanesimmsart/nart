@@ -6,8 +6,8 @@
 #define FilterTableResolution 64
 
 #define DEBUG_BUCKET 0
-#define DEBUG_BUCKET_X 48
-#define DEBUG_BUCKET_Y 14
+#define DEBUG_BUCKET_X 37
+#define DEBUG_BUCKET_Y 21
 
 #define BSDF_SAMPLING 1
 #define LIGHT_SAMPLING 1

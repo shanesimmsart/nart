@@ -1,27 +1,6 @@
 #include "../../include/nart/patterns/texturepattern.h"
 
-//  Note: This function assumes values between 0 and 1 - epsilon
-uint32_t BinarySearch(float value, const std::vector<float>& v, uint32_t start,
-                      uint32_t end) {
-    uint32_t i = start;
-
-    while (start < end) {
-        i = start + ((end - start) / 2);
-
-        if (v[i] > value) {
-            end = i;
-            i -= 1;
-        }
-
-        else {
-            start = i + 1;
-        }
-    }
-
-    return i;
-}
-
-Pdf2D::Pdf2D(const Imf::Array2D<Imf::Rgba>& pixels, uint32_t width,
+Piecewise2DDistribution::Piecewise2DDistribution(const Imf::Array2D<Imf::Rgba>& pixels, uint32_t width,
            uint32_t height)
     : width(width), height(height) {
     invW = 1.f / (float)width;
@@ -90,7 +69,7 @@ Pdf2D::Pdf2D(const Imf::Array2D<Imf::Rgba>& pixels, uint32_t width,
     }
 }
 
-glm::vec2 Pdf2D::Sample(const glm::vec2& sample, float& pdf) {
+glm::vec2 Piecewise2DDistribution::Sample(const glm::vec2& sample, float& pdf) {
     // find CDF value below x using binary search
     uint32_t lowerBound =
         BinarySearch(sample.y, marginalCdf, 0, marginalCdf.size() - 1);
@@ -121,7 +100,7 @@ glm::vec2 Pdf2D::Sample(const glm::vec2& sample, float& pdf) {
     return glm::vec2(uc, vc);
 }
 
-float Pdf2D::Pdf(const glm::vec2& sample) {
+float Piecewise2DDistribution::Pdf(const glm::vec2& sample) {
     uint32_t u = uint32_t(sample.x * width);
     uint32_t v = uint32_t(sample.y * height);
 
@@ -142,7 +121,7 @@ TexturePattern::TexturePattern(std::string filePath, bool isRoughness,
     file.readPixels(dw.min.y, dw.max.y);
 
     if (createPdf) {
-        pdf2D = std::make_unique<Pdf2D>(pixels, width, height);
+        pdf2D = std::make_unique<Piecewise2DDistribution>(pixels, width, height);
     }
 }
 

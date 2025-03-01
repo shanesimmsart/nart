@@ -22,8 +22,6 @@ float DielectricBRDF::D(const glm::vec3 wh) const {
     float tanTheta = (sinTheta / wh.z);
     float tan2Theta = tanTheta * tanTheta;
     float theta = glm::asin(sinTheta);
-    // I think I read somewhere that (x * x) * (x * x) is faster than
-    // x * x * x * x
     return 1.f / ((glm::pi<float>() * alpha * alpha *
                    ((wh.z * wh.z) * (wh.z * wh.z))) *
                   (1.f + (tan2Theta / (alpha * alpha))) *
@@ -54,7 +52,7 @@ glm::vec3 DielectricBRDF::f(const glm::vec3& wo, const glm::vec3& wi,
 
         if (wo.z * wi.z == 0.f) return glm::vec3(0.f);
 
-        return ((rho_s * g * d * Fr) / (4.f * wo.z * wi.z)) * rho_s;
+        return ((rho_s * g * d * Fr) / (4.f * wo.z * wi.z));
     }
 
     else {
