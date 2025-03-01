@@ -3,8 +3,8 @@ This project is where I put things that I have learned about path tracing into p
 
 You can follow my progress [here](https://bsky.app/profile/shaneasimms.bsky.social/post/3lannomsuv327).
 
+![lens1](https://github.com/user-attachments/assets/4d00b1e6-eb6e-41a6-be32-996d47974566)
 ![glass](https://github.com/user-attachments/assets/8cbb833f-176d-4527-ba49-d5751709814e)
-![veach](https://github.com/user-attachments/assets/34fafd04-04a3-483d-85e6-2a1732a8b190)
 
 ## Usage:
 **nart** takes a JSON scene file and an output file name as input, and renders the given scene as an EXR image.
@@ -43,6 +43,7 @@ will override the spp set in the JSON scene file to 64.
   - Russian roulette
   - Roughening over paths to improve sampling of caustics
   - Texture / normal mapping
+  - Environment map importance sampling
 
 ## Requirements:
 Supported operating systems:
