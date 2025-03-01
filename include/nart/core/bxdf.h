@@ -5,9 +5,9 @@
 #include <memory>
 #include <vector>
 
+#include "geometry.h"
 #include "memory.h"
 #include "sampling.h"
-#include "geometry.h"
 
 #define MAX_BXDFS 2
 

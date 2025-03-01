@@ -94,8 +94,6 @@ float BSDF::Pdf(const glm::vec3& wo, const glm::vec3& wi,
     return pdf / static_cast<float>(numBxDFs);
 }
 
-void BSDF::SetN(glm::vec3 *n) { nn = n; }
+void BSDF::SetN(glm::vec3* n) { nn = n; }
 
-glm::vec3 BSDF::GetN(){
-    return n;
-}
+glm::vec3 BSDF::GetN() { return n; }

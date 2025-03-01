@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+
 #include "memory.h"
 
 struct Intersection;

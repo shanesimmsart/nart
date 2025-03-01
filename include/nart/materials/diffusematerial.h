@@ -1,8 +1,8 @@
 #pragma once
 
+#include "../bxdfs/lambertbrdf.h"
 #include "../core/material.h"
 #include "../core/pattern.h"
-#include "../bxdfs/lambertbrdf.h"
 
 class DiffuseMaterial : public Material {
 public:

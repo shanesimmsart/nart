@@ -1,9 +1,9 @@
 #pragma once
 
-#include "../core/material.h"
-#include "../core/pattern.h"
 #include "../bxdfs/specularbrdf.h"
 #include "../bxdfs/torrancesparrowbrdf.h"
+#include "../core/material.h"
+#include "../core/pattern.h"
 
 class SpecularMaterial : public Material {
 public:

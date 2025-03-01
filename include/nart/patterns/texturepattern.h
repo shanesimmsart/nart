@@ -12,8 +12,7 @@
 class Piecewise2DDistribution {
 public:
     Piecewise2DDistribution(const Imf::Array2D<Imf::Rgba>& pixels,
-                            uint32_t width,
-          uint32_t height);
+                            uint32_t width, uint32_t height);
 
     glm::vec2 Sample(const glm::vec2& sample, float& pdf);
 
@@ -34,7 +33,8 @@ using Piecewise2DDistributionPtr = std::unique_ptr<Piecewise2DDistribution>;
 
 class TexturePattern : public Pattern {
 public:
-    TexturePattern(std::string filePath, bool isRoughness = false, bool createPdf = false);
+    TexturePattern(std::string filePath, bool isRoughness = false,
+                   bool createPdf = false);
 
     glm::vec3 Sample(const glm::vec2& sample, glm::vec2& pdfSample, float& pdf);
 

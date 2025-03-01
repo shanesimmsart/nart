@@ -124,6 +124,7 @@ set(SOURCES
     src/core/render.cpp
     src/core/sampling.cpp
     src/core/scene.cpp
+    src/core/util.cpp
     src/cameras/pinholecamera.cpp
     src/lights/disklight.cpp
     src/lights/distantlight.cpp

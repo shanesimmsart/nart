@@ -1,8 +1,7 @@
 #include "../../include/nart/materials/glassmaterial.h"
 
 GlassMaterial::GlassMaterial(PatternPtr&& rho_s, PatternPtr&& tau,
-                             PatternPtr&& eta, PatternPtr&& alpha,
-                             PatternPtr&&)
+                             PatternPtr&& eta, PatternPtr&& alpha, PatternPtr&&)
     : rho_sPtn(std::move(rho_s)),
       tauPtn(std::move(tau)),
       etaPtn(std::move(eta)),

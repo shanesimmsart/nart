@@ -103,7 +103,8 @@ glm::vec3 DielectricBRDF::Sample_f(const glm::vec3& wo, glm::vec3& wi,
     glm::vec3 T1;
     if (wo.x == 0.f && wo.y == 0.f)
         T1 = glm::vec3(1.f, 0.f, 0.f);
-    else T1 = glm::vec3(wo_h.y, -wo_h.x, 0.f);  // cross(wo, z)
+    else
+        T1 = glm::vec3(wo_h.y, -wo_h.x, 0.f);  // cross(wo, z)
     T1 = glm::normalize(T1);
     glm::vec3 T2 = glm::cross(T1, wo_h);
     T2 = glm::normalize(T2);

@@ -25,7 +25,8 @@ struct Intersection {
     Material* material;
     // Barycentric coords
     float u, v;
-    // Point, partial derivatives with respect to UVs, geometric normal, shading normal
+    // Point, partial derivatives with respect to UVs, geometric normal, shading
+    // normal
     glm::vec3 p, gn, sn;
     glm::vec3 dpds = glm::vec3(0.f);
     glm::vec3 dpdt = glm::vec3(0.f);

@@ -1,7 +1,7 @@
 #include "../../include/nart/patterns/texturepattern.h"
 
-Piecewise2DDistribution::Piecewise2DDistribution(const Imf::Array2D<Imf::Rgba>& pixels, uint32_t width,
-           uint32_t height)
+Piecewise2DDistribution::Piecewise2DDistribution(
+    const Imf::Array2D<Imf::Rgba>& pixels, uint32_t width, uint32_t height)
     : width(width), height(height) {
     invW = 1.f / (float)width;
     invH = 1.f / (float)height;
@@ -75,8 +75,9 @@ glm::vec2 Piecewise2DDistribution::Sample(const glm::vec2& sample, float& pdf) {
         BinarySearch(sample.y, marginalCdf, 0, marginalCdf.size() - 1);
 
     float uc = 0.f;
-    float vc = ((sample.y - marginalCdf[lowerBound]) / marginalPdf[lowerBound]) +
-              ((float)lowerBound * invH);
+    float vc =
+        ((sample.y - marginalCdf[lowerBound]) / marginalPdf[lowerBound]) +
+        ((float)lowerBound * invH);
     vc = glm::min(vc, 0.9999999f);
 
     uint32_t v = uint32_t(vc * height);
@@ -121,12 +122,13 @@ TexturePattern::TexturePattern(std::string filePath, bool isRoughness,
     file.readPixels(dw.min.y, dw.max.y);
 
     if (createPdf) {
-        pdf2D = std::make_unique<Piecewise2DDistribution>(pixels, width, height);
+        pdf2D =
+            std::make_unique<Piecewise2DDistribution>(pixels, width, height);
     }
 }
 
-glm::vec3 TexturePattern::Sample(const glm::vec2& sample,
-                                 glm::vec2& pdfSample, float& pdf) {
+glm::vec3 TexturePattern::Sample(const glm::vec2& sample, glm::vec2& pdfSample,
+                                 float& pdf) {
     pdfSample = sample;
 
     if (!pdf2D) {
