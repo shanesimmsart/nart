@@ -17,12 +17,12 @@ will render the included glass sphere JSON scene and write the result to `output
 
 There are also optional flags that can be used to override the various rendering parameters:
 ```
--imageWidth / -w
--imageHeight / -h
--bucketSize / -b
--spp / -s
--filterWidth / -f
--rougheningFactor / -r
+--imageWidth / -w
+--imageHeight / -h
+--bucketSize / -b
+--spp / -s
+--filterWidth / -f
+--rougheningFactor / -r
 ```
 
 For example, running:
