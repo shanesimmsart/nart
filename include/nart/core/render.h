@@ -19,6 +19,7 @@ struct RenderParams {
     uint32_t imageHeight = 0;
     uint32_t bucketSize = 0;
     uint32_t spp = 0;
+    uint32_t bounces = 0;
     float filterWidth = -1.f;
     float rougheningFactor = -1.f;
 };
@@ -51,7 +52,7 @@ public:
 
     glm::vec3 EstimateDirect(const glm::vec3 wo, BSDF& bsdf,
                              const Intersection& isect, const Ray& ray,
-                             RNG& rng, uint8_t& flags) const;
+                             RNG& rng, uint8_t& flags, float eta_outer) const;
 
     std::vector<Pixel> Render() const;
 
@@ -71,7 +72,7 @@ private:
     uint32_t totalWidth;
     uint32_t totalHeight;
 
-    const float shadowBias = 0.01f;
+    const float shadowBias = 0.001f;
 };
 
 using RenderSessionPtr = std::unique_ptr<RenderSession>;

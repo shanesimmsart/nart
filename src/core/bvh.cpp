@@ -66,11 +66,13 @@ void BVH::Chunk::Insert(const TriMesh& mesh, const uint32_t& index) {
 bool BVH::Chunk::Intersect(const Ray& ray, Intersection& isect) const {
     bool hit = false;
     for (const TriangleIndex& triangleIndex : triangleIndices) {
-        if (triangleIndex.mesh.triangles[triangleIndex.index].Intersect(
+        if (triangleIndex.mesh.GetTriangle(triangleIndex.index).Intersect(
                 ray, isect)) {
             hit = true;
             isect.material = triangleIndex.mesh.GetMaterial();
             if (!isect.material) return false;
+            isect.meshID = triangleIndex.mesh.GetMeshID();
+            isect.priority = triangleIndex.mesh.GetPriority();
         }
     }
     return hit;
@@ -83,7 +85,7 @@ void BVH::Chunk::CalculateBounds() {
     normals[2] = glm::vec3(0, 0, 1);
 
     for (TriangleIndex triangleIndex : triangleIndices) {
-        Triangle triangle = triangleIndex.mesh.triangles[triangleIndex.index];
+        Triangle triangle = triangleIndex.mesh.GetTriangle(triangleIndex.index);
 
         bboxMin = glm::min(bboxMin, triangle.v0);
         bboxMax = glm::max(bboxMax, triangle.v0);
@@ -253,8 +255,11 @@ BVH::BVH(std::vector<TriMeshPtr>&& _meshes) : meshes(std::move(_meshes)) {
     glm::vec3 sceneMax(-Infinity);
     glm::vec3 sceneMin(Infinity);
     for (const TriMeshPtr& mesh : meshes) {
-        numTriangles += mesh->triangles.size();
-        for (Triangle triangle : mesh->triangles) {
+        numTriangles += mesh->GetNumTriangles();
+
+        for (uint32_t i = 0; i < mesh->GetNumTriangles(); ++i) {
+            const Triangle& triangle = mesh->GetTriangle(i);
+
             sceneMax = glm::max(triangle.v0, sceneMax);
             sceneMin = glm::min(triangle.v0, sceneMin);
 
@@ -288,10 +293,10 @@ BVH::BVH(std::vector<TriMeshPtr>&& _meshes) : meshes(std::move(_meshes)) {
 
     // Add triangles to chunks
     for (const TriMeshPtr& mesh : meshes) {
-        for (uint32_t i = 0; i < mesh->triangles.size(); ++i) {
-            glm::vec3 triangleMin =
-                glm::min(glm::min(mesh->triangles[i].v0, mesh->triangles[i].v1),
-                         mesh->triangles[i].v2) -
+        for (uint32_t i = 0; i < mesh->GetNumTriangles(); ++i) {
+            const Triangle& triangle = mesh->GetTriangle(i);
+
+            glm::vec3 triangleMin = glm::min(glm::min(triangle.v0, triangle.v1), triangle.v2) -
                 sceneMin;
             glm::vec3 chunkCoords =
                 glm::floor((triangleMin / sceneSize) * resolution);

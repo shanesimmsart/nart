@@ -23,7 +23,7 @@ Ray PinholeCamera::CastRay(const glm::vec2& imageSample,
 
     glm::vec4 o = glm::vec4(0.f, 0.f, 0.f, 1.f);
     glm::vec4 d(px, py, -1.f, 0.f);
-    glm::normalize(d);
+    d = glm::normalize(d);
 
     // Transform ray into world-space using camera transform
     o = o * cameraToWorld;

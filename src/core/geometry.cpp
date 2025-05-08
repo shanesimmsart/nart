@@ -113,6 +113,22 @@ bool Triangle::Intersect(const Ray& ray, Intersection& isect) const {
     return true;
 }
 
-TriMesh::TriMesh(MaterialPtr&& material) : material(std::move(material)) {}
+TriMesh::TriMesh(std::vector<Triangle>&& tris, MaterialPtr&& material,
+                 uint32_t meshID, uint8_t priority)
+    : triangles(std::move(tris)), material(std::move(material)), meshID(meshID), priority(priority) {
+    numTriangles = triangles.size();
+}
+
+const Triangle& TriMesh::GetTriangle(uint32_t index) const {
+    if (index < numTriangles) {
+        return triangles[index];
+    }
+}
+
+const uint32_t TriMesh::GetNumTriangles() const { return numTriangles; }
+
+const uint32_t TriMesh::GetMeshID() const { return meshID; }
+
+const uint8_t TriMesh::GetPriority() const { return priority; }
 
 Material* TriMesh::GetMaterial() const { return material.get(); }
