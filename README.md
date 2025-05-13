@@ -44,6 +44,7 @@ will override the spp set in the JSON scene file to 64.
   - Roughening over paths to improve sampling of caustics
   - Texture / normal mapping
   - Environment map importance sampling
+  - Nested dielectrics
 
 ## Requirements:
 Supported operating systems:
