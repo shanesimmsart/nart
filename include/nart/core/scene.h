@@ -38,7 +38,8 @@ private:
 
     TriMeshPtr LoadMeshFromFile(const std::string& filePath,
                                 glm::mat4& objectToWorld,
-                                MaterialPtr&& material, uint32_t meshID, uint8_t priority = 0) const;
+                                MaterialPtr&& material, uint32_t meshID,
+                                uint8_t priority = 0) const;
 
     void LoadMeshes(nlohmann::json& json);
 

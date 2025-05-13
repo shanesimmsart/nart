@@ -71,7 +71,7 @@ glm::vec3 DielectricBRDF::f(const glm::vec3& wo, const glm::vec3& wi,
         float woDotWh = glm::dot(wo, wh);
 
         float num = g * d * (1.f - Fr) * glm::abs(wiDotWh) *
-                    glm::abs(woDotWh); // * eta_o * eta_o
+                    glm::abs(woDotWh);  // * eta_o * eta_o
         float denom = ((eta_i * wiDotWh) + (eta_o * woDotWh)) *
                       ((eta_i * wiDotWh) + (eta_o * woDotWh)) *
                       glm::abs(wo.z * wi.z);
@@ -92,7 +92,7 @@ glm::vec3 DielectricBRDF::Sample_f(const glm::vec3& wo, glm::vec3& wi,
         flags |= TRANSMISSIVE;
         return tau;
     }
-    
+
     if (use_alpha_prime)
         alpha = alpha_prime;
     else
@@ -192,7 +192,7 @@ float DielectricBRDF::Pdf(const glm::vec3& wo, const glm::vec3& wi,
     if (eta_o == eta_i) {
         return 0.f;
     }
-    
+
     if (use_alpha_prime)
         alpha = alpha_prime;
     else

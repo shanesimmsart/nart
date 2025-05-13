@@ -53,7 +53,8 @@ glm::vec3 TorranceSparrowBRDF::f(const glm::vec3& wo, const glm::vec3& wi,
 glm::vec3 TorranceSparrowBRDF::Sample_f(const glm::vec3& wo, glm::vec3& wi,
                                         float sample1D, glm::vec2 sample,
                                         float& pdf, uint8_t& flags,
-                                        float* alpha_i, bool use_alpha_prime, float eta_outer) {
+                                        float* alpha_i, bool use_alpha_prime,
+                                        float eta_outer) {
     if (use_alpha_prime)
         alpha = alpha_prime;
     else

@@ -66,8 +66,8 @@ void BVH::Chunk::Insert(const TriMesh& mesh, const uint32_t& index) {
 bool BVH::Chunk::Intersect(const Ray& ray, Intersection& isect) const {
     bool hit = false;
     for (const TriangleIndex& triangleIndex : triangleIndices) {
-        if (triangleIndex.mesh.GetTriangle(triangleIndex.index).Intersect(
-                ray, isect)) {
+        if (triangleIndex.mesh.GetTriangle(triangleIndex.index)
+                .Intersect(ray, isect)) {
             hit = true;
             isect.material = triangleIndex.mesh.GetMaterial();
             if (!isect.material) return false;
@@ -296,7 +296,8 @@ BVH::BVH(std::vector<TriMeshPtr>&& _meshes) : meshes(std::move(_meshes)) {
         for (uint32_t i = 0; i < mesh->GetNumTriangles(); ++i) {
             const Triangle& triangle = mesh->GetTriangle(i);
 
-            glm::vec3 triangleMin = glm::min(glm::min(triangle.v0, triangle.v1), triangle.v2) -
+            glm::vec3 triangleMin =
+                glm::min(glm::min(triangle.v0, triangle.v1), triangle.v2) -
                 sceneMin;
             glm::vec3 chunkCoords =
                 glm::floor((triangleMin / sceneSize) * resolution);

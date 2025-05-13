@@ -76,7 +76,8 @@ glm::mat4 Scene::MatrixFromVector(const std::vector<float>& vector) const {
 
 TriMeshPtr Scene::LoadMeshFromFile(const std::string& filePath,
                                    glm::mat4& objectToWorld,
-                                   MaterialPtr&& material, uint32_t meshID, uint8_t priority) const {
+                                   MaterialPtr&& material, uint32_t meshID,
+                                   uint8_t priority) const {
     std::ifstream file;
     uint32_t numFaces;
     file.open(filePath);
@@ -337,7 +338,8 @@ TriMeshPtr Scene::LoadMeshFromFile(const std::string& filePath,
         k += 3;
     }
 
-    return std::make_unique<TriMesh>(std::move(triangles), std::move(material), meshID, priority);
+    return std::make_unique<TriMesh>(std::move(triangles), std::move(material),
+                                     meshID, priority);
 }
 
 PatternPtr Scene::GetRho_d(const nlohmann::json& material) {
@@ -774,7 +776,8 @@ void Scene::LoadMeshes(nlohmann::json& json) {
 
     for (uint32_t i = 0; i < meshFilePaths.size(); ++i) {
         meshes.push_back(LoadMeshFromFile(meshFilePaths[i], meshTransforms[i],
-                                          std::move(meshMaterials[i]), i, meshPriorities[i]));
+                                          std::move(meshMaterials[i]), i,
+                                          meshPriorities[i]));
     }
 
     bvh = std::make_unique<BVH>(std::move(meshes));

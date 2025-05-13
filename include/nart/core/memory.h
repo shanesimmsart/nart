@@ -25,7 +25,7 @@ private:
     std::vector<std::pair<uint8_t*, size_t>> availableBlocks;
 };
 
-template<typename T>
+template <typename T>
 class ArenaAllocator {
 public:
     using value_type = T;
@@ -33,9 +33,10 @@ public:
     ArenaAllocator(MemoryArena* _memoryArena) : memoryArena(_memoryArena) {}
 
     template <typename U>
-    ArenaAllocator(const ArenaAllocator<U>& alloc) : memoryArena(alloc.memoryArena) {}
+    ArenaAllocator(const ArenaAllocator<U>& alloc)
+        : memoryArena(alloc.memoryArena) {}
 
-    T* allocate(size_t n) { 
+    T* allocate(size_t n) {
         return static_cast<T*>(memoryArena->Allocate(n * sizeof(T)));
     }
 

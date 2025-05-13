@@ -115,7 +115,10 @@ bool Triangle::Intersect(const Ray& ray, Intersection& isect) const {
 
 TriMesh::TriMesh(std::vector<Triangle>&& tris, MaterialPtr&& material,
                  uint32_t meshID, uint8_t priority)
-    : triangles(std::move(tris)), material(std::move(material)), meshID(meshID), priority(priority) {
+    : triangles(std::move(tris)),
+      material(std::move(material)),
+      meshID(meshID),
+      priority(priority) {
     numTriangles = triangles.size();
 }
 

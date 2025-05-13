@@ -73,18 +73,20 @@ public:
     }
 
     // Sum BxDFs
-    glm::vec3 f(const glm::vec3& wo, const glm::vec3& wi, bool use_alpha_prime, float eta_outer);
+    glm::vec3 f(const glm::vec3& wo, const glm::vec3& wi, bool use_alpha_prime,
+                float eta_outer);
 
     // Sample and sum BRDFs
     glm::vec3 Sample_f(const glm::vec3& wo, glm::vec3& wi, float sample1D,
                        glm::vec2 sample, float& pdf, uint8_t& flags,
-                       bool use_alpha_prime, float eta_outer, float* alpha_i = nullptr, float* eta_i = nullptr);
+                       bool use_alpha_prime, float eta_outer,
+                       float* alpha_i = nullptr, float* eta_i = nullptr);
 
     float Sample_eta(float sample1D) const;
 
     // Average pdfs
-    float Pdf(const glm::vec3& wo, const glm::vec3& wi,
-              bool use_alpha_prime, float eta_outer) const;
+    float Pdf(const glm::vec3& wo, const glm::vec3& wi, bool use_alpha_prime,
+              float eta_outer) const;
 
     void SetN(glm::vec3* n);
 

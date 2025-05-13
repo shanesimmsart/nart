@@ -61,7 +61,8 @@ struct Triangle {
 
 class TriMesh {
 public:
-    TriMesh(std::vector<Triangle>&& tris, MaterialPtr&& material, uint32_t meshID, uint8_t priority = 0);
+    TriMesh(std::vector<Triangle>&& tris, MaterialPtr&& material,
+            uint32_t meshID, uint8_t priority = 0);
 
     const Triangle& GetTriangle(uint32_t index) const;
 

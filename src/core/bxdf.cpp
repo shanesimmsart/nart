@@ -55,7 +55,8 @@ glm::vec3 BSDF::f(const glm::vec3& wo, const glm::vec3& wi,
 
 glm::vec3 BSDF::Sample_f(const glm::vec3& wo, glm::vec3& wi, float sample1D,
                          glm::vec2 sample, float& pdf, uint8_t& flags,
-                         bool use_alpha_prime, float eta_outer, float* alpha_i, float* eta_i) {
+                         bool use_alpha_prime, float eta_outer, float* alpha_i,
+                         float* eta_i) {
     // Choose a BxDF
     uint8_t bxdfIndex =
         static_cast<uint8_t>(sample1D * static_cast<float>(numBxDFs));
@@ -63,7 +64,8 @@ glm::vec3 BSDF::Sample_f(const glm::vec3& wo, glm::vec3& wi, float sample1D,
     // Remap sample to remove bias so we can reuse it
     sample1D = glm::fract(sample1D * static_cast<float>(numBxDFs));
 
-    glm::vec3 f = bxdfs[bxdfIndex]->Sample_f(wo, wi, sample1D, sample, pdf, flags,
+    glm::vec3 f =
+        bxdfs[bxdfIndex]->Sample_f(wo, wi, sample1D, sample, pdf, flags,
                                    alpha_i, use_alpha_prime, eta_outer);
     if (eta_i && (flags & TRANSMISSIVE)) {
         *eta_i = bxdfs[bxdfIndex]->Get_eta();
@@ -74,7 +76,8 @@ glm::vec3 BSDF::Sample_f(const glm::vec3& wo, glm::vec3& wi, float sample1D,
     if (!(flags & SPECULAR)) {
         for (uint8_t i = 0; i < numBxDFs; ++i) {
             if (i != bxdfIndex && !(bxdfs[i]->flags & SPECULAR)) {
-                float bxdfPdf = bxdfs[i]->Pdf(wo, wi, use_alpha_prime, eta_outer);
+                float bxdfPdf =
+                    bxdfs[i]->Pdf(wo, wi, use_alpha_prime, eta_outer);
                 if (bxdfPdf > 0.f) {
                     pdf += bxdfs[i]->Pdf(wo, wi, use_alpha_prime, eta_outer);
                     f += bxdfs[i]->f(wo, wi, use_alpha_prime, eta_outer);
@@ -96,8 +99,8 @@ float BSDF::Sample_eta(float sample1D) const {
     return bxdfs[bxdfIndex]->Get_eta();
 }
 
-float BSDF::Pdf(const glm::vec3& wo, const glm::vec3& wi,
-                bool use_alpha_prime, float eta_outer) const {
+float BSDF::Pdf(const glm::vec3& wo, const glm::vec3& wi, bool use_alpha_prime,
+                float eta_outer) const {
     float pdf = 0.f;
 
     for (uint8_t i = 0; i < numBxDFs; ++i) {

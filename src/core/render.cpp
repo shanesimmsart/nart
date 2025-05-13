@@ -8,8 +8,8 @@
 #define DEBUG_ISECTLIST 0
 
 #define DEBUG_BUCKET 0
-#define DEBUG_BUCKET_X 36 // 32
-#define DEBUG_BUCKET_Y 30 // 23
+#define DEBUG_BUCKET_X 36
+#define DEBUG_BUCKET_Y 30
 
 #define BSDF_SAMPLING 1
 #define LIGHT_SAMPLING 1
@@ -72,13 +72,37 @@ void RenderSession::AddSample(const float* filterTable,
     }
 }
 
+bool RenderSession::IsectIsValid(
+    const Intersection& isect,
+    const std::vector<IntersectionInfo, ArenaAllocator<IntersectionInfo>>&
+        isectList,
+    float& eta_outer) const {
+    // Update outer eta for nested dielectrics
+    eta_outer = 1.f;
+
+    if (!isectList.empty())
+        if (isectList.end()[-1].meshID != isect.meshID)
+            eta_outer = isectList.end()[-1].eta;
+        else if (isectList.size() >= 2)
+            eta_outer = isectList.end()[-2].eta;
+
+    // Check if intersection is lower priority and
+    // should therefore be ignored for nested dielectrics
+    for (auto elem : isectList) {
+        if (isect.priority < elem.priority) {
+            return false;
+            break;
+        }
+    }
+
+    return true;
+}
+
 glm::vec3 RenderSession::EstimateDirect(const glm::vec3 wo, BSDF& bsdf,
                                         const Intersection& isect,
                                         const Ray& ray, RNG& rng,
                                         uint8_t& flags, float eta_outer) const {
     glm::vec3 L = glm::vec3(0.f);
-
-    // return glm::vec3(isect.st, 0.f);
 
     glm::vec3 wi;
     glm::vec3 Li;
@@ -158,14 +182,6 @@ glm::vec3 RenderSession::EstimateDirect(const glm::vec3 wo, BSDF& bsdf,
     return L * numLights;
 }
 
-struct IntersectionInfo {
-    IntersectionInfo(uint32_t meshID, uint8_t priority, float eta) : meshID(meshID), priority(priority), eta(eta) {}
-
-    uint32_t meshID = -1;
-    uint8_t priority = 0;
-    float eta = 1.f;
-};
-
 std::vector<Pixel> RenderSession::RenderTile(const float* filterTable,
                                              uint32_t x0, uint32_t x1,
                                              uint32_t y0, uint32_t y1) const {
@@ -173,7 +189,7 @@ std::vector<Pixel> RenderSession::RenderTile(const float* filterTable,
     MemoryArena memoryArena = MemoryArena();
 
     for (uint32_t y = y0; y < y1; ++y) {
-        for (uint32_t x = x0; x < x1; ++x) { 
+        for (uint32_t x = x0; x < x1; ++x) {
             // Create stratified image samples in a Latin square pattern
             RNG rng;
             rng.Seed(y * totalWidth + x);
@@ -182,24 +198,22 @@ std::vector<Pixel> RenderSession::RenderTile(const float* filterTable,
             LatinSquare(rng, params.spp, imageSamples);
 
             for (uint32_t i = 0; i < params.spp; ++i) {
-#if DEBUG_ISECTLIST
-                std::cout << "\n\nNEW LIST\n--------\n\n";
-#endif
-                // List of IDs and priorities of intersections
-                std::vector<IntersectionInfo, ArenaAllocator<IntersectionInfo>>
-                    isectList{ArenaAllocator<IntersectionInfo>(&memoryArena)};
-                isectList.reserve(params.bounces);
-
                 glm::vec2 imageSample = imageSamples[i];
 
                 const Camera& camera = scene.GetCamera();
                 Ray ray = camera.CastRay(imageSample, params.imageWidth,
                                          params.imageHeight, x, y);
 
+                // List of IDs and priorities of intersections
+                IsectInfoList isectList{
+                    ArenaAllocator<IntersectionInfo>(&memoryArena)};
+                isectList.reserve(params.bounces);
+
                 // Radiance
                 glm::vec3 L(0.f, 0.f, 0.f);
                 float alpha = 0.f;
-                // Currently assuming camera is always sitting inside of a vacuum
+                // Currently assuming camera is always sitting inside of a
+                // vacuum
                 float eta_sampled = 1.f;
                 float eta_outer = 1.f;
                 Intersection isect;
@@ -229,41 +243,21 @@ std::vector<Pixel> RenderSession::RenderTile(const float* filterTable,
                     }
 
                     if (scene.Intersect(ray, isect)) {
-
-                        if (bounce == 0) alpha = 1.f;
-
                         BSDF bsdf = isect.material->CreateBSDF(
                             isect, alphaTweak, memoryArena);
 
-                        glm::vec3 wo = bsdf.ToLocal(-ray.d);
+                        if (IsectIsValid(isect, isectList, eta_outer)) {
+                            if (bounce == 0) alpha = 1.f;
 
-                        // Update outer eta for nested dielectrics
-                        eta_outer = 1.f;
+                            glm::vec3 wo = bsdf.ToLocal(-ray.d);
 
-                        if (!isectList.empty())
-                            if (isectList.end()[-1].meshID != isect.meshID)
-                                eta_outer = isectList.end()[-1].eta;
-                            else if (isectList.size() >= 2)
-                                eta_outer = isectList.end()[-2].eta;
+                            // Estimate direct lighting
+                            uint8_t directFlags = 0;
+                            L += EstimateDirect(wo, bsdf, isect, ray, rng,
+                                                directFlags, eta_outer) *
+                                 beta;
 
-                        // Estimate direct lighting
-                        uint8_t directFlags = 0;
-                        L += EstimateDirect(wo, bsdf, isect, ray, rng,
-                                            directFlags, eta_outer) *
-                             beta;
-
-                        // Check if intersection is lower priority and
-                        // should therefore be ignored for nested dielectrics
-                        bool lowerPrio = false;
-                        for (auto elem : isectList) {
-                            if (isect.priority < elem.priority) {
-                                lowerPrio = true;
-                                break;
-                            }
-                        }
-
-                        // Spawn new ray
-                        if (!lowerPrio) {
+                            // Spawn new ray
                             glm::vec2 scatteringSample(rng.UniformFloat(),
                                                        rng.UniformFloat());
                             float bsdfSample = rng.UniformFloat();
@@ -275,8 +269,8 @@ std::vector<Pixel> RenderSession::RenderTile(const float* filterTable,
 
                             glm::vec3 f = bsdf.Sample_f(
                                 wo, wi, bsdfSample, scatteringSample,
-                                scatteringPdf, flags, 0, eta_outer,
-                                &alpha_i, &eta_sampled);
+                                scatteringPdf, flags, 0, eta_outer, &alpha_i,
+                                &eta_sampled);
 
                             // Sample for new ray
                             if (scatteringPdf <= 0.f) break;
@@ -289,8 +283,7 @@ std::vector<Pixel> RenderSession::RenderTile(const float* filterTable,
                         }
 
                         else {
-                            ray = Ray(isect.p + ray.d * shadowBias,
-                                      ray.d);
+                            ray = Ray(isect.p + ray.d * shadowBias, ray.d);
                             flags = TRANSMISSIVE;
 
                             float bsdfSample = rng.UniformFloat();
@@ -299,52 +292,11 @@ std::vector<Pixel> RenderSession::RenderTile(const float* filterTable,
 
                         // Add intersection info to list
                         if (flags & TRANSMISSIVE) {
-                            bool inList = false;
-                            uint32_t matchingIDIndex = 0;
-
-                            // Check if intersected mesh already in isectList
-                            for (uint32_t k = isectList.size(); k-- > 0;) {
-                                if (isectList[k].meshID == isect.meshID) {
-                                    inList = true;
-                                    matchingIDIndex = k;
-                                    break;
-                                }
-                            }
-
-                            // If it isn't, we are entering said mesh, and add
-                            // it to the list
-                            if (!inList) {
-                                isectList.emplace_back(IntersectionInfo(
-                                    isect.meshID, isect.priority, eta_sampled));
-                            }
-
-                            // If it is, we are exiting it, and it must be
-                            // removed
-                            else {
-                                isectList.erase(isectList.begin() +
-                                                matchingIDIndex);
-                            }
+                            UpdateIsectList(isectList, isect, eta_sampled);
                         }
-
-#if DEBUG_ISECTLIST
-                        std::cout << "Hit: " << isect.meshID << "\n\n";
-                        std::cout << ray.d.x << ", " << ray.d.y << ", "
-                                  << ray.d.z << "\n\n";
-
-                        for (IntersectionInfo elem : isectList) {  // 524
-                            std::cout << "ID: " << elem.meshID << "\n";
-                            std::cout << "Prio: " << (int)elem.priority << "\n";
-                            std::cout << "Object eta: " << elem.eta << "\n\n";
-                        }
-                        std::cout << "Outer eta: " << eta_outer
-                                  << "\n--------------\n\n";
-                        int nasdf = 2;
-#endif
-
-                        // std::cout << isect.p.x << " " << isect.p.y << " " << isect.p.z << "\n";
 
                         // Russian roulette
-                        float q = glm::max( 
+                        float q = glm::max(
                             (beta.x + beta.y + beta.z) * 0.33333f, 0.f);
 
                         if (bounce > 3) {
@@ -356,6 +308,7 @@ std::vector<Pixel> RenderSession::RenderTile(const float* filterTable,
                                 break;
                         }
 
+                        // Reset intersection
                         isect = Intersection();
                     }
 
@@ -375,6 +328,8 @@ std::vector<Pixel> RenderSession::RenderTile(const float* filterTable,
                 // Add sample to pixels within filter width
                 AddSample(filterTable, sampleCoords, glm::vec4(L, alpha),
                           pixels);
+
+                // Release memory arena for next sample
                 memoryArena.Refresh();
             }
         }
@@ -649,7 +604,8 @@ std::vector<std::unique_ptr<RenderSession>> LoadSessions(
             if (elem["bucketSize"].is_null() && params.bucketSize == 0)
                 params.bucketSize = 16;
             if (elem["spp"].is_null() && params.spp == 0) params.spp = 1;
-            if (elem["bounces"].is_null() && params.bounces == 0) params.bounces = 10;
+            if (elem["bounces"].is_null() && params.bounces == 0)
+                params.bounces = 10;
             if (elem["filterWidth"].is_null() && params.filterWidth < 0.f)
                 params.filterWidth = 1.f;
             if (elem["rougheningFactor"].is_null() &&
