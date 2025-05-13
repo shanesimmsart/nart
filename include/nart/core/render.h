@@ -72,33 +72,7 @@ public:
                              RNG& rng, uint8_t& flags, float eta_outer) const;
 
     void UpdateIsectList(IsectInfoList& isectList, const Intersection& isect,
-                         float eta_sampled) const {
-        // Add intersection info to list
-        bool inList = false;
-        uint32_t matchingIDIndex = 0;
-
-        // Check if intersected mesh already in isectList
-        for (uint32_t k = isectList.size(); k-- > 0;) {
-            if (isectList[k].meshID == isect.meshID) {
-                inList = true;
-                matchingIDIndex = k;
-                break;
-            }
-        }
-
-        // If it isn't, we are entering said mesh, and add
-        // it to the list
-        if (!inList) {
-            isectList.emplace_back(
-                IntersectionInfo(isect.meshID, isect.priority, eta_sampled));
-        }
-
-        // If it is, we are exiting it, and it must be
-        // removed
-        else {
-            isectList.erase(isectList.begin() + matchingIDIndex);
-        }
-    }
+                         float eta_sampled) const;
 
     std::vector<Pixel> Render() const;
 

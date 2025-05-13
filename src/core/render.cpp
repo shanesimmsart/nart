@@ -182,6 +182,36 @@ glm::vec3 RenderSession::EstimateDirect(const glm::vec3 wo, BSDF& bsdf,
     return L * numLights;
 }
 
+void RenderSession::UpdateIsectList(IsectInfoList& isectList,
+                                    const Intersection& isect,
+                                    float eta_sampled) const {
+    // Add intersection info to list
+    bool inList = false;
+    uint32_t matchingIDIndex = 0;
+
+    // Check if intersected mesh already in isectList
+    for (uint32_t k = isectList.size(); k-- > 0;) {
+        if (isectList[k].meshID == isect.meshID) {
+            inList = true;
+            matchingIDIndex = k;
+            break;
+        }
+    }
+
+    // If it isn't, we are entering said mesh, and add
+    // it to the list
+    if (!inList) {
+        isectList.emplace_back(
+            IntersectionInfo(isect.meshID, isect.priority, eta_sampled));
+    }
+
+    // If it is, we are exiting it, and it must be
+    // removed
+    else {
+        isectList.erase(isectList.begin() + matchingIDIndex);
+    }
+}
+
 std::vector<Pixel> RenderSession::RenderTile(const float* filterTable,
                                              uint32_t x0, uint32_t x1,
                                              uint32_t y0, uint32_t y1) const {
