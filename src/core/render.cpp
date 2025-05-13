@@ -186,9 +186,8 @@ std::vector<Pixel> RenderSession::RenderTile(const float* filterTable,
                 std::cout << "\n\nNEW LIST\n--------\n\n";
 #endif
                 // List of IDs and priorities of intersections
-                // TODO: Write custom allocator so std::vector
-                // uses memoryArena instead of heap allocations
-                std::vector<IntersectionInfo> isectList;
+                std::vector<IntersectionInfo, ArenaAllocator<IntersectionInfo>>
+                    isectList{ArenaAllocator<IntersectionInfo>(&memoryArena)};
                 isectList.reserve(params.bounces);
 
                 glm::vec2 imageSample = imageSamples[i];
@@ -235,6 +234,7 @@ std::vector<Pixel> RenderSession::RenderTile(const float* filterTable,
 
                         BSDF bsdf = isect.material->CreateBSDF(
                             isect, alphaTweak, memoryArena);
+
                         glm::vec3 wo = bsdf.ToLocal(-ray.d);
 
                         // Update outer eta for nested dielectrics
@@ -365,9 +365,6 @@ std::vector<Pixel> RenderSession::RenderTile(const float* filterTable,
                         }
                         break;
                     }
-
-                    // Free memory before moving onto next sample
-                    memoryArena.Refresh();
                 }
 
                 // Transform image sample to "total" image coords (image
@@ -378,6 +375,7 @@ std::vector<Pixel> RenderSession::RenderTile(const float* filterTable,
                 // Add sample to pixels within filter width
                 AddSample(filterTable, sampleCoords, glm::vec4(L, alpha),
                           pixels);
+                memoryArena.Refresh();
             }
         }
     }
