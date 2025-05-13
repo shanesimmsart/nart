@@ -30,7 +30,7 @@ float TorranceSparrowBRDF::D(const glm::vec3 wh) const {
 }
 
 glm::vec3 TorranceSparrowBRDF::f(const glm::vec3& wo, const glm::vec3& wi,
-                                 bool use_alpha_prime) {
+                                 bool use_alpha_prime, float eta_outer) {
     if (use_alpha_prime)
         alpha = alpha_prime;
     else
@@ -43,7 +43,7 @@ glm::vec3 TorranceSparrowBRDF::f(const glm::vec3& wo, const glm::vec3& wi,
 
     float g = G(wo, wi);
     float d = D(wh);
-    float fr = Fresnel(1.f, eta, glm::dot(wh, wi));
+    float fr = Fresnel(eta_outer, eta, glm::dot(wh, wi));
 
     if (wo.z * wi.z == 0.f) return glm::vec3(0.f);
 
@@ -53,7 +53,8 @@ glm::vec3 TorranceSparrowBRDF::f(const glm::vec3& wo, const glm::vec3& wi,
 glm::vec3 TorranceSparrowBRDF::Sample_f(const glm::vec3& wo, glm::vec3& wi,
                                         float sample1D, glm::vec2 sample,
                                         float& pdf, uint8_t& flags,
-                                        float* alpha_i, bool use_alpha_prime) {
+                                        float* alpha_i, bool use_alpha_prime,
+                                        float eta_outer) {
     if (use_alpha_prime)
         alpha = alpha_prime;
     else
@@ -98,13 +99,15 @@ glm::vec3 TorranceSparrowBRDF::Sample_f(const glm::vec3& wo, glm::vec3& wi,
 
     wi = glm::normalize(wi);
 
-    pdf = Pdf(wo, wi, use_alpha_prime);
+    pdf = Pdf(wo, wi, use_alpha_prime, eta_outer);
 
-    return f(wo, wi, use_alpha_prime);
+    return f(wo, wi, use_alpha_prime, eta_outer);
 }
 
+float TorranceSparrowBRDF::Get_eta() const { return eta; }
+
 float TorranceSparrowBRDF::Pdf(const glm::vec3& wo, const glm::vec3& wi,
-                               bool use_alpha_prime) {
+                               bool use_alpha_prime, float eta_outer) {
     if (use_alpha_prime)
         alpha = alpha_prime;
     else

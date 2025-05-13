@@ -22,13 +22,17 @@ public:
     // Normal Distribution Function (Trowbridge-Reitz)
     float D(const glm::vec3 wh) const;
 
-    glm::vec3 f(const glm::vec3& wo, const glm::vec3& wi, bool use_alpha_prime);
+    glm::vec3 f(const glm::vec3& wo, const glm::vec3& wi, bool use_alpha_prime,
+                float eta_outer);
 
     glm::vec3 Sample_f(const glm::vec3& wo, glm::vec3& wi, float sample1D,
                        glm::vec2 sample, float& pdf, uint8_t& flags,
-                       float* alpha_i, bool use_alpha_prime);
+                       float* alpha_i, bool use_alpha_prime, float eta_outer);
 
-    float Pdf(const glm::vec3& wo, const glm::vec3& wi, bool use_alpha_prime);
+    float Get_eta() const;
+
+    float Pdf(const glm::vec3& wo, const glm::vec3& wi, bool use_alpha_prime,
+              float eta_outer);
 
 private:
     // alpha used when calculating BRDF

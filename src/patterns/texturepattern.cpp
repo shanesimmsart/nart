@@ -19,7 +19,7 @@ Piecewise2DDistribution::Piecewise2DDistribution(
         marginalPdf[j] *= invW;
         fInt += marginalPdf[j];
     }
-    fInt /= (float)height;
+    fInt *= invH;
 
     // Combining all 1D conditional PDFs for memory efficiency
     conditionalPdf.resize(width * height);
@@ -161,8 +161,12 @@ float TexturePattern::Pdf(const glm::vec2& sample) {
         return 1.f;
     }
 
-    else
-        return pdf2D->Pdf(sample);
+    else {
+        glm::vec2 s = sample;
+        s.x = glm::min(s.x, 0.9999f);
+        s.y = glm::min(s.y, 0.9999f);
+        return pdf2D->Pdf(s);
+    }
 }
 
 glm::vec3 TexturePattern::GetValue(const Intersection& isect) {

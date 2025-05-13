@@ -76,7 +76,8 @@ glm::mat4 Scene::MatrixFromVector(const std::vector<float>& vector) const {
 
 TriMeshPtr Scene::LoadMeshFromFile(const std::string& filePath,
                                    glm::mat4& objectToWorld,
-                                   MaterialPtr&& material) const {
+                                   MaterialPtr&& material, uint32_t meshID,
+                                   uint8_t priority) const {
     std::ifstream file;
     uint32_t numFaces;
     file.open(filePath);
@@ -310,22 +311,22 @@ TriMeshPtr Scene::LoadMeshFromFile(const std::string& filePath,
         }
     }
 
-    TriMeshPtr mesh = std::make_unique<TriMesh>(std::move(material));
-    mesh->triangles.reserve(numTris);
+    std::vector<Triangle> triangles;
+    triangles.reserve(numTris);
 
     // Now we can finally build our triangles
     j = 0;
     k = 0;
     for (uint32_t i = 0; i < numTris; ++i) {
         if (noUVs) {
-            mesh->triangles.emplace_back(
+            triangles.emplace_back(
                 verts[triIndices[j]], verts[triIndices[j + 1]],
                 verts[triIndices[j + 2]], norms[triNormIndices[j]],
                 norms[triNormIndices[j + 1]], norms[triNormIndices[j + 2]]);
         }
 
         else {
-            mesh->triangles.emplace_back(
+            triangles.emplace_back(
                 verts[triIndices[j]], verts[triIndices[j + 1]],
                 verts[triIndices[j + 2]], norms[triNormIndices[j]],
                 norms[triNormIndices[j + 1]], norms[triNormIndices[j + 2]],
@@ -337,7 +338,8 @@ TriMeshPtr Scene::LoadMeshFromFile(const std::string& filePath,
         k += 3;
     }
 
-    return mesh;
+    return std::make_unique<TriMesh>(std::move(triangles), std::move(material),
+                                     meshID, priority);
 }
 
 PatternPtr Scene::GetRho_d(const nlohmann::json& material) {
@@ -639,9 +641,10 @@ PatternPtr Scene::GetNormal(const nlohmann::json& material) {
     return nullptr;
 }
 
-void Scene::LoadMeshes(const nlohmann::json& json) {
+void Scene::LoadMeshes(nlohmann::json& json) {
     std::vector<std::string> meshFilePaths;
     std::vector<std::unique_ptr<Material>> meshMaterials;
+    std::vector<uint8_t> meshPriorities;
     std::vector<glm::mat4> meshTransforms;
 
     if (!json["meshes"].is_null()) {
@@ -649,8 +652,10 @@ void Scene::LoadMeshes(const nlohmann::json& json) {
 
         meshFilePaths.reserve(numMeshes);
         meshMaterials.reserve(numMeshes);
+        meshPriorities.reserve(numMeshes);
         meshTransforms.reserve(numMeshes);
 
+        // Load materials
         for (auto& elem : json["meshes"]) {
             std::string filePath = "";
             try {
@@ -730,6 +735,23 @@ void Scene::LoadMeshes(const nlohmann::json& json) {
             }
         }
 
+        // Load priorities
+        for (auto& elem : json["meshes"]) {
+            uint8_t priority = 0;
+
+            if (!elem["priority"].is_null()) {
+                try {
+                    priority = elem["priority"].get<uint8_t>();
+                } catch (nlohmann::json::exception& e) {
+                    std::cerr << "Error in mesh transform: " << e.what()
+                              << "\n";
+                }
+            }
+
+            meshPriorities.push_back(priority);
+        }
+
+        // Load transforms
         for (auto& elem : json["meshes"]) {
             std::vector<float> meshTransform = {1.f, 0.f, 0.f, 0.f, 0.f, 1.f,
                                                 0.f, 0.f, 0.f, 0.f, 1.f, 0.f,
@@ -754,7 +776,8 @@ void Scene::LoadMeshes(const nlohmann::json& json) {
 
     for (uint32_t i = 0; i < meshFilePaths.size(); ++i) {
         meshes.push_back(LoadMeshFromFile(meshFilePaths[i], meshTransforms[i],
-                                          std::move(meshMaterials[i])));
+                                          std::move(meshMaterials[i]), i,
+                                          meshPriorities[i]));
     }
 
     bvh = std::make_unique<BVH>(std::move(meshes));

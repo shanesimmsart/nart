@@ -19,7 +19,7 @@ glm::vec3 EnvironmentLight::Li(Intersection& lightIsect, const glm::vec3& p,
 
     if (pdf) {
         *pdf = Le->Pdf(lightIsect.st);
-        *pdf *= glm::one_over_pi<float>() * 0.25f;
+        *pdf *= glm::one_over_pi<float>() * 0.25f / glm::abs(glm::sin(theta));
     }
 
     lightIsect.tMax = 0x7f7fffff;
@@ -53,7 +53,7 @@ glm::vec3 EnvironmentLight::Sample_Li(Intersection& lightIsect,
     // lightIsect.st = glm::vec2(theta * glm::one_over_pi<float>(),
     //                           phi * glm::one_over_two_pi<float>());
 
-    pdf *= glm::one_over_pi<float>() * 0.25f;
+    pdf *= glm::one_over_pi<float>() * 0.25f / glm::abs(glm::sin(theta));
 
     lightIsect.tMax = 0x7f7fffff;
 
@@ -75,5 +75,5 @@ float EnvironmentLight::Pdf(Intersection& lightIsect, const glm::vec3& p,
 
     float pdf = Le->Pdf(lightIsect.st);
 
-    return pdf * glm::one_over_pi<float>() * 0.25f;
+    return pdf * glm::one_over_pi<float>() * 0.25f / glm::abs(glm::sin(theta));
 }

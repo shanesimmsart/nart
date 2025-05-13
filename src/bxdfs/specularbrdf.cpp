@@ -6,7 +6,7 @@ SpecularBRDF::SpecularBRDF(const glm::vec3& rho_s, float eta)
 }
 
 glm::vec3 SpecularBRDF::f(const glm::vec3& wo, const glm::vec3& wi,
-                          bool use_alpha_prime) {
+                          bool use_alpha_prime, float eta_outer) {
     // Probability of randomly sampling a delta function == 0
     return glm::vec3(0.f);
 }
@@ -14,7 +14,7 @@ glm::vec3 SpecularBRDF::f(const glm::vec3& wo, const glm::vec3& wi,
 glm::vec3 SpecularBRDF::Sample_f(const glm::vec3& wo, glm::vec3& wi,
                                  float sample1D, glm::vec2 sample, float& pdf,
                                  uint8_t& flags, float* alpha_i,
-                                 bool use_alpha_prime) {
+                                 bool use_alpha_prime, float eta_outer) {
     if (alpha_i != nullptr) *alpha_i = 0.f;
     flags = SPECULAR;
 
@@ -25,10 +25,12 @@ glm::vec3 SpecularBRDF::Sample_f(const glm::vec3& wo, glm::vec3& wi,
     // Mirror-reflection at grazing angles
     if (wi.z == 0.f) return glm::vec3(1.f);
 
-    return (rho_s * Fresnel(1.f, eta, wi.z)) / glm::abs(wi.z);
+    return (rho_s * Fresnel(eta_outer, eta, wi.z)) / glm::abs(wi.z);
 }
 
+float SpecularBRDF::Get_eta() const { return eta; }
+
 float SpecularBRDF::Pdf(const glm::vec3& wo, const glm::vec3& wi,
-                        bool use_alpha_prime) {
+                        bool use_alpha_prime, float eta_outer) {
     return 0.f;
 }

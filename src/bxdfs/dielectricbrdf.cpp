@@ -29,13 +29,13 @@ float DielectricBRDF::D(const glm::vec3 wh) const {
 }
 
 glm::vec3 DielectricBRDF::f(const glm::vec3& wo, const glm::vec3& wi,
-                            bool use_alpha_prime) {
+                            bool use_alpha_prime, float eta_outer) {
     if (use_alpha_prime)
         alpha = alpha_prime;
     else
         alpha = alpha_0;
 
-    float eta_o = 1.f;
+    float eta_o = eta_outer;
     float eta_i = eta;
 
     if (wo.z < 0.f) std::swap(eta_o, eta_i);
@@ -70,8 +70,8 @@ glm::vec3 DielectricBRDF::f(const glm::vec3& wo, const glm::vec3& wi,
         float wiDotWh = glm::dot(wi, wh);
         float woDotWh = glm::dot(wo, wh);
 
-        float num = g * d * (1.f - Fr) * eta_o * eta_o * glm::abs(wiDotWh) *
-                    glm::abs(woDotWh);
+        float num = g * d * (1.f - Fr) * glm::abs(wiDotWh) *
+                    glm::abs(woDotWh);  // * eta_o * eta_o
         float denom = ((eta_i * wiDotWh) + (eta_o * woDotWh)) *
                       ((eta_i * wiDotWh) + (eta_o * woDotWh)) *
                       glm::abs(wo.z * wi.z);
@@ -82,7 +82,17 @@ glm::vec3 DielectricBRDF::f(const glm::vec3& wo, const glm::vec3& wi,
 glm::vec3 DielectricBRDF::Sample_f(const glm::vec3& wo, glm::vec3& wi,
                                    float sample1D, glm::vec2 sample, float& pdf,
                                    uint8_t& flags, float* alpha_i,
-                                   bool use_alpha_prime) {
+                                   bool use_alpha_prime, float eta_outer) {
+    float eta_o = eta_outer;
+    float eta_i = eta;
+
+    if (eta_o == eta_i) {
+        wi = -wo;
+        pdf = 0.f;
+        flags |= TRANSMISSIVE;
+        return tau;
+    }
+
     if (use_alpha_prime)
         alpha = alpha_prime;
     else
@@ -90,7 +100,7 @@ glm::vec3 DielectricBRDF::Sample_f(const glm::vec3& wo, glm::vec3& wi,
 
     if (alpha_i != nullptr) *alpha_i = alpha;
     flags = SPECULAR;
-    if (alpha > 0.001f) flags = GLOSSY;
+    if (alpha > 0.0001f) flags = GLOSSY;
     if (alpha >= 1.0f) flags = DIFFUSE;
 
     // Transform wo from ellipsoid to hemisphere
@@ -129,8 +139,6 @@ glm::vec3 DielectricBRDF::Sample_f(const glm::vec3& wo, glm::vec3& wi,
     wh = glm::normalize(wh);
 
     // Refract
-    float eta_o = 1.f;
-    float eta_i = eta;
     if (wo.z < 0.f) std::swap(eta_o, eta_i);
     float Fr = Fresnel(eta_o, eta_i, glm::abs(glm::dot(wh, wo)));
 
@@ -139,9 +147,9 @@ glm::vec3 DielectricBRDF::Sample_f(const glm::vec3& wo, glm::vec3& wi,
         wi = Reflect(wo, wh);
         wi = glm::normalize(wi);
 
-        pdf = Pdf(wo, wi, use_alpha_prime) * Fr;
+        pdf = Pdf(wo, wi, use_alpha_prime, eta_outer) * Fr;
 
-        return f(wo, wi, use_alpha_prime);
+        return f(wo, wi, use_alpha_prime, eta_outer);
     }
 
     // Refract
@@ -155,9 +163,9 @@ glm::vec3 DielectricBRDF::Sample_f(const glm::vec3& wo, glm::vec3& wi,
         wi = Reflect(wo, wh);
         wi = glm::normalize(wi);
 
-        pdf = Pdf(wo, wi, use_alpha_prime) * (1.f - Fr);
+        pdf = Pdf(wo, wi, use_alpha_prime, eta_outer) * (1.f - Fr);
 
-        return f(wo, wi, use_alpha_prime);
+        return f(wo, wi, use_alpha_prime, eta_outer);
     }
 
     flags |= TRANSMISSIVE;
@@ -169,13 +177,22 @@ glm::vec3 DielectricBRDF::Sample_f(const glm::vec3& wo, glm::vec3& wi,
     if (glm::dot(wo, wh) < 0.f) d *= -1.f;
     wi = glm::normalize(c + d);
 
-    pdf = Pdf(wo, wi, use_alpha_prime) * (1.f - Fr);
+    pdf = Pdf(wo, wi, use_alpha_prime, eta_outer) * (1.f - Fr);
 
-    return f(wo, wi, use_alpha_prime);
+    return f(wo, wi, use_alpha_prime, eta_outer);
 }
 
+float DielectricBRDF::Get_eta() const { return eta; }
+
 float DielectricBRDF::Pdf(const glm::vec3& wo, const glm::vec3& wi,
-                          bool use_alpha_prime) {
+                          bool use_alpha_prime, float eta_outer) {
+    float eta_o = eta_outer;
+    float eta_i = eta;
+
+    if (eta_o == eta_i) {
+        return 0.f;
+    }
+
     if (use_alpha_prime)
         alpha = alpha_prime;
     else
@@ -194,8 +211,6 @@ float DielectricBRDF::Pdf(const glm::vec3& wo, const glm::vec3& wi,
     }
 
     // Refract
-    float eta_o = 1.f;
-    float eta_i = eta;
     if (wo.z < 0.f) std::swap(eta_o, eta_i);
     glm::vec3 wh = glm::normalize((eta_o * wo) + (eta_i * wi));
     if (wh.z < 0.f) wh *= -1.f;

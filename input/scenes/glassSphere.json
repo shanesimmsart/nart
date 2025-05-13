@@ -5,6 +5,7 @@
             "imageHeight": 720,
             "bucketSize": 16,
             "spp": 64,
+            "bounces": 10,
             "filterWidth": 2,
             "rougheningFactor": 0.2
         }
@@ -25,7 +26,21 @@
             "eta": 1.5,
             "roughness": 0
         },
+        "priority": 2,
         "transform": [ 0.500000, 0.000000, 0.000000, -0.758663, 0.000000, 0.500000, 0.000000, -3.285489, 0.000000, 0.000000, 0.500000, 0.500000, 0.000000, 0.000000, 0.000000, 1.000000 ]
+        },
+        {
+        "filePath": "input//meshes//sphere.geo",
+        "material": {
+            "type": "glass",
+            "rho_d": [0.03, 0.09, 0.09],
+            "rho_s": [1, 1, 1],
+            "tau": [1, 1, 1],
+            "eta": 1.0,
+            "roughness": 0
+        },
+        "priority": 3,
+        "transform": [ 0.4, 0.000000, 0.000000, -0.758663, 0.000000, 0.4, 0.000000, -3.285490, 0.000000, 0.000000, 0.4, 0.500000, 0.000000, 0.000000, 0.000000, 1.000000 ]
         },
         {
         "filePath": "input//meshes//backdrop.geo",
@@ -39,7 +54,7 @@
 
     "lights" : [
         {
-            "type": "ring",
+            "type": "disk",
             "radius": 0.5,
             "innerRadius": 0.4,
             "Le": [1, 1, 1],

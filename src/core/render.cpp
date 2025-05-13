@@ -5,9 +5,11 @@
 
 #define FilterTableResolution 64
 
+#define DEBUG_ISECTLIST 0
+
 #define DEBUG_BUCKET 0
-#define DEBUG_BUCKET_X 37
-#define DEBUG_BUCKET_Y 21
+#define DEBUG_BUCKET_X 36
+#define DEBUG_BUCKET_Y 30
 
 #define BSDF_SAMPLING 1
 #define LIGHT_SAMPLING 1
@@ -70,13 +72,37 @@ void RenderSession::AddSample(const float* filterTable,
     }
 }
 
+bool RenderSession::IsectIsValid(
+    const Intersection& isect,
+    const std::vector<IntersectionInfo, ArenaAllocator<IntersectionInfo>>&
+        isectList,
+    float& eta_outer) const {
+    // Update outer eta for nested dielectrics
+    eta_outer = 1.f;
+
+    if (!isectList.empty())
+        if (isectList.end()[-1].meshID != isect.meshID)
+            eta_outer = isectList.end()[-1].eta;
+        else if (isectList.size() >= 2)
+            eta_outer = isectList.end()[-2].eta;
+
+    // Check if intersection is lower priority and
+    // should therefore be ignored for nested dielectrics
+    for (auto elem : isectList) {
+        if (isect.priority < elem.priority) {
+            return false;
+            break;
+        }
+    }
+
+    return true;
+}
+
 glm::vec3 RenderSession::EstimateDirect(const glm::vec3 wo, BSDF& bsdf,
                                         const Intersection& isect,
                                         const Ray& ray, RNG& rng,
-                                        uint8_t& flags) const {
+                                        uint8_t& flags, float eta_outer) const {
     glm::vec3 L = glm::vec3(0.f);
-
-    // return glm::vec3(isect.st, 0.f);
 
     glm::vec3 wi;
     glm::vec3 Li;
@@ -97,7 +123,7 @@ glm::vec3 RenderSession::EstimateDirect(const glm::vec3 wo, BSDF& bsdf,
     float bsdfSample = rng.UniformFloat();
 
     f = bsdf.Sample_f(wo, wi, bsdfSample, scatterSample, scatteringPdf, flags,
-                      1);
+                      1, eta_outer);
 
     if (scatteringPdf > 0.f) {
         float flip = wi.z > 0.f ? 1.f : -1.f;
@@ -140,9 +166,9 @@ glm::vec3 RenderSession::EstimateDirect(const glm::vec3 wo, BSDF& bsdf,
     Ray shadowRay(isect.p + (isect.gn * shadowBias * flip), wiWorld);
     if (!scene.GetBVH().Intersect(shadowRay, lightIsect) && lightingPdf > 0.f) {
         float weight = 1.f;
-        scatteringPdf = bsdf.Pdf(wo, wi, 1);
+        scatteringPdf = bsdf.Pdf(wo, wi, 1, eta_outer);
         if (scatteringPdf > 0.f) {
-            glm::vec3 f = bsdf.f(wo, wi, 1);
+            glm::vec3 f = bsdf.f(wo, wi, 1, eta_outer);
 #if BSDF_SAMPLING
             weight =
                 (lightingPdf * lightingPdf) /
@@ -178,25 +204,34 @@ std::vector<Pixel> RenderSession::RenderTile(const float* filterTable,
                 Ray ray = camera.CastRay(imageSample, params.imageWidth,
                                          params.imageHeight, x, y);
 
+                // List of IDs and priorities of intersections
+                IsectInfoList isectList{
+                    ArenaAllocator<IntersectionInfo>(&memoryArena)};
+                isectList.reserve(params.bounces);
+
                 // Radiance
                 glm::vec3 L(0.f, 0.f, 0.f);
                 float alpha = 0.f;
+                // Currently assuming camera is always sitting inside of a
+                // vacuum
+                float eta_sampled = 1.f;
+                float eta_outer = 1.f;
                 Intersection isect;
                 // Throughput
                 glm::vec3 beta(1.f);
-                uint8_t flags;
+                uint8_t flags = 0;
 
                 float gamma = params.rougheningFactor * params.rougheningFactor;
                 float alphaTweak = 1.f;
 
-                for (uint32_t bounce = 0; bounce < MAX_BOUNCES; ++bounce) {
+                for (uint32_t bounce = 0; bounce < params.bounces; ++bounce) {
                     // Light intersections
                     float lightTMax = isect.tMax;
                     bool lightHit = false;
                     glm::vec3 Le(0.f);
-                    for (uint8_t i = 0; i < scene.GetNumLights(); ++i) {
+                    for (uint8_t j = 0; j < scene.GetNumLights(); ++j) {
                         Intersection lightIsect;
-                        const Light& light = scene.GetLight(i);
+                        const Light& light = scene.GetLight(j);
                         glm::vec3 Li = light.Li(lightIsect, ray.o, ray.d);
                         if (lightIsect.tMax < lightTMax) {
                             Le = Li;
@@ -208,35 +243,57 @@ std::vector<Pixel> RenderSession::RenderTile(const float* filterTable,
                     }
 
                     if (scene.Intersect(ray, isect)) {
-                        if (bounce == 0) alpha = 1.f;
-
                         BSDF bsdf = isect.material->CreateBSDF(
                             isect, alphaTweak, memoryArena);
-                        glm::vec3 wo = bsdf.ToLocal(-ray.d);
 
-                        L += EstimateDirect(wo, bsdf, isect, ray, rng, flags) *
-                             beta;
+                        if (IsectIsValid(isect, isectList, eta_outer)) {
+                            if (bounce == 0) alpha = 1.f;
 
-                        // Spawn new ray
-                        glm::vec2 scatteringSample(rng.UniformFloat(),
-                                                   rng.UniformFloat());
-                        float bsdfSample = rng.UniformFloat();
+                            glm::vec3 wo = bsdf.ToLocal(-ray.d);
 
-                        float scatteringPdf = 0.f;
-                        // Sample for new alpha
-                        float alpha_i;
-                        glm::vec3 wi;
-                        glm::vec3 f =
-                            bsdf.Sample_f(wo, wi, bsdfSample, scatteringSample,
-                                          scatteringPdf, flags, 0, &alpha_i);
-                        // Sample for new ray
-                        if (scatteringPdf <= 0.f) break;
-                        alphaTweak = (1.f - (gamma * alpha_i)) * alphaTweak;
-                        beta *= (f / scatteringPdf) * glm::abs(wi.z);
-                        // Transform to world
-                        float flip = wi.z > 0.f ? 1.f : -1.f;
-                        ray = Ray(isect.p + (isect.gn * shadowBias * flip),
-                                  bsdf.ToWorld(wi));
+                            // Estimate direct lighting
+                            uint8_t directFlags = 0;
+                            L += EstimateDirect(wo, bsdf, isect, ray, rng,
+                                                directFlags, eta_outer) *
+                                 beta;
+
+                            // Spawn new ray
+                            glm::vec2 scatteringSample(rng.UniformFloat(),
+                                                       rng.UniformFloat());
+                            float bsdfSample = rng.UniformFloat();
+
+                            float scatteringPdf = 0.f;
+                            // Sample for new alpha
+                            float alpha_i;
+                            glm::vec3 wi;
+
+                            glm::vec3 f = bsdf.Sample_f(
+                                wo, wi, bsdfSample, scatteringSample,
+                                scatteringPdf, flags, 0, eta_outer, &alpha_i,
+                                &eta_sampled);
+
+                            // Sample for new ray
+                            if (scatteringPdf <= 0.f) break;
+                            alphaTweak = (1.f - (gamma * alpha_i)) * alphaTweak;
+                            beta *= (f / scatteringPdf) * glm::abs(wi.z);
+                            // Transform to world
+                            float flip = wi.z > 0.f ? 1.f : -1.f;
+                            ray = Ray(isect.p + (isect.gn * shadowBias * flip),
+                                      bsdf.ToWorld(wi));
+                        }
+
+                        else {
+                            ray = Ray(isect.p + ray.d * shadowBias, ray.d);
+                            flags = TRANSMISSIVE;
+
+                            float bsdfSample = rng.UniformFloat();
+                            eta_sampled = bsdf.Sample_eta(bsdfSample);
+                        }
+
+                        // Add intersection info to list
+                        if (flags & TRANSMISSIVE) {
+                            UpdateIsectList(isectList, isect, eta_sampled);
+                        }
 
                         // Russian roulette
                         float q = glm::max(
@@ -251,6 +308,7 @@ std::vector<Pixel> RenderSession::RenderTile(const float* filterTable,
                                 break;
                         }
 
+                        // Reset intersection
                         isect = Intersection();
                     }
 
@@ -260,9 +318,6 @@ std::vector<Pixel> RenderSession::RenderTile(const float* filterTable,
                         }
                         break;
                     }
-
-                    // Free memory before moving onto next sample
-                    memoryArena.Refresh();
                 }
 
                 // Transform image sample to "total" image coords (image
@@ -273,6 +328,9 @@ std::vector<Pixel> RenderSession::RenderTile(const float* filterTable,
                 // Add sample to pixels within filter width
                 AddSample(filterTable, sampleCoords, glm::vec4(L, alpha),
                           pixels);
+
+                // Release memory arena for next sample
+                memoryArena.Refresh();
             }
         }
     }
@@ -406,7 +464,7 @@ bool ParseRenderParamArguments(int argc, char* argv[], RenderParams& params) {
     for (uint8_t i = 3; i < argc; ++i) {
         std::string arg = argv[i];
 
-        if ((arg == "-imageWidth" || arg == "-w") && argc > i) {
+        if ((arg == "--imageWidth" || arg == "-w") && argc > i) {
             try {
                 params.imageWidth = std::stoi(argv[++i]);
             }
@@ -417,7 +475,7 @@ bool ParseRenderParamArguments(int argc, char* argv[], RenderParams& params) {
             }
         }
 
-        else if ((arg == "-imageHeight" || arg == "-h") && argc > i) {
+        else if ((arg == "--imageHeight" || arg == "-h") && argc > i) {
             try {
                 params.imageHeight = std::stoi(argv[++i]);
             }
@@ -428,7 +486,7 @@ bool ParseRenderParamArguments(int argc, char* argv[], RenderParams& params) {
             }
         }
 
-        else if ((arg == "-bucketSize" || arg == "-b") && argc > i) {
+        else if ((arg == "--bucketSize" || arg == "-b") && argc > i) {
             try {
                 params.bucketSize = std::stoi(argv[++i]);
             }
@@ -439,7 +497,7 @@ bool ParseRenderParamArguments(int argc, char* argv[], RenderParams& params) {
             }
         }
 
-        else if ((arg == "-spp" || arg == "-s") && argc > i) {
+        else if ((arg == "--spp" || arg == "-s") && argc > i) {
             try {
                 params.spp = std::stoi(argv[++i]);
             }
@@ -450,7 +508,18 @@ bool ParseRenderParamArguments(int argc, char* argv[], RenderParams& params) {
             }
         }
 
-        else if ((arg == "-filterWidth" || arg == "-f") && argc > i) {
+        else if ((arg == "--bounces" || arg == "-o") && argc > i) {
+            try {
+                params.bounces = std::stoi(argv[++i]);
+            }
+
+            catch (const std::invalid_argument& e) {
+                std::cerr << "Invalid bounces: " << argv[i] << std::endl;
+                return false;
+            }
+        }
+
+        else if ((arg == "--filterWidth" || arg == "-f") && argc > i) {
             try {
                 params.filterWidth = std::stof(argv[++i]);
             }
@@ -461,7 +530,7 @@ bool ParseRenderParamArguments(int argc, char* argv[], RenderParams& params) {
             }
         }
 
-        else if ((arg == "-rougheningFactor" || arg == "-r") && argc > i) {
+        else if ((arg == "--rougheningFactor" || arg == "-r") && argc > i) {
             try {
                 params.rougheningFactor = std::stof(argv[++i]);
             }
@@ -517,6 +586,8 @@ std::vector<std::unique_ptr<RenderSession>> LoadSessions(
                 params.bucketSize = elem["bucketSize"].get<uint32_t>();
             if (!elem["spp"].is_null() && params.spp == 0)
                 params.spp = elem["spp"].get<uint32_t>();
+            if (!elem["bounces"].is_null() && params.bounces == 0)
+                params.bounces = elem["bounces"].get<uint32_t>();
             if (!elem["filterWidth"].is_null() && params.filterWidth < 0.f)
                 params.filterWidth = elem["filterWidth"].get<float>();
             if (!elem["rougheningFactor"].is_null() &&
@@ -533,6 +604,8 @@ std::vector<std::unique_ptr<RenderSession>> LoadSessions(
             if (elem["bucketSize"].is_null() && params.bucketSize == 0)
                 params.bucketSize = 16;
             if (elem["spp"].is_null() && params.spp == 0) params.spp = 1;
+            if (elem["bounces"].is_null() && params.bounces == 0)
+                params.bounces = 10;
             if (elem["filterWidth"].is_null() && params.filterWidth < 0.f)
                 params.filterWidth = 1.f;
             if (elem["rougheningFactor"].is_null() &&
