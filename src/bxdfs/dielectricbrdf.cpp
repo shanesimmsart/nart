@@ -71,7 +71,7 @@ glm::vec3 DielectricBRDF::f(const glm::vec3& wo, const glm::vec3& wi,
         float woDotWh = glm::dot(wo, wh);
 
         float num = g * d * (1.f - Fr) * glm::abs(wiDotWh) *
-                    glm::abs(woDotWh);  // * eta_o * eta_o
+                    glm::abs(woDotWh) * eta_o * eta_o;
         float denom = ((eta_i * wiDotWh) + (eta_o * woDotWh)) *
                       ((eta_i * wiDotWh) + (eta_o * woDotWh)) *
                       glm::abs(wo.z * wi.z);
