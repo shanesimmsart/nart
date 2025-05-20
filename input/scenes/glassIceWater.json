@@ -1,10 +1,10 @@
 {
     "renderSessions": [
         {
-            "imageWidth": 1280,
-            "imageHeight": 720,
+            "imageWidth": 480,
+            "imageHeight": 854,
             "bucketSize": 16,
-            "spp": 1,
+            "spp": 4,
             "bounces": 32,
             "filterWidth": 2,
             "rougheningFactor": 0.5
@@ -12,13 +12,13 @@
     ],
 
     "camera": {
-        "fov": 11.5,
-        "transform": [0.941369, 0.058508, -0.332266, -4.799639, -0.337348, 0.150213, -0.929318, -13.528787, -0.004462, 0.986921, 0.161144, 4.320670, 0.000000, 0.000000, 0.000000, 1.000000]
+        "fov": 15,
+        "transform": [0.938877, 0.085380, -0.333498, -2.842458, -0.344226, 0.220471, -0.912634, -7.681357, -0.004394, 0.971650, 0.236385, 3.655841, 0.000000, 0.000000, 0.000000, 1.000000]
     },
 
     "meshes": [
         {
-        "filePath": "input//meshes//glassIceWater//water.geo",
+        "filePath": "input//meshes//glassIceWater//water2.geo",
         "material": {
             "type": "glass",
             "rho_s": [1, 1, 1],
@@ -64,7 +64,7 @@
         "transform": [ 1.000000, 0.000000, 0.000000, 0.000000, 0.000000, 1.000000, 0.000000, 0.000000, 0.000000, 0.000000, 1.000000, 0.000000, 0.000000, 0.000000, 0.000000, 1.000000 ]
         },
         {
-        "filePath": "input//meshes//glassIceWater//bubbles.geo",
+        "filePath": "input//meshes//glassIceWater//bubbles2.geo",
         "material": {
             "type": "glass",
             "rho_s": [1, 1, 1],

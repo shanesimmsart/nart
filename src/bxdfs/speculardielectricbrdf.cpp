@@ -74,8 +74,8 @@ glm::vec3 SpecularDielectricBRDF::Sample_f(const glm::vec3& wo, glm::vec3& wi,
 
         // Check hemisphere with gn
         glm::vec3 f =
-            glm::vec3(((1.f - Fr)) /
-                      glm::abs(wi.z));  // (eta_o / eta_i) * (eta_o / eta_i) *
+            glm::vec3(((eta_o / eta_i) * (eta_o / eta_i) * (1.f - Fr)) /
+                      glm::abs(wi.z));
         f *= tau;
 
         return f;

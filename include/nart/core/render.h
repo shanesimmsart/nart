@@ -71,6 +71,7 @@ public:
                              const Intersection& isect, const Ray& ray,
                              RNG& rng, uint8_t& flags, float eta_outer) const;
 
+
     void UpdateIsectList(IsectInfoList& isectList, const Intersection& isect,
                          float eta_sampled) const;
 

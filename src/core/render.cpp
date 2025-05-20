@@ -81,8 +81,14 @@ bool RenderSession::IsectIsValid(
     eta_outer = 1.f;
 
     if (!isectList.empty())
+        // If the medium we previously entered isn't the same as
+        // the one we just intersected, use that mediums IOR
         if (isectList.end()[-1].meshID != isect.meshID)
             eta_outer = isectList.end()[-1].eta;
+        // If it is the same we are exiting that medium,
+        // so set the IOR to the penultimate medium in
+        // the list, or keep IOR at 1 if there's nothing
+        // else in the list
         else if (isectList.size() >= 2)
             eta_outer = isectList.end()[-2].eta;
 
@@ -91,7 +97,6 @@ bool RenderSession::IsectIsValid(
     for (auto elem : isectList) {
         if (isect.priority < elem.priority) {
             return false;
-            break;
         }
     }
 
@@ -185,31 +190,22 @@ glm::vec3 RenderSession::EstimateDirect(const glm::vec3 wo, BSDF& bsdf,
 void RenderSession::UpdateIsectList(IsectInfoList& isectList,
                                     const Intersection& isect,
                                     float eta_sampled) const {
-    // Add intersection info to list
-    bool inList = false;
-    uint32_t matchingIDIndex = 0;
-
     // Check if intersected mesh already in isectList
     for (uint32_t k = isectList.size(); k-- > 0;) {
         if (isectList[k].meshID == isect.meshID) {
-            inList = true;
-            matchingIDIndex = k;
-            break;
+            // If it is, we are exiting it, and it must be
+            // removed
+            isectList.erase(isectList.begin() + k);
+            return;
         }
     }
 
     // If it isn't, we are entering said mesh, and add
     // it to the list
-    if (!inList) {
-        isectList.emplace_back(
-            IntersectionInfo(isect.meshID, isect.priority, eta_sampled));
-    }
+    isectList.emplace_back(
+        IntersectionInfo(isect.meshID, isect.priority, eta_sampled));
 
-    // If it is, we are exiting it, and it must be
-    // removed
-    else {
-        isectList.erase(isectList.begin() + matchingIDIndex);
-    }
+    return;
 }
 
 std::vector<Pixel> RenderSession::RenderTile(const float* filterTable,
