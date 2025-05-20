@@ -18,7 +18,7 @@
 
     "meshes": [
         {
-        "filePath": "input//meshes//glassIceWater//water2.geo",
+        "filePath": "input//meshes//glassIceWater//water.geo",
         "material": {
             "type": "glass",
             "rho_s": [1, 1, 1],
@@ -64,7 +64,7 @@
         "transform": [ 1.000000, 0.000000, 0.000000, 0.000000, 0.000000, 1.000000, 0.000000, 0.000000, 0.000000, 0.000000, 1.000000, 0.000000, 0.000000, 0.000000, 0.000000, 1.000000 ]
         },
         {
-        "filePath": "input//meshes//glassIceWater//bubbles2.geo",
+        "filePath": "input//meshes//glassIceWater//bubbles.geo",
         "material": {
             "type": "glass",
             "rho_s": [1, 1, 1],
