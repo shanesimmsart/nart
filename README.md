@@ -59,6 +59,7 @@ will override the spp set in the JSON scene file to 64.
   - Texture / normal mapping
   - Environment map importance sampling
   - Nested dielectrics
+  - Simple volume integrator (volumes only)
 
 ## Requirements:
 Supported operating systems:
