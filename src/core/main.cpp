@@ -2,6 +2,13 @@
 
 #include "../../include/nart/core/nart.h"
 
+// TODO: GET LOOKUP TABLE WORKING!!! >:d
+//       OR F16C SSE
+#define IMATH_HALF_USE_LOOKUP_TABLE 0
+#define IMATH_HALF_NO_LOOKUP_TABLE
+#include <OpenEXR/ImfArray.h>
+#include <OpenEXR/ImfRgbaFile.h>
+
 int main(int argc, char* argv[]) {
     if (argc < 3) {
         std::cerr << "Too few arguments given.\nUsage example: " << argv[0]

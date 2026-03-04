@@ -30,6 +30,20 @@ glm::vec2 UniformSampleRing(glm::vec2 sample, float& pdf, float innerRadius) {
     return glm::vec2(x, y);
 }
 
+glm::vec3 UniformSampleSphere(glm::vec2 sample, float& pdf) {
+    float theta = glm::acos(1.f - (2.f * sample.x));
+    float phi = sample.y * glm::two_pi<float>();
+
+    float cosTheta = glm::cos(theta);
+    float sinTheta = glm::sin(theta);
+    float cosPhi = glm::cos(phi);
+    float sinPhi = glm::sin(phi);
+
+    pdf = 1.f / (4.f * glm::pi<float>());
+
+    return glm::vec3(sinTheta * cosPhi, sinTheta * sinPhi, cosTheta);
+}
+
 glm::vec3 CosineSampleHemisphere(glm::vec2 sample, float& pdf) {
     // Using Malley's method, we can uniformly sample a disk, then project
     // the sample points upwards onto the hemisphere to achieve a
@@ -41,6 +55,10 @@ glm::vec3 CosineSampleHemisphere(glm::vec2 sample, float& pdf) {
     pdf = z * glm::one_over_pi<float>();
 
     return glm::vec3(diskSample, z);
+}
+
+float SampleExponentialDecay(float sample, float a) {
+    return -glm::log(1.f - sample) / a;
 }
 
 float StratifiedSample1D(RNG& rng, uint32_t n, uint32_t nSamples) {

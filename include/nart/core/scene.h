@@ -18,6 +18,22 @@
 #include "../patterns/texturepattern.h"
 #include "bvh.h"
 #include "geometry.h"
+#include "media.h"
+
+enum IntegratorFlag { PATH = 0, VOLUME = 1 };
+
+struct RenderParams {
+    // Default render parameters
+    // (Overridden by scene file if left at default)
+    IntegratorFlag integratorFlag = PATH;
+    uint32_t imageWidth = 0;
+    uint32_t imageHeight = 0;
+    uint32_t bucketSize = 0;
+    uint32_t spp = 0;
+    uint32_t bounces = 0;
+    float filterWidth = -1.f;
+    float rougheningFactor = -1.f;
+};
 
 class Scene {
 public:
@@ -64,4 +80,5 @@ private:
     std::vector<LightPtr> lights;
     CameraPtr camera;
     BVHPtr bvh;
+    MediumPtr medium;
 };

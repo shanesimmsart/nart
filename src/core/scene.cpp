@@ -647,7 +647,7 @@ void Scene::LoadMeshes(nlohmann::json& json) {
     std::vector<uint8_t> meshPriorities;
     std::vector<glm::mat4> meshTransforms;
 
-    if (!json["meshes"].is_null()) {
+    if (json.contains("meshes")) {
         uint8_t numMeshes = json["meshes"].size();
 
         meshFilePaths.reserve(numMeshes);
@@ -767,10 +767,6 @@ void Scene::LoadMeshes(nlohmann::json& json) {
         }
     }
 
-    else {
-        std::cerr << "Error: No meshes found.\n";
-    }
-
     std::vector<TriMeshPtr> meshes;
     meshes.reserve(meshFilePaths.size());
 
@@ -785,20 +781,95 @@ void Scene::LoadMeshes(nlohmann::json& json) {
 
 void Scene::LoadCamera(const nlohmann::json& json) {
     glm::mat4 cameraToWorld(1.f);
-    float fov = 1.f;
+    float fov = 11.f;
     std::vector<float> camTransform = {1.f, 0.f, 0.f, 0.f, 0.f, 1.f, 0.f, 0.f,
                                        0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 0.f, 1.f};
 
-    try {
-        fov = json["camera"]["fov"].get<float>();
-        camTransform = json["camera"]["transform"].get<std::vector<float>>();
-    }
+    if (json.contains("camera")) {
+        try {
+            fov = json["camera"]["fov"].get<float>();
+            camTransform =
+                json["camera"]["transform"].get<std::vector<float>>();
+        }
 
-    catch (nlohmann::json::exception& e) {
-        std::cerr << "Error in camera: " << e.what() << "\n";
-    }
+        catch (nlohmann::json::exception& e) {
+            std::cerr << "Error in camera: " << e.what() << "\n";
+        }
 
-    cameraToWorld = MatrixFromVector(camTransform);
+        cameraToWorld = MatrixFromVector(camTransform);
+
+        if (json["camera"].contains("medium")) {
+            std::string filePath;
+            glm::vec3 boundsMin;
+            glm::vec3 boundsMax;
+            float sigma_a;
+            float sigma_s;
+            glm::vec3 Le;
+
+            try {
+                filePath =
+                    json["camera"]["medium"]["filePath"].get<std::string>();
+
+                std::vector<float> LeGet =
+                    json["camera"]["medium"]["Le"].get<std::vector<float>>();
+                Le = glm::vec3(LeGet[0], LeGet[1], LeGet[2]);
+
+                sigma_a = json["camera"]["medium"]["sigma_a"].get<float>();
+                sigma_s = json["camera"]["medium"]["sigma_s"].get<float>();
+            }
+
+            catch (nlohmann::json::exception& e) {
+                std::cerr << "Error in medium: " << e.what() << "\n";
+            }
+
+            std::ifstream file;
+            file.open(filePath);
+
+            if (!file) {
+                std::cerr << "Error: Volume file " << filePath
+                          << " could not be opened.\n";
+                return;
+            }
+
+            for (uint8_t i = 0; i < 3; ++i) {
+                if (!(file >> boundsMin[i])) {
+                    std::cerr << "Error: Volume file could not be read.\n";
+                    return;
+                }
+            }
+
+            for (uint8_t i = 0; i < 3; ++i) {
+                if (!(file >> boundsMax[i])) {
+                    std::cerr << "Error: Volume file could not be read.\n";
+                    return;
+                }
+            }
+
+            uint32_t resolutionX = 0;
+            uint32_t resolutionY = 0;
+            uint32_t resolutionZ = 0;
+            file >> resolutionX;
+            file >> resolutionY;
+            file >> resolutionZ;
+            uint32_t numPoints = resolutionX * resolutionY * resolutionZ;
+            std::vector<float> densityGridValues(numPoints, 0.f);
+
+            for (uint32_t i = 0; i < numPoints; ++i) {
+                if (!(file >> densityGridValues[i])) {
+                    std::cerr << "Error: Volume file could not be read.\n";
+                    return;
+                }
+            }
+            medium = std::make_unique<Medium>(
+                boundsMin, boundsMax, sigma_a, sigma_s, Le,
+                DensityGrid(resolutionX, resolutionY, resolutionZ,
+                            densityGridValues));
+
+            camera =
+                std::make_unique<PinholeCamera>(fov, cameraToWorld, &(*medium));
+            return;
+        }
+    }
 
     camera = std::make_unique<PinholeCamera>(fov, cameraToWorld);
 }

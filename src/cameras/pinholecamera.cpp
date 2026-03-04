@@ -1,7 +1,10 @@
 #include "../../include/nart/cameras/pinholecamera.h"
 
-PinholeCamera::PinholeCamera(float fov, glm::mat4 cameraToWorld)
-    : fov(fov), cameraToWorld(cameraToWorld) {}
+PinholeCamera::PinholeCamera(float fov, glm::mat4 cameraToWorld,
+                             Medium* _medium)
+    : fov(fov), cameraToWorld(cameraToWorld) {
+    medium = _medium;
+}
 
 Ray PinholeCamera::CastRay(const glm::vec2& imageSample,
                            const uint32_t imageWidth,
@@ -28,6 +31,10 @@ Ray PinholeCamera::CastRay(const glm::vec2& imageSample,
     // Transform ray into world-space using camera transform
     o = o * cameraToWorld;
     d = d * cameraToWorld;
+
+    if (medium) {
+        return Ray(o, d, medium);
+    }
 
     return Ray(o, d);
 }

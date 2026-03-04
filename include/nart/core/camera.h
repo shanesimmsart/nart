@@ -1,6 +1,7 @@
 #pragma once
 
 #include "geometry.h"
+#include "media.h"
 
 class Camera {
 public:
@@ -12,6 +13,9 @@ public:
 
 protected:
     Camera(){};
+
+    // Medium lives within scope of Scene, which outlives Camera
+    Medium* medium;
 };
 
 using CameraPtr = std::unique_ptr<Camera>;

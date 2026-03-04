@@ -8,21 +8,12 @@
 #include <OpenEXR/ImfRgbaFile.h>
 #include <tbb/task_group.h>
 
+#include "../integrators/pathintegrator.h"
+#include "../integrators/volumeintegrator.h"
 #include "geometry.h"
 #include "light.h"
+#include "media.h"
 #include "scene.h"
-
-struct RenderParams {
-    // Default render parameters
-    // (Overridden by scene file if left at default)
-    uint32_t imageWidth = 0;
-    uint32_t imageHeight = 0;
-    uint32_t bucketSize = 0;
-    uint32_t spp = 0;
-    uint32_t bounces = 0;
-    float filterWidth = -1.f;
-    float rougheningFactor = -1.f;
-};
 
 struct Pixel {
     glm::vec4 contribution = glm::vec4(0.f);
@@ -40,18 +31,10 @@ inline float Gaussian(float width, float x) {
            glm::exp(-(x * x) / (2.f * sigma * sigma));
 }
 
-struct IntersectionInfo {
-    IntersectionInfo(uint32_t meshID, uint8_t priority, float eta)
-        : meshID(meshID), priority(priority), eta(eta) {}
-
-    uint32_t meshID = -1;
-    uint8_t priority = 0;
-    float eta = 1.f;
-};
-
 class RenderSession {
 public:
-    RenderSession(const Scene& scene, RenderParams params);
+    RenderSession(IntegratorPtr integrator, const Scene& scene,
+                  RenderParams params);
 
     void AddSample(const float* filterTable, const glm::vec2& sampleCoords,
                    const glm::vec4& L, std::vector<Pixel>& pixels) const;
@@ -59,28 +42,14 @@ public:
     std::vector<Pixel> RenderTile(const float* filterTable, uint32_t x0,
                                   uint32_t x1, uint32_t y0, uint32_t y1) const;
 
-    using IsectInfoList =
-        std::vector<IntersectionInfo, ArenaAllocator<IntersectionInfo>>;
-
-    // Check if we should ignore the intersection and update IOR of current
-    // medium
-    bool IsectIsValid(const Intersection& isect, const IsectInfoList& isectList,
-                      float& eta_outer) const;
-
-    glm::vec3 EstimateDirect(const glm::vec3 wo, BSDF& bsdf,
-                             const Intersection& isect, const Ray& ray,
-                             RNG& rng, uint8_t& flags, float eta_outer) const;
-
-
-    void UpdateIsectList(IsectInfoList& isectList, const Intersection& isect,
-                         float eta_sampled) const;
-
     std::vector<Pixel> Render() const;
 
     void WriteImageToEXR(const std::vector<Pixel>& pixels,
                          const char* filePath) const;
 
 private:
+    IntegratorPtr integrator;
+
     const Scene& scene;
 
     const RenderParams params;
@@ -92,8 +61,6 @@ private:
     // Total image dimensions, including filter width border
     uint32_t totalWidth;
     uint32_t totalHeight;
-
-    const float shadowBias = 0.001f;
 };
 
 using RenderSessionPtr = std::unique_ptr<RenderSession>;

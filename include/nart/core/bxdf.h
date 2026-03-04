@@ -50,7 +50,6 @@ using BxDFPtr = std::unique_ptr<BxDF>;
 
 class BSDF {
 public:
-    // nn is an optional normal vector to perturb the shading normal
     BSDF(const Intersection& isect, uint8_t numBxDFs);
 
     void BuildCoordSys(const Intersection& isect, glm::vec3* nn = nullptr);
@@ -95,6 +94,7 @@ public:
 private:
     // Coord sys in worldspace
     glm::vec3 n_t, n_b, n;
+    // Optional normal vector to perturb the shading normal
     glm::vec3* nn = nullptr;
 
     uint8_t numBxDFs = 0;

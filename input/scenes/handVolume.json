@@ -1,0 +1,37 @@
+{
+    "renderSessions": [
+        {
+            "integrator": "volume",
+            "imageWidth": 1080,
+            "imageHeight": 1920,
+            "bucketSize": 16,
+            "spp": 128,
+            "bounces": 32,
+            "filterWidth": 2,
+            "rougheningFactor": 0.5
+        }
+    ],
+
+    "camera": {
+        "fov": 13.5,
+        "transform": [0.998441, 0.001169, 0.055799, 0.597568, 0.055811, -0.020912, -0.998222, -5.542248, 0.000000, 0.999781, -0.020945, 1.072762, 0.000000, 0.000000, 0.000000, 1.000000],
+        "medium": {
+            "filePath": "input//volumes//hand.vol",
+            "sigma_a": 0,
+            "sigma_s": 128,
+            "Le": [0.0, 0.0, 0.0]
+        }
+    },
+
+    "lights" : [
+        {
+            "type": "environment",
+            "Le": {
+                "type": "texture",
+                "filePath": "input//textures//kloofendal_48d_partly_cloudy_puresky_1k_clamped.exr"
+            },
+            "intensity": 1.0,
+            "transform":  [1.000000, 0.000000, 0.000000, 0.000000, 0.000000, 1.000000, 0.000000, 0.000000, 0.000000, 0.000000, 1.000000, 0.000000, 0.000000, 0.000000, 0.000000, 1.000000]
+        }
+    ]
+}

@@ -1,6 +1,7 @@
 #include "../../include/nart/core/geometry.h"
 
-Ray::Ray(const glm::vec3& o, const glm::vec3& d) : o(o), d(d) {
+Ray::Ray(const glm::vec3& o, const glm::vec3& d, Medium* medium)
+    : o(o), d(d), medium(medium) {
     glm::vec3 absD = glm::abs(d);
     majorAxis = (absD.x > absD.y) ? ((absD.x > absD.z) ? 0 : 2)
                                   : ((absD.y > absD.z) ? 1 : 2);

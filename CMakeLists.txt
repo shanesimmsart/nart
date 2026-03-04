@@ -120,6 +120,7 @@ set(SOURCES
     src/core/bvh.cpp
     src/core/bxdf.cpp
     src/core/geometry.cpp
+    src/core/media.cpp
     src/core/memory.cpp
     src/core/render.cpp
     src/core/sampling.cpp
@@ -135,6 +136,8 @@ set(SOURCES
     src/bxdfs/specularbrdf.cpp
     src/bxdfs/speculardielectricbrdf.cpp
     src/bxdfs/torrancesparrowbrdf.cpp
+    src/integrators/pathintegrator.cpp
+    src/integrators/volumeintegrator.cpp
     src/materials/diffusematerial.cpp
     src/materials/glassmaterial.cpp
     src/materials/glossydielectricmaterial.cpp

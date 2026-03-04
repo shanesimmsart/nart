@@ -9,8 +9,10 @@
 
 #define Infinity std::numeric_limits<float>::infinity()
 
+class Medium;
+
 struct Ray {
-    Ray(const glm::vec3& o, const glm::vec3& d);
+    Ray(const glm::vec3& o, const glm::vec3& d, Medium* medium = nullptr);
 
     glm::vec3 o = glm::vec3(0.f, 0.f, 0.f);
     glm::vec3 d = glm::vec3(0.f, 0.f, 1.f);
@@ -19,6 +21,9 @@ struct Ray {
     float Sx = 1.f;
     float Sy = 1.f;
     float Sz = 1.f;
+
+    // Medium lives within scope of Scene, which outlives Ray
+    Medium* medium;
 };
 
 struct Intersection {

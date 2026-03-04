@@ -4,7 +4,8 @@
 
 class PinholeCamera : public Camera {
 public:
-    PinholeCamera(float fov, glm::mat4 cameraToWorld);
+    PinholeCamera(float fov, glm::mat4 cameraToWorld,
+                  Medium* _medium = nullptr);
     Ray CastRay(const glm::vec2& imageSample, const uint32_t imageWidth,
                 const uint32_t imageHeight, const uint32_t imageX,
                 const uint32_t imageY) const;
