@@ -4,7 +4,10 @@ This project is where I put things that I have learned about path tracing into p
 You can follow my progress [here](https://bsky.app/profile/shaneasimms.bsky.social/post/3lannomsuv327).
 
 ![lens1](https://github.com/user-attachments/assets/4d00b1e6-eb6e-41a6-be32-996d47974566)
-![glass](https://github.com/user-attachments/assets/8cbb833f-176d-4527-ba49-d5751709814e)
+<img width="480" height="854" alt="Nested dielectrics" src="https://github.com/user-attachments/assets/9cc25a22-1ccd-4918-b245-f04af29712f8" />
+<img width="607" height="1079" alt="Volume integrator: scattering only" src="https://github.com/user-attachments/assets/5fdb5621-93f7-4c8a-8872-106f39e44437" />
+<img width="607" height="1079" alt="Volume integrator: scattering, absorption and emission" src="https://github.com/user-attachments/assets/7819a95f-717c-40fd-92da-0b28ec37b086" />
+
 
 ## Usage:
 **nart** takes a JSON scene file and an output file name as input, and renders the given scene as an EXR image.
@@ -12,6 +15,7 @@ You can follow my progress [here](https://bsky.app/profile/shaneasimms.bsky.soci
 For example on Linux; running:
 
 `$ ./build/nart input/scenes/glassSphere.json output/glassSphere`
+
 
 will render the included glass sphere JSON scene and write the result to `output/glassSphere.exr`.
 
