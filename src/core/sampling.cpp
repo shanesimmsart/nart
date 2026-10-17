@@ -61,6 +61,10 @@ float SampleExponentialDecay(float sample, float a) {
     return -glm::log(1.f - sample) / a;
 }
 
+float SampleExponentialDecayBounded(float sample, float a, float tMin, float tMax) {
+    return -glm::log(1.f - (sample * (1.f - glm::exp(-a * (tMax - tMin))))) / a;
+}
+
 float StratifiedSample1D(RNG& rng, uint32_t n, uint32_t nSamples) {
     float invNSamples = 1.f / static_cast<float>(nSamples);
     return (static_cast<float>(n) + rng.UniformFloat()) * invNSamples;

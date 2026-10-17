@@ -7,6 +7,9 @@
 #include "rng.h"
 #include "sampling.h"
 
+// EXPIERMENTAL
+#define BOUNDED 1
+
 struct DensityGrid {
     DensityGrid(uint8_t resolutionX, uint8_t resolutionY, uint8_t resolutionZ,
                 std::vector<float> density)
@@ -126,7 +129,11 @@ using MediumPtr = std::unique_ptr<Medium>;
 // sigma_maj);
 
 template <typename F>
+#if BOUNDED
+void SampleT_maj(float u, Ray ray, RNG& rng, float& weight, F callback) {
+#else
 void SampleT_maj(float u, Ray ray, RNG& rng, F callback) {
+#endif
     RayMajorantIterator iter;
     if (!ray.medium) return;
     if (!ray.medium->SampleRay(ray, iter)) return;
@@ -137,6 +144,7 @@ void SampleT_maj(float u, Ray ray, RNG& rng, F callback) {
     while (!done) {
         // Attempt to sample segment
         RayMajorantSegment seg;
+        // I think this is returning a segment when it shouldn't be
         if (!iter.Next(seg)) {
             done = true;
             break;
@@ -145,8 +153,16 @@ void SampleT_maj(float u, Ray ray, RNG& rng, F callback) {
 
         while (true) {
             // Attempt to sample within segment
+#if BOUNDED
+            // TODO: Fully understand why we can add to tMin instead of replacing
+            float tExtend = seg.tMax + 0.1f;
+            float t = tMin + SampleExponentialDecayBounded(rng.UniformFloat(), seg.sigma_maj,
+                      seg.tMin, tExtend);
+            weight *= 1.f - glm::exp(-seg.sigma_maj * (tExtend - seg.tMin));
+#else
             float t = tMin +
                       SampleExponentialDecay(rng.UniformFloat(), seg.sigma_maj);
+#endif
             // u = rng.UniformFloat();
             if (t < seg.tMax) {
                 // Check for a real scattering event
@@ -174,8 +190,17 @@ void SampleT_maj(float u, Ray ray, RNG& rng, F callback) {
             else {
                 float dt = seg.tMax - seg.tMin;
                 T_maj *= glm::exp(-seg.sigma_maj * dt);
+#if BOUNDED
+                float pPhysical = glm::exp(-seg.sigma_maj * seg.tMax);
+                float pBiased = pPhysical - glm::exp(-seg.sigma_maj * tExtend);
+                if (pBiased > 0.f) {
+                    weight *= pPhysical / pBiased;
+                }
+#endif
                 break;
             }
         }
     }
 }
+
+

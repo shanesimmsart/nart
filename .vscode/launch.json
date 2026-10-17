@@ -1,0 +1,31 @@
+{
+  "version": "0.2.0",
+
+  "inputs": [
+    {
+      "id": "runArgs",
+      "type": "promptString",
+      "description": "Enter program arguments"
+    }
+  ],
+
+  "configurations": [
+    {
+      "name": "Debug nart",
+      "type": "cppdbg",
+      "request": "launch",
+      "inputs": [
+      {
+        "id": "runArgs",
+        "type": "promptString",
+        "description": "Enter program arguments"
+      }
+      ],
+      "program": "${workspaceFolder}/build/debug/nart",
+      "args": ["input/scenes/debugVolume.json", "./output/mb", "-s", "1"],
+      "cwd": "${workspaceFolder}",
+      "MIMode": "gdb",
+      "miDebuggerPath": "/usr/bin/gdb"
+    }
+  ]
+}

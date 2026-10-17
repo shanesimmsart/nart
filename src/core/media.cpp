@@ -1,13 +1,23 @@
 #include "../../include/nart/core/media.h"
 
+// EXPERIMENTAL
+#define HOMO 1
+
 float DensityGrid::LookUp(uint8_t x, uint8_t y, uint8_t z) const {
     uint32_t index = (resolutionX * resolutionY * z) + (resolutionX * y) + x;
 
+#if HOMO
+    return 1.f;
+#else
     return density[index];
+#endif
 }
 
 // p is within [0, 1)^3
 float DensityGrid::LookUp(glm::vec3 p) const {
+#if HOMO
+    return 1.f;
+#else
     float x = glm::min(glm::max(0.f, p.x), 0.999f) *
               static_cast<float>(resolutionX - 1);
     uint8_t loX = x;
@@ -42,6 +52,7 @@ float DensityGrid::LookUp(glm::vec3 p) const {
     float z0 = glm::mix(y0, y1, zD);
 
     return z0;
+#endif
 }
 
 MajorantGrid::MajorantGrid(const DensityGrid& densityGrid, float sigma_maj)
@@ -49,6 +60,9 @@ MajorantGrid::MajorantGrid(const DensityGrid& densityGrid, float sigma_maj)
     // Find maximum value out of density vertices + sampled majorant
     // vertices within density grid
 
+#if HOMO
+    majorants[0] = sigma_maj;
+#else
     // Distance between majorant axes from 0 to densityGridRes-1
     float mx = ((static_cast<float>(densityGrid.resolutionX) - 1.f) / width);
     float my = ((static_cast<float>(densityGrid.resolutionY) - 1.f) / width);
@@ -127,12 +141,17 @@ MajorantGrid::MajorantGrid(const DensityGrid& densityGrid, float sigma_maj)
         z1 = glm::min(static_cast<uint8_t>(glm::ceil(zi + 0.00001f)),
                       densityGrid.resolutionZ);
     }
+#endif
 }
 
 float MajorantGrid::LookUp(uint8_t x, uint8_t y, uint8_t z) const {
+#if HOMO
+    return majorants[0];
+#else
     uint32_t index = (width * width * z) + (width * y) + x;
 
     return majorants[index];
+#endif
 }
 
 RayMajorantIterator::RayMajorantIterator(const Ray& ray,
@@ -238,8 +257,19 @@ bool RayMajorantIterator::Next(RayMajorantSegment& seg) {
     uint8_t index = choiceMap[choice];
     float dt = nextCrossing[index];
 
+#if HOMO
+    if (!done) {
+    seg = RayMajorantSegment(majorantGrid->majorants[currentIndex], tCurrent,
+                             tMax);
+    }
+    else {
+        return false;
+    }
+    done = true;
+#else
     seg = RayMajorantSegment(majorantGrid->majorants[currentIndex], tCurrent,
                              tCurrent + dt);
+#endif
 
     if (done) return true;
 
@@ -322,3 +352,5 @@ bool Medium::SampleRay(const Ray& ray, RayMajorantIterator& iter) {
 
     return true;
 }
+
+
