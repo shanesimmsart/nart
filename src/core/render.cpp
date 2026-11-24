@@ -8,8 +8,8 @@
 #define DEBUG_ISECTLIST 0
 
 #define DEBUG_BUCKET 0
-#define DEBUG_BUCKET_X 35
-#define DEBUG_BUCKET_Y 63
+#define DEBUG_BUCKET_X 40
+#define DEBUG_BUCKET_Y 79
 
 RenderSession::RenderSession(IntegratorPtr integrator, const Scene& scene,
                              RenderParams params)

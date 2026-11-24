@@ -8,7 +8,8 @@
 #include "sampling.h"
 
 // EXPIERMENTAL
-#define BOUNDED 1
+#define BOUNDED 0
+#define PWC 0
 
 struct DensityGrid {
     DensityGrid(uint8_t resolutionX, uint8_t resolutionY, uint8_t resolutionZ,
@@ -34,8 +35,9 @@ struct MajorantGrid {
 
     float LookUp(uint8_t x, uint8_t y, uint8_t z) const;
 
+    // TODO: GET WIDTH > 1 WORKING!!!
     // MajorantGrid is always 16^3
-    static constexpr uint8_t width = 1;
+    static constexpr uint8_t width = 16;
     static constexpr uint16_t size = width * width * width;
     static constexpr float invWidth = 1.f / static_cast<float>(width);
     std::array<float, size> majorants;
@@ -75,8 +77,15 @@ private:
     glm::vec3 nextCrossing;
     glm::vec3 crossDistance;
     glm::ivec3 stepAxis;
+    glm::ivec3 currentVoxel;
     bool done = false;
     static constexpr float rayBias = 0.0001f;
+
+    // TODO: Remove this
+    Ray pRay = Ray(glm::vec3(), glm::vec3());
+    glm::vec3 boundsMin;
+    glm::vec3 boundsMax;
+    glm::vec3 pEntering;
 };
 
 class PhaseFunction {
@@ -110,7 +119,11 @@ public:
           densityGrid(densityGrid),
           majorantGrid(MajorantGrid(densityGrid, sigma_a + sigma_s)) {}
 
+#if PWC
+    bool SampleMedium(glm::vec3(p), MediumProperties& mp, float sigma_maj);
+#else
     bool SampleMedium(glm::vec3(p), MediumProperties& mp);
+#endif
 
     bool SampleRay(const Ray& ray, RayMajorantIterator& iter);
 
@@ -149,6 +162,10 @@ void SampleT_maj(float u, Ray ray, RNG& rng, F callback) {
             done = true;
             break;
         }
+        if (seg.sigma_maj == 0.f) {
+            continue;
+        }
+
         float tMin = seg.tMin;
 
         while (true) {
@@ -169,11 +186,17 @@ void SampleT_maj(float u, Ray ray, RNG& rng, F callback) {
                 // True means null scattering, keep going
                 glm::vec3 p = ray.o + (ray.d * t);
                 MediumProperties mp;
+
+#if PWC
+                if (!ray.medium->SampleMedium(p, mp, seg.sigma_maj)) {
+#else
                 if (!ray.medium->SampleMedium(p, mp)) {
+#endif
                     // We have left the medium
                     done = true;
                     break;
                 }
+
                 if (!callback(p, mp, T_maj, seg.sigma_maj)) {
                     // Real scattering event
                     float dt = t - tMin;

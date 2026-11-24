@@ -1,7 +1,7 @@
 #include "../../include/nart/integrators/volumeintegrator.h"
 
 // EXPIERMENTAL
-#define BOUNDED 1
+#define BOUNDED 0
 
 glm::vec4 VolumeIntegrator::Li_alpha(RNG& rng, Ray ray, const Scene& scene,
                                      const RenderParams& params,

@@ -17,7 +17,7 @@
 # build target, defaults to all tools
 @build target='all' mode='release':
   cmake --preset {{mode}}
-  cmake --build --preset {{mode}} --target {{target}}
+  cmake --build --preset {{mode}} --target {{target}} --log-level=ERROR
 
 # convenience aliases
 @debug:

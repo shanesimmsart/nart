@@ -1,7 +1,8 @@
 #include "../../include/nart/core/media.h"
 
 // EXPERIMENTAL
-#define HOMO 1
+#define HOMO 0
+#define PWC 0
 
 float DensityGrid::LookUp(uint8_t x, uint8_t y, uint8_t z) const {
     uint32_t index = (resolutionX * resolutionY * z) + (resolutionX * y) + x;
@@ -13,26 +14,28 @@ float DensityGrid::LookUp(uint8_t x, uint8_t y, uint8_t z) const {
 #endif
 }
 
+// TODO: Am I missing this up on missing voxels?
 // p is within [0, 1)^3
 float DensityGrid::LookUp(glm::vec3 p) const {
 #if HOMO
     return 1.f;
 #else
-    float x = glm::min(glm::max(0.f, p.x), 0.999f) *
+    // TODO: Should I not be multiplying by resolutionX (not resolutionX - 1)?
+    float x = glm::min(glm::max(0.f, p.x), 0.99999f) *
               static_cast<float>(resolutionX - 1);
     uint8_t loX = x;
     uint8_t hiX = loX + 1;
     // Interpolation value
     float xD = (x - static_cast<float>(loX));
 
-    float y = glm::min(glm::max(0.f, p.y), 0.999f) *
+    float y = glm::min(glm::max(0.f, p.y), 0.99999f) *
               static_cast<float>(resolutionY - 1);
     uint8_t loY = y;
     uint8_t hiY = loY + 1;
     // Interpolation value
     float yD = (y - static_cast<float>(loY));
 
-    float z = glm::min(glm::max(0.f, p.z), 0.999f) *
+    float z = glm::min(glm::max(0.f, p.z), 0.99999f) *
               static_cast<float>(resolutionZ - 1);
     uint8_t loZ = z;
     uint8_t hiZ = loZ + 1;
@@ -63,7 +66,7 @@ MajorantGrid::MajorantGrid(const DensityGrid& densityGrid, float sigma_maj)
 #if HOMO
     majorants[0] = sigma_maj;
 #else
-    // Distance between majorant axes from 0 to densityGridRes-1
+    // Width of majorant voxels in terms of distance between density grid points
     float mx = ((static_cast<float>(densityGrid.resolutionX) - 1.f) / width);
     float my = ((static_cast<float>(densityGrid.resolutionY) - 1.f) / width);
     float mz = ((static_cast<float>(densityGrid.resolutionZ) - 1.f) / width);
@@ -83,7 +86,15 @@ MajorantGrid::MajorantGrid(const DensityGrid& densityGrid, float sigma_maj)
         glm::min(static_cast<uint8_t>(glm::ceil(zi)), densityGrid.resolutionZ);
 
     for (uint8_t w = 0; w < width; ++w) {
+        yi = my;
+        y0 = 0;
+        y1 =
+            glm::min(static_cast<uint8_t>(glm::ceil(yi)), densityGrid.resolutionY);
         for (uint8_t v = 0; v < width; ++v) {
+            xi = mx;
+            x0 = 0;
+            x1 =
+                glm::min(static_cast<uint8_t>(glm::ceil(xi)), densityGrid.resolutionX);
             for (uint8_t u = 0; u < width; ++u) {
                 // Search through densityGrid vertex values within current
                 // MajorantGrid voxel bounds
@@ -163,8 +174,20 @@ RayMajorantIterator::RayMajorantIterator(const Ray& ray,
       tMin(tMin),
       tCurrent(glm::max(0.f, tMin)),
       tMax(tMax) {
+    // TODO: Remove this
+    pRay = ray;
+
+    // Calculate whether each axis is positively or negatively stepped through
+    stepAxis = glm::ivec3(1, 1, 1);
+    if (ray.d.x < 0.f) stepAxis.x = -1;
+    if (ray.d.y < 0.f) stepAxis.y = -1;
+    if (ray.d.z < 0.f) stepAxis.z = -1;
+
+    this->boundsMin = boundsMin;
+    this->boundsMax = boundsMax;
+
     // Calculate entering and exiting majorant voxel indices
-    glm::vec3 pEntering = ray.o + (ray.d * tCurrent);
+    pEntering = ray.o + (ray.d * tCurrent);
     glm::vec3 pExiting = ray.o + (ray.d * tMax);
 
     pEntering -= boundsMin;
@@ -174,9 +197,10 @@ RayMajorantIterator::RayMajorantIterator(const Ray& ray,
     pEntering.y = glm::max(glm::min(pEntering.y, 0.999999f), 0.f);
     pEntering.z = glm::max(glm::min(pEntering.z, 0.999999f), 0.f);
     pEntering *= majorantGrid->width;
-    glm::ivec3 iEnter(pEntering);
-    currentIndex = (majorantGrid->width * majorantGrid->width * iEnter.z) +
-                   (majorantGrid->width * iEnter.y) + iEnter.x;
+    pEntering += glm::vec3(rayBias) * glm::vec3(stepAxis);
+    currentVoxel = glm::ivec3(pEntering);
+    currentIndex = (majorantGrid->width * majorantGrid->width * currentVoxel.z) +
+                   (majorantGrid->width * currentVoxel.y) + currentVoxel.x;
 
     pExiting -= boundsMin;
     pExiting /= boundsSize;
@@ -192,8 +216,10 @@ RayMajorantIterator::RayMajorantIterator(const Ray& ray,
     // Ray direction within majorant grids local [0-1)^3 space
     glm::vec3 gD = glm::normalize(pExiting - pEntering);
     if (pExiting == pEntering) gD = glm::vec3(1.f, 0.f, 0.f);
+    // Get distance in world space
+    // TODO: FIX THIS
     crossDistance =
-        glm::abs(((1.f / gD) * majorantGrid->invWidth) * boundsSize);
+        glm::abs(((1.f / pRay.d) * majorantGrid->invWidth) * boundsSize);
     if (gD.x == 0.f) crossDistance.x = Infinity;
     if (gD.y == 0.f) crossDistance.y = Infinity;
     if (gD.z == 0.f) crossDistance.z = Infinity;
@@ -201,33 +227,27 @@ RayMajorantIterator::RayMajorantIterator(const Ray& ray,
     // Calculate next axis crossing distances along ray
     float tx = 0.f, ty = 0.f, tz = 0.f;
     if (ray.d.x >= 0.f) {
-        tx = glm::abs((glm::ceil(pEntering.x + 0.00001f) - pEntering.x) / gD.x);
+        tx = glm::abs((glm::ceil(pEntering.x + 0.00001f) - pEntering.x) / pRay.d.x);
     } else {
         tx =
-            glm::abs((glm::floor(pEntering.x - 0.00001f) - pEntering.x) / gD.x);
+            glm::abs((glm::floor(pEntering.x - 0.00001f) - pEntering.x) / pRay.d.x);
     }
     if (ray.d.y >= 0.f) {
-        ty = glm::abs((glm::ceil(pEntering.y + 0.00001f) - pEntering.y) / gD.y);
+        ty = glm::abs((glm::ceil(pEntering.y + 0.00001f) - pEntering.y) / pRay.d.y);
     } else {
         ty =
-            glm::abs((glm::floor(pEntering.y - 0.00001f) - pEntering.y) / gD.y);
+            glm::abs((glm::floor(pEntering.y - 0.00001f) - pEntering.y) / pRay.d.y);
     }
     if (ray.d.z >= 0.f) {
-        tz = glm::abs((glm::ceil(pEntering.z + 0.00001f) - pEntering.z) / gD.z);
+        tz = glm::abs((glm::ceil(pEntering.z + 0.00001f) - pEntering.z) / pRay.d.z);
     } else {
         tz =
-            glm::abs((glm::floor(pEntering.z - 0.00001f) - pEntering.z) / gD.z);
+            glm::abs((glm::floor(pEntering.z - 0.00001f) - pEntering.z) / pRay.d.z);
     }
     if (gD.x == 0.f) tx = Infinity;
     if (gD.y == 0.f) ty = Infinity;
     if (gD.z == 0.f) tz = Infinity;
     nextCrossing = glm::vec3(tx, ty, tz) * boundsSize * majorantGrid->invWidth;
-
-    // Calculate whether each axis is positively or negatively stepped through
-    stepAxis = glm::ivec3(1, 1, 1);
-    if (gD.x < 0.f) stepAxis.x = -1;
-    if (gD.y < 0.f) stepAxis.y = -1;
-    if (gD.z < 0.f) stepAxis.z = -1;
 }
 
 bool RayMajorantIterator::Next(RayMajorantSegment& seg) {
@@ -276,11 +296,52 @@ bool RayMajorantIterator::Next(RayMajorantSegment& seg) {
     nextCrossing -= glm::vec3(dt);
     nextCrossing[index] = crossDistance[index];
 
-    // TODO: This is gross
-    currentIndex += glm::max(
-        (int)glm::pow(majorantGrid->width, index) * stepAxis[index], 0);
+    /*
+    uint8_t cz = currentIndex / (majorantGrid->width * majorantGrid->width);
+    uint8_t cr = currentIndex % (majorantGrid->width * majorantGrid->width);
+    uint8_t cy = cr / majorantGrid->width;
+    uint8_t cx = cr % majorantGrid->width;
+
+    if (index == 0) {
+        cx += stepAxis[index];
+    }
+    if (index == 1) {
+        cy += stepAxis[index];
+    }
+    if (index == 2) {
+        cz += stepAxis[index];
+    }
+
+    currentIndex = (majorantGrid->width * majorantGrid->width * cz) + (majorantGrid->width * cy) + cx;
+    */
+
+    // TODO: Need to fix this to be correct
+    // Need to make iActual match iCurrent
+    currentVoxel[index] += stepAxis[index];
+    currentVoxel[index] = glm::clamp(currentVoxel[index], 0, majorantGrid->width - 1);
+    currentIndex = (majorantGrid->width * majorantGrid->width * currentVoxel.z) +
+                   (majorantGrid->width * currentVoxel.y) + currentVoxel.x;
     tCurrent += dt;
 
+    glm::vec3 pCurrent = pRay.o + (pRay.d * (tCurrent));
+    pCurrent -= boundsMin;
+    glm::vec3 boundsSize = boundsMax - boundsMin;
+    pCurrent /= boundsSize;
+    pCurrent *= static_cast<float>(majorantGrid->width);
+    pCurrent[index] += stepAxis[index] * 0.01f;
+    glm::ivec3 iCurrent = (pCurrent);
+    iCurrent.x = glm::clamp(iCurrent.x, 0, majorantGrid->width - 1);
+    iCurrent.y = glm::clamp(iCurrent.y, 0, majorantGrid->width - 1);
+    iCurrent.z = glm::clamp(iCurrent.z, 0, majorantGrid->width - 1);
+
+    glm::ivec3 iActual;
+
+    currentIndex = (majorantGrid->width * majorantGrid->width * iCurrent.z) + (majorantGrid->width * iCurrent.y) + iCurrent.x;
+
+    iActual.z = currentIndex / (majorantGrid->width * majorantGrid->width);
+    iActual.y = (currentIndex % (majorantGrid->width * majorantGrid->width)) / majorantGrid->width;
+    iActual.x = currentIndex % majorantGrid->width;
+    
     return true;
 }
 
@@ -291,7 +352,11 @@ float PhaseFunction::SamplePhaseFunction(glm::vec2 sample2D, glm::vec3& wi,
     return pdf;
 }
 
+#if PWC
+bool Medium::SampleMedium(glm::vec3(p), MediumProperties& mp, float sigma_maj) {
+#else
 bool Medium::SampleMedium(glm::vec3(p), MediumProperties& mp) {
+#endif
     if (p.x < boundsMin.x || p.y < boundsMin.y || p.z < boundsMin.z ||
         p.x > boundsMax.x || p.y > boundsMax.y || p.z > boundsMax.z) {
         return false;
@@ -301,7 +366,11 @@ bool Medium::SampleMedium(glm::vec3(p), MediumProperties& mp) {
     p -= boundsMin;
     p /= (boundsMax - boundsMin);
 
+#if PWC
+    float density = sigma_maj;
+#else
     float density = densityGrid.LookUp(p);
+#endif
 
     mp = MediumProperties(PhaseFunction(), sigma_a * density, sigma_s * density,
                           Le * density);
