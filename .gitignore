@@ -567,3 +567,7 @@ FodyWeavers.xsd
 /output/whiteFurnace4.exr
 /output
 /input/scenes/glassIceWater_test.json
+input/scenes/debugVolume.json
+input/scenes/debugVolume2.json
+input/scenes/debugVolume3.json
+input/volumes/hand2.vol

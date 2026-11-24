@@ -7,6 +7,10 @@
 #include "rng.h"
 #include "sampling.h"
 
+// EXPIERMENTAL
+#define BOUNDED 0
+#define PWC 0
+
 struct DensityGrid {
     DensityGrid(uint8_t resolutionX, uint8_t resolutionY, uint8_t resolutionZ,
                 std::vector<float> density)
@@ -31,8 +35,9 @@ struct MajorantGrid {
 
     float LookUp(uint8_t x, uint8_t y, uint8_t z) const;
 
+    // TODO: GET WIDTH > 1 WORKING!!!
     // MajorantGrid is always 16^3
-    static constexpr uint8_t width = 1;
+    static constexpr uint8_t width = 16;
     static constexpr uint16_t size = width * width * width;
     static constexpr float invWidth = 1.f / static_cast<float>(width);
     std::array<float, size> majorants;
@@ -72,8 +77,15 @@ private:
     glm::vec3 nextCrossing;
     glm::vec3 crossDistance;
     glm::ivec3 stepAxis;
+    glm::ivec3 currentVoxel;
     bool done = false;
     static constexpr float rayBias = 0.0001f;
+
+    // TODO: Remove this
+    Ray pRay = Ray(glm::vec3(), glm::vec3());
+    glm::vec3 boundsMin;
+    glm::vec3 boundsMax;
+    glm::vec3 pEntering;
 };
 
 class PhaseFunction {
@@ -107,7 +119,11 @@ public:
           densityGrid(densityGrid),
           majorantGrid(MajorantGrid(densityGrid, sigma_a + sigma_s)) {}
 
+#if PWC
+    bool SampleMedium(glm::vec3(p), MediumProperties& mp, float sigma_maj);
+#else
     bool SampleMedium(glm::vec3(p), MediumProperties& mp);
+#endif
 
     bool SampleRay(const Ray& ray, RayMajorantIterator& iter);
 
@@ -126,7 +142,11 @@ using MediumPtr = std::unique_ptr<Medium>;
 // sigma_maj);
 
 template <typename F>
+#if BOUNDED
+void SampleT_maj(float u, Ray ray, RNG& rng, float& weight, F callback) {
+#else
 void SampleT_maj(float u, Ray ray, RNG& rng, F callback) {
+#endif
     RayMajorantIterator iter;
     if (!ray.medium) return;
     if (!ray.medium->SampleRay(ray, iter)) return;
@@ -137,27 +157,46 @@ void SampleT_maj(float u, Ray ray, RNG& rng, F callback) {
     while (!done) {
         // Attempt to sample segment
         RayMajorantSegment seg;
+        // I think this is returning a segment when it shouldn't be
         if (!iter.Next(seg)) {
             done = true;
             break;
         }
+        if (seg.sigma_maj == 0.f) {
+            continue;
+        }
+
         float tMin = seg.tMin;
 
         while (true) {
             // Attempt to sample within segment
+#if BOUNDED
+            // TODO: Fully understand why we can add to tMin instead of replacing
+            float tExtend = seg.tMax + 0.1f;
+            float t = tMin + SampleExponentialDecayBounded(rng.UniformFloat(), seg.sigma_maj,
+                      seg.tMin, tExtend);
+            weight *= 1.f - glm::exp(-seg.sigma_maj * (tExtend - seg.tMin));
+#else
             float t = tMin +
                       SampleExponentialDecay(rng.UniformFloat(), seg.sigma_maj);
+#endif
             // u = rng.UniformFloat();
             if (t < seg.tMax) {
                 // Check for a real scattering event
                 // True means null scattering, keep going
                 glm::vec3 p = ray.o + (ray.d * t);
                 MediumProperties mp;
+
+#if PWC
+                if (!ray.medium->SampleMedium(p, mp, seg.sigma_maj)) {
+#else
                 if (!ray.medium->SampleMedium(p, mp)) {
+#endif
                     // We have left the medium
                     done = true;
                     break;
                 }
+
                 if (!callback(p, mp, T_maj, seg.sigma_maj)) {
                     // Real scattering event
                     float dt = t - tMin;
@@ -174,8 +213,17 @@ void SampleT_maj(float u, Ray ray, RNG& rng, F callback) {
             else {
                 float dt = seg.tMax - seg.tMin;
                 T_maj *= glm::exp(-seg.sigma_maj * dt);
+#if BOUNDED
+                float pPhysical = glm::exp(-seg.sigma_maj * seg.tMax);
+                float pBiased = pPhysical - glm::exp(-seg.sigma_maj * tExtend);
+                if (pBiased > 0.f) {
+                    weight *= pPhysical / pBiased;
+                }
+#endif
                 break;
             }
         }
     }
 }
+
+

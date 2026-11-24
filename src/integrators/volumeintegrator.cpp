@@ -1,5 +1,8 @@
 #include "../../include/nart/integrators/volumeintegrator.h"
 
+// EXPIERMENTAL
+#define BOUNDED 0
+
 glm::vec4 VolumeIntegrator::Li_alpha(RNG& rng, Ray ray, const Scene& scene,
                                      const RenderParams& params,
                                      MemoryArena& memoryArena) const {
@@ -9,9 +12,12 @@ glm::vec4 VolumeIntegrator::Li_alpha(RNG& rng, Ray ray, const Scene& scene,
     glm::vec3 beta(1.f);
     uint32_t bounce = 0;
     float alpha = 1.f;
+#if BOUNDED
+    float weight = 1.f;
+#endif
 
     while (true) {
-        bool scattered = false, terminated = false;
+        bool scattered = false, terminated = false, called = false;
         // Sample using T_maj's distribution
         // callback function chooses absorb / scatter / null
         // callback() must have the following signature:
@@ -19,9 +25,16 @@ glm::vec4 VolumeIntegrator::Li_alpha(RNG& rng, Ray ray, const Scene& scene,
         // sigma_maj);
         float u = rng.UniformFloat();
         float uMode = rng.UniformFloat();
+#if BOUNDED
+        SampleT_maj(u, ray, rng, weight,
+                    [&](glm::vec3 p, MediumProperties mp, float T_maj,
+                        float sigma_maj) {
+#else
         SampleT_maj(u, ray, rng,
                     [&](glm::vec3 p, MediumProperties mp, float T_maj,
                         float sigma_maj) {
+#endif
+                        called = true;
                         // callback function
                         float pAbsorb = mp.sigma_a / sigma_maj;
                         float pScatter = mp.sigma_s / sigma_maj;
@@ -62,6 +75,10 @@ glm::vec4 VolumeIntegrator::Li_alpha(RNG& rng, Ray ray, const Scene& scene,
         if (scattered) {
             continue;
         }
+
+#if BOUNDED
+        beta *= weight;
+#endif
 
         // Intersect lights
         float lightTMax = Infinity;
