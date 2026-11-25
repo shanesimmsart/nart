@@ -82,7 +82,6 @@ glm::vec4 VolumeIntegrator::Li_alpha(RNG& rng, Ray ray, const Scene& scene,
 
         // Intersect lights
         float lightTMax = Infinity;
-        bool lightHit = false;
         glm::vec3 Le(0.f);
         for (uint8_t j = 0; j < scene.GetNumLights(); ++j) {
             Intersection lightIsect;

@@ -174,20 +174,14 @@ RayMajorantIterator::RayMajorantIterator(const Ray& ray,
       tMin(tMin),
       tCurrent(glm::max(0.f, tMin)),
       tMax(tMax) {
-    // TODO: Remove this
-    pRay = ray;
-
     // Calculate whether each axis is positively or negatively stepped through
     stepAxis = glm::ivec3(1, 1, 1);
     if (ray.d.x < 0.f) stepAxis.x = -1;
     if (ray.d.y < 0.f) stepAxis.y = -1;
     if (ray.d.z < 0.f) stepAxis.z = -1;
 
-    this->boundsMin = boundsMin;
-    this->boundsMax = boundsMax;
-
     // Calculate entering and exiting majorant voxel indices
-    pEntering = ray.o + (ray.d * tCurrent);
+    glm::vec3 pEntering = ray.o + (ray.d * tCurrent);
     glm::vec3 pExiting = ray.o + (ray.d * tMax);
 
     pEntering -= boundsMin;
@@ -219,7 +213,7 @@ RayMajorantIterator::RayMajorantIterator(const Ray& ray,
     // Get distance in world space
     // TODO: FIX THIS
     crossDistance =
-        glm::abs(((1.f / pRay.d) * majorantGrid->invWidth) * boundsSize);
+        glm::abs(((1.f / ray.d) * majorantGrid->invWidth) * boundsSize);
     if (gD.x == 0.f) crossDistance.x = Infinity;
     if (gD.y == 0.f) crossDistance.y = Infinity;
     if (gD.z == 0.f) crossDistance.z = Infinity;
@@ -227,22 +221,22 @@ RayMajorantIterator::RayMajorantIterator(const Ray& ray,
     // Calculate next axis crossing distances along ray
     float tx = 0.f, ty = 0.f, tz = 0.f;
     if (ray.d.x >= 0.f) {
-        tx = glm::abs((glm::ceil(pEntering.x + 0.00001f) - pEntering.x) / pRay.d.x);
+        tx = glm::abs((glm::ceil(pEntering.x + 0.00001f) - pEntering.x) / ray.d.x);
     } else {
         tx =
-            glm::abs((glm::floor(pEntering.x - 0.00001f) - pEntering.x) / pRay.d.x);
+            glm::abs((glm::floor(pEntering.x - 0.00001f) - pEntering.x) / ray.d.x);
     }
     if (ray.d.y >= 0.f) {
-        ty = glm::abs((glm::ceil(pEntering.y + 0.00001f) - pEntering.y) / pRay.d.y);
+        ty = glm::abs((glm::ceil(pEntering.y + 0.00001f) - pEntering.y) / ray.d.y);
     } else {
         ty =
-            glm::abs((glm::floor(pEntering.y - 0.00001f) - pEntering.y) / pRay.d.y);
+            glm::abs((glm::floor(pEntering.y - 0.00001f) - pEntering.y) / ray.d.y);
     }
     if (ray.d.z >= 0.f) {
-        tz = glm::abs((glm::ceil(pEntering.z + 0.00001f) - pEntering.z) / pRay.d.z);
+        tz = glm::abs((glm::ceil(pEntering.z + 0.00001f) - pEntering.z) / ray.d.z);
     } else {
         tz =
-            glm::abs((glm::floor(pEntering.z - 0.00001f) - pEntering.z) / pRay.d.z);
+            glm::abs((glm::floor(pEntering.z - 0.00001f) - pEntering.z) / ray.d.z);
     }
     if (gD.x == 0.f) tx = Infinity;
     if (gD.y == 0.f) ty = Infinity;
@@ -322,25 +316,6 @@ bool RayMajorantIterator::Next(RayMajorantSegment& seg) {
     currentIndex = (majorantGrid->width * majorantGrid->width * currentVoxel.z) +
                    (majorantGrid->width * currentVoxel.y) + currentVoxel.x;
     tCurrent += dt;
-
-    glm::vec3 pCurrent = pRay.o + (pRay.d * (tCurrent));
-    pCurrent -= boundsMin;
-    glm::vec3 boundsSize = boundsMax - boundsMin;
-    pCurrent /= boundsSize;
-    pCurrent *= static_cast<float>(majorantGrid->width);
-    pCurrent[index] += stepAxis[index] * 0.01f;
-    glm::ivec3 iCurrent = (pCurrent);
-    iCurrent.x = glm::clamp(iCurrent.x, 0, majorantGrid->width - 1);
-    iCurrent.y = glm::clamp(iCurrent.y, 0, majorantGrid->width - 1);
-    iCurrent.z = glm::clamp(iCurrent.z, 0, majorantGrid->width - 1);
-
-    glm::ivec3 iActual;
-
-    currentIndex = (majorantGrid->width * majorantGrid->width * iCurrent.z) + (majorantGrid->width * iCurrent.y) + iCurrent.x;
-
-    iActual.z = currentIndex / (majorantGrid->width * majorantGrid->width);
-    iActual.y = (currentIndex % (majorantGrid->width * majorantGrid->width)) / majorantGrid->width;
-    iActual.x = currentIndex % majorantGrid->width;
     
     return true;
 }

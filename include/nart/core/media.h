@@ -35,7 +35,6 @@ struct MajorantGrid {
 
     float LookUp(uint8_t x, uint8_t y, uint8_t z) const;
 
-    // TODO: GET WIDTH > 1 WORKING!!!
     // MajorantGrid is always 16^3
     static constexpr uint8_t width = 16;
     static constexpr uint16_t size = width * width * width;
@@ -80,12 +79,6 @@ private:
     glm::ivec3 currentVoxel;
     bool done = false;
     static constexpr float rayBias = 0.0001f;
-
-    // TODO: Remove this
-    Ray pRay = Ray(glm::vec3(), glm::vec3());
-    glm::vec3 boundsMin;
-    glm::vec3 boundsMax;
-    glm::vec3 pEntering;
 };
 
 class PhaseFunction {
